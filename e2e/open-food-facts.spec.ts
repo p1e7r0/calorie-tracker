@@ -1,0 +1,28 @@
+import { expect, test } from "@playwright/test";
+import { registerUser } from "./helpers";
+
+test.describe("Open Food Facts", () => {
+  test.slow();
+
+  test("imports a product by barcode typed in the scanner", async ({ page }) => {
+    await registerUser(page);
+    await page.goto("/add?meal=snack");
+    await page.getByRole("button", { name: "Scansiona codice a barre" }).click();
+    await page.getByRole("textbox", { name: "Codice a barre" }).fill("8000500310427");
+    await page.getByRole("button", { name: "Cerca", exact: true }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("515 kcal per 100 g")).toBeVisible({ timeout: 20_000 });
+    await expect(dialog.getByRole("button", { name: /^1 porzione/ })).toBeVisible();
+  });
+
+  test("searches Open Food Facts and imports a result", async ({ page }) => {
+    await registerUser(page);
+    await page.goto("/add?meal=snack");
+    await page.getByRole("searchbox").fill("nutella");
+    await page.getByRole("button", { name: "Cerca «nutella» su Open Food Facts" }).click();
+    const results = page.getByRole("region", { name: "Risultati da Open Food Facts" });
+    await results.getByRole("button").first().click({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: "Aggiungi a spuntini" })).toBeVisible({ timeout: 20_000 });
+  });
+});

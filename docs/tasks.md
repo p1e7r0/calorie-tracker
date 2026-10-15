@@ -9,7 +9,7 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T05 Migrazione dal vecchio MongoDB: alimenti, ricette, misurazione, preferiti
 - [x] T06 Diario "Oggi": giorni, 4 pasti, riepilogo, aggiunta voce (ricerca, grammi/porzioni, recenti, preferiti), kcal veloci, modifica/eliminazione, copia pasto
 - [x] T07 Catalogo alimenti: ricerca, creazione rapida, modifica, porzioni, preferiti, copia privata degli alimenti globali
-- [ ] T08 Open Food Facts: ricerca e barcode
+- [x] T08 Open Food Facts: ricerca e barcode
 - [ ] T09 Ricette: editor, peso da cotto, porzioni, registrazione nel diario
 - [ ] T10 Pasti salvati
 - [ ] T11 Misure corporee: inserimento e grafici
