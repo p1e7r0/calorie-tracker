@@ -3,6 +3,7 @@ import {
   boolean,
   check,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -64,7 +65,7 @@ export const food = pgTable(
   {
     id: uuid().primaryKey().defaultRandom(),
     ownerId: text().references(() => user.id, { onDelete: "cascade" }),
-    replacesFoodId: uuid().references((): typeof food.id => food.id, { onDelete: "set null" }),
+    replacesFoodId: uuid(),
     source: foodSourceEnum().notNull(),
     sourceReference: text(),
     barcode: text(),
@@ -85,6 +86,11 @@ export const food = pgTable(
     ...timestamps,
   },
   (table) => [
+    foreignKey({
+      name: "food_replaces_food_id_food_id_fk",
+      columns: [table.replacesFoodId],
+      foreignColumns: [table.id],
+    }).onDelete("set null"),
     index("food_owner_index").on(table.ownerId),
     index("food_barcode_index").on(table.barcode),
     uniqueIndex("food_global_source_unique")
