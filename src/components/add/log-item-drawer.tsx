@@ -86,9 +86,6 @@ function FoodQuantity({
 
   const shortcuts: QuantityShortcut[] = [
     ...food.portions.map((portion) => gramsShortcut(portion.label, portion.grams, food.unit, true)),
-    ...food.portions
-      .slice(0, 1)
-      .map((portion) => gramsShortcut(`2 × ${portion.label}`, portion.grams * 2, food.unit, true)),
     ...(food.lastGrams ? [gramsShortcut("Ultima volta", food.lastGrams, food.unit)] : []),
     { label: `100 ${food.unit}`, value: 100 },
   ];

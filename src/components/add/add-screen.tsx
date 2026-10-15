@@ -1,9 +1,20 @@
 "use client";
 
-import { ArrowLeftIcon, ChefHatIcon, FlameIcon, PlusIcon, SearchIcon, StarIcon, XIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  ChefHatIcon,
+  FlameIcon,
+  PlusIcon,
+  ScanBarcodeIcon,
+  SearchIcon,
+  StarIcon,
+  XIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { lookupBarcode } from "@/app/actions/open-food-facts";
 import { MealPicker } from "@/components/diary/meal-picker";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
@@ -14,6 +25,8 @@ import type { MealType } from "@/lib/nutrition/meals";
 import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableItem, LoggableRecipe } from "@/server/loggable";
 import { LogItemDrawer } from "./log-item-drawer";
+import { BarcodeScanner } from "./barcode-scanner";
+import { OpenFoodFactsResults } from "./open-food-facts-results";
 import { QuickKcalDrawer } from "./quick-kcal-drawer";
 import { type SearchResults, useFoodSearch } from "@/components/food/use-food-search";
 
@@ -29,7 +42,8 @@ type AddScreenProperties = {
 
 export function AddScreen(properties: AddScreenProperties) {
   const { bfcacheId } = useRouter();
-  return <AddScreenContent key={bfcacheId} {...properties} />;
+  const initialKey = properties.initialItem ? `${properties.initialItem.type}-${properties.initialItem.id}` : "none";
+  return <AddScreenContent key={`${bfcacheId}-${initialKey}`} {...properties} />;
 }
 
 function AddScreenContent({
@@ -49,7 +63,28 @@ function AddScreenContent({
   const [loggedCount, setLoggedCount] = useState(0);
   const search = useFoodSearch(query);
   const trimmedQuery = query.trim();
-  const createHref = `/food/new?name=${encodeURIComponent(trimmedQuery)}&next=${encodeURIComponent(`/add?date=${day}&meal=${meal}`)}`;
+  const addHref = `/add?date=${day}&meal=${meal}`;
+  const createHref = `/food/new?name=${encodeURIComponent(trimmedQuery)}&next=${encodeURIComponent(addHref)}`;
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [isLookingUp, startLookup] = useTransition();
+
+
+  function handleBarcode(barcode: string) {
+    startLookup(async () => {
+      const result = await lookupBarcode(barcode);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setScannerOpen(false);
+      if (result.data.item) {
+        setSelectedItem(result.data.item);
+      } else {
+        toast("Prodotto non trovato. Inserisci i valori dall'etichetta.");
+        router.push(`/food/new?barcode=${result.data.barcode}&next=${encodeURIComponent(addHref)}`);
+      }
+    });
+  }
 
   function handleLogged() {
     setSelectedItem(null);
@@ -77,13 +112,17 @@ function AddScreenContent({
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
-            {query ? (
-              <InputGroupAddon align="inline-end">
+            <InputGroupAddon align="inline-end">
+              {query ? (
                 <InputGroupButton size="icon-xs" aria-label="Cancella ricerca" onClick={() => setQuery("")}>
                   <XIcon />
                 </InputGroupButton>
-              </InputGroupAddon>
-            ) : null}
+              ) : (
+                <InputGroupButton size="icon-sm" aria-label="Scansiona codice a barre" onClick={() => setScannerOpen(true)}>
+                  <ScanBarcodeIcon />
+                </InputGroupButton>
+              )}
+            </InputGroupAddon>
           </InputGroup>
         </div>
         <MealPicker value={meal} onValueChange={setMeal} className="w-full" />
@@ -97,6 +136,7 @@ function AddScreenContent({
           results={search.results}
           createHref={createHref}
           onSelect={setSelectedItem}
+          onOpenFood={setSelectedItem}
         />
       ) : (
         <>
@@ -166,6 +206,9 @@ function AddScreenContent({
           }}
         />
       ) : null}
+      {scannerOpen ? (
+        <BarcodeScanner isLookingUp={isLookingUp} onDetected={handleBarcode} onClose={() => setScannerOpen(false)} />
+      ) : null}
       {quickKcalOpen ? (
         <QuickKcalDrawer
           day={day}
@@ -185,6 +228,7 @@ function SearchResultsList({
   results,
   createHref,
   onSelect,
+  onOpenFood,
 }: {
   query: string;
   isLoading: boolean;
@@ -192,6 +236,7 @@ function SearchResultsList({
   results: SearchResults | null;
   createHref: string;
   onSelect: (item: LoggableItem) => void;
+  onOpenFood: (item: LoggableItem) => void;
 }) {
   if (failed) {
     return <p className="py-6 text-center text-sm text-muted-foreground">La ricerca non ha risposto. Riprova tra poco.</p>;
@@ -221,6 +266,7 @@ function SearchResultsList({
         </span>
         Crea «{query}»
       </Link>
+      <OpenFoodFactsResults key={query} query={query} onOpenFood={onOpenFood} />
     </div>
   );
 }
