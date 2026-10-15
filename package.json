@@ -13,7 +13,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "migrate:legacy": "tsx --env-file=.env.local scripts/migrate-legacy.ts"
+    "migrate:legacy": "tsx --env-file=.env.local scripts/migrate-legacy.ts",
+    "migrate:legacy:production": "tsx --env-file=.env.local --env-file=.env.production.local scripts/migrate-legacy.ts",
+    "db:migrate:production": "NODE_ENV=production drizzle-kit migrate"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

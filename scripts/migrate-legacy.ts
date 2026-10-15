@@ -10,17 +10,19 @@ const { values: options } = parseArgs({
   options: {
     "owner-email": { type: "string" },
     "dry-run": { type: "boolean", default: false },
+    "global-only": { type: "boolean", default: false },
   },
 });
 
 const ownerEmail = options["owner-email"];
 const dryRun = options["dry-run"] ?? false;
+const globalOnly = options["global-only"] ?? false;
 const legacyUri = process.env.LEGACY_MONGODB_URI;
 const databaseUrl = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
 
-if (!ownerEmail || !legacyUri || !databaseUrl) {
+if ((!ownerEmail && !globalOnly) || !legacyUri || !databaseUrl) {
   console.error(
-    "Usage: pnpm migrate:legacy --owner-email <email> [--dry-run]\n" +
+    "Usage: pnpm migrate:legacy (--owner-email <email> | --global-only) [--dry-run]\n" +
       "Requires LEGACY_MONGODB_URI and DATABASE_URL in the environment.",
   );
   process.exit(1);
@@ -30,7 +32,8 @@ const pool = new Pool({ connectionString: databaseUrl, max: 2 });
 const database = drizzle({ client: pool, schema, casing: "snake_case" });
 const mongoClient = new MongoClient(legacyUri);
 
-async function main() {
+async function findOwner() {
+  if (globalOnly) return { id: "" };
   const [owner] = await database
     .select({ id: schema.user.id })
     .from(schema.user)
@@ -38,6 +41,11 @@ async function main() {
   if (!owner) {
     throw new Error(`No user with email ${ownerEmail}. Register the account first, then rerun.`);
   }
+  return owner;
+}
+
+async function main() {
+  const owner = await findOwner();
 
   await mongoClient.connect();
   const legacyDatabase = mongoClient.db();
@@ -75,6 +83,13 @@ async function main() {
   }
 
   const legacyToFoodId = new Map<string, string>();
+  if (globalOnly) {
+    for (const batch of chunk(globalFoods, 200)) {
+      await database.insert(schema.food).values(batch.map((mapped) => mapped.values)).onConflictDoNothing();
+    }
+    console.log(`Imported the shared catalog (${globalFoods.length} dataset foods). Personal data skipped.`);
+    return;
+  }
 
   for (const batch of chunk(globalFoods, 200)) {
     const inserted = await database
