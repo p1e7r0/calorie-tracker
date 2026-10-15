@@ -11,7 +11,7 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T07 Catalogo alimenti: ricerca, creazione rapida, modifica, porzioni, preferiti, copia privata degli alimenti globali
 - [x] T08 Open Food Facts: ricerca e barcode
 - [x] T09 Ricette: editor, peso da cotto, porzioni, registrazione nel diario
-- [ ] T10 Pasti salvati
+- [x] T10 Pasti salvati
 - [ ] T11 Misure corporee: inserimento e grafici
 - [ ] T12 Profilo e obiettivi: calcolo, modifica, tema
 - [ ] T13 Progressi: statistiche kcal, macro, peso

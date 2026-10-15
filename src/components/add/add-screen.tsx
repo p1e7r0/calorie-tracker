@@ -28,6 +28,8 @@ import { LogItemDrawer } from "./log-item-drawer";
 import { BarcodeScanner } from "./barcode-scanner";
 import { OpenFoodFactsResults } from "./open-food-facts-results";
 import { QuickKcalDrawer } from "./quick-kcal-drawer";
+import { LogSavedMealDrawer } from "@/components/saved-meals/log-saved-meal-drawer";
+import type { SavedMealView } from "@/server/saved-meals";
 import { type SearchResults, useFoodSearch } from "@/components/food/use-food-search";
 
 type AddScreenProperties = {
@@ -36,6 +38,7 @@ type AddScreenProperties = {
   recentFoods: LoggableFood[];
   favoriteFoods: LoggableFood[];
   recipes: LoggableRecipe[];
+  savedMeals: SavedMealView[];
   initialItem: LoggableItem | null;
   backHref: string;
 };
@@ -52,6 +55,7 @@ function AddScreenContent({
   recentFoods,
   favoriteFoods,
   recipes,
+  savedMeals,
   initialItem,
   backHref,
 }: AddScreenProperties) {
@@ -60,6 +64,7 @@ function AddScreenContent({
   const [query, setQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<LoggableItem | null>(initialItem);
   const [quickKcalOpen, setQuickKcalOpen] = useState(false);
+  const [selectedSavedMeal, setSelectedSavedMeal] = useState<SavedMealView | null>(null);
   const [loggedCount, setLoggedCount] = useState(0);
   const search = useFoodSearch(query);
   const trimmedQuery = query.trim();
@@ -86,10 +91,11 @@ function AddScreenContent({
     });
   }
 
-  function handleLogged() {
+  function handleLogged(count = 1) {
     setSelectedItem(null);
     setQuickKcalOpen(false);
-    setLoggedCount((count) => count + 1);
+    setSelectedSavedMeal(null);
+    setLoggedCount((current) => current + count);
   }
 
   return (
@@ -155,6 +161,7 @@ function AddScreenContent({
               <TabsTrigger value="recent">Recenti</TabsTrigger>
               <TabsTrigger value="favorites">Preferiti</TabsTrigger>
               <TabsTrigger value="recipes">Ricette</TabsTrigger>
+              <TabsTrigger value="meals">Pasti</TabsTrigger>
             </TabsList>
             <TabsContent value="recent">
               <ItemList
@@ -176,6 +183,33 @@ function AddScreenContent({
                 onSelect={setSelectedItem}
                 emptyMessage="Le ricette che crei compaiono qui."
               />
+            </TabsContent>
+            <TabsContent value="meals">
+              {savedMeals.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  Nel diario, apri il menu ⋯ di un pasto e scegli «Salva come pasto».
+                </p>
+              ) : (
+                <ul className="divide-y">
+                  {savedMeals.map((savedMeal) => (
+                    <li key={savedMeal.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSavedMeal(savedMeal)}
+                        className="flex w-full items-center gap-3 px-1 py-2.5 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/60"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{savedMeal.name}</span>
+                          <span className="block truncate text-sm text-muted-foreground">
+                            {savedMeal.items.map((item) => item.name).join(", ")}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-sm tabular-nums">{formatKcal(savedMeal.totals.kcal)} kcal</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </TabsContent>
           </Tabs>
         </>
@@ -200,9 +234,20 @@ function AddScreenContent({
           item={selectedItem}
           day={day}
           meal={meal}
-          onLogged={handleLogged}
+          onLogged={() => handleLogged()}
           onOpenChange={(open) => {
             if (!open) setSelectedItem(null);
+          }}
+        />
+      ) : null}
+      {selectedSavedMeal ? (
+        <LogSavedMealDrawer
+          savedMeal={selectedSavedMeal}
+          day={day}
+          meal={meal}
+          onLogged={handleLogged}
+          onOpenChange={(open) => {
+            if (!open) setSelectedSavedMeal(null);
           }}
         />
       ) : null}
@@ -213,7 +258,7 @@ function AddScreenContent({
         <QuickKcalDrawer
           day={day}
           meal={meal}
-          onLogged={handleLogged}
+          onLogged={() => handleLogged()}
           onOpenChange={(open) => setQuickKcalOpen(open)}
         />
       ) : null}

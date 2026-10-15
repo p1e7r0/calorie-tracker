@@ -1,6 +1,6 @@
 "use client";
 
-import { CopyIcon, EllipsisIcon, PlusIcon } from "lucide-react";
+import { BookmarkPlusIcon, CopyIcon, EllipsisIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useLayoutEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { addDays } from "@/lib/nutrition/days";
 import { formatDecimal, formatGrams, formatKcal } from "@/lib/nutrition/format";
 import { mealLabels } from "@/lib/nutrition/meals";
 import type { DiaryEntryView, DiaryMeal } from "@/server/diary";
+import { SaveMealDrawer } from "@/components/saved-meals/save-meal-drawer";
 import { EntryEditor } from "./entry-editor";
 
 function describeQuantity(entry: DiaryEntryView) {
@@ -30,11 +31,15 @@ function describeQuantity(entry: DiaryEntryView) {
 
 export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
   const [editingEntry, setEditingEntry] = useState<DiaryEntryView | null>(null);
+  const [saveMealOpen, setSaveMealOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const label = mealLabels[meal.meal];
 
   useLayoutEffect(() => {
-    return () => setEditingEntry(null);
+    return () => {
+      setEditingEntry(null);
+      setSaveMealOpen(false);
+    };
   }, []);
   const addHref = `/add?date=${day}&meal=${meal.meal}`;
 
@@ -77,6 +82,12 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
               <CopyIcon />
               Copia da ieri
             </DropdownMenuItem>
+            {meal.entries.some((entry) => entry.kind !== "quick") ? (
+              <DropdownMenuItem onClick={() => setSaveMealOpen(true)}>
+                <BookmarkPlusIcon />
+                Salva come pasto
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
         <Link
@@ -115,6 +126,7 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
         </Link>
       )}
 
+      {saveMealOpen ? <SaveMealDrawer day={day} meal={meal.meal} onOpenChange={setSaveMealOpen} /> : null}
       {editingEntry ? (
         <EntryEditor
           key={editingEntry.id}
