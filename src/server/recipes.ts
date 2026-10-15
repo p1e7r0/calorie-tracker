@@ -108,3 +108,35 @@ export async function getLoggableRecipe(userId: string, recipeId: string) {
   const [loggable] = await toLoggableRecipes(userId, rows);
   return loggable ?? null;
 }
+
+export async function getRecipeForEditing(userId: string, recipeId: string) {
+  const [row] = await database
+    .select()
+    .from(recipe)
+    .where(and(eq(recipe.id, recipeId), eq(recipe.ownerId, userId), isNull(recipe.archivedAt)));
+  if (!row) return null;
+  const [ingredients, favorite] = await Promise.all([
+    loadRecipeIngredients([row.id]),
+    database
+      .select({ recipeId: favoriteRecipe.recipeId })
+      .from(favoriteRecipe)
+      .where(and(eq(favoriteRecipe.userId, userId), eq(favoriteRecipe.recipeId, row.id))),
+  ]);
+  return {
+    id: row.id,
+    name: row.name,
+    servings: row.servings,
+    cookedWeightG: row.cookedWeightG,
+    notes: row.notes,
+    isFavorite: favorite.length > 0,
+    ingredients: ingredients.map((ingredient) => ({
+      foodId: ingredient.foodId,
+      name: ingredient.brand ? `${ingredient.name}, ${ingredient.brand}` : ingredient.name,
+      unit: ingredient.unit,
+      grams: ingredient.grams,
+      per100: { kcal: ingredient.kcal, protein: ingredient.protein, carbs: ingredient.carbs, fat: ingredient.fat },
+    })),
+  };
+}
+
+export type RecipeForEditing = NonNullable<Awaited<ReturnType<typeof getRecipeForEditing>>>;
