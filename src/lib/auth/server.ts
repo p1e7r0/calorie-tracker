@@ -7,8 +7,6 @@ import * as schema from "@/db/schema";
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
-export const isGoogleSignInEnabled = Boolean(googleClientId && googleClientSecret);
-
 export const auth = betterAuth({
   database: drizzleAdapter(database, { provider: "pg", schema }),
   emailAndPassword: {
