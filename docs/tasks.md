@@ -15,5 +15,5 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T11 Misure corporee: inserimento e grafici
 - [x] T12 Profilo e obiettivi: calcolo, modifica, tema
 - [x] T13 Progressi: statistiche kcal, macro, peso
-- [ ] T14 Neon: progetto, branch, migrazione dati in cloud
+- [x] T14 Neon: progetto, branch, migrazione dati in cloud
 - [ ] T15 Rifinitura: e2e smoke, controllo visivo, README
