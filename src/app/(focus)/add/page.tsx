@@ -5,8 +5,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
 import { currentHour, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { isMealType, suggestMeal } from "@/lib/nutrition/meals";
-import { favoriteFoods, recentFoods } from "@/server/foods";
-import { listLoggableRecipes } from "@/server/recipes";
+import { favoriteFoods, getLoggableFood, recentFoods } from "@/server/foods";
+import { getLoggableRecipe, listLoggableRecipes } from "@/server/recipes";
 
 export const metadata: Metadata = { title: "Aggiungi" };
 
@@ -20,14 +20,20 @@ export default function AddPage({ searchParams }: PageProps<"/add">) {
 
 async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
   const user = await getCurrentUser();
-  const { date, meal } = await searchParams;
+  const { date, meal, food, recipe } = await searchParams;
   const today = todayIsoDate();
   const day = isIsoDate(date) ? date : today;
   const initialMeal = isMealType(meal) ? meal : suggestMeal(currentHour());
-  const [recent, favorites, recipes] = await Promise.all([
+  const isIdentifier = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f-]{36}$/.test(value);
+  const [recent, favorites, recipes, initialItem] = await Promise.all([
     recentFoods(user.id),
     favoriteFoods(user.id),
     listLoggableRecipes(user.id),
+    isIdentifier(food)
+      ? getLoggableFood(user.id, food)
+      : isIdentifier(recipe)
+        ? getLoggableRecipe(user.id, recipe)
+        : null,
   ]);
 
   return (
@@ -37,6 +43,7 @@ async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
       recentFoods={recent}
       favoriteFoods={favorites}
       recipes={recipes}
+      initialItem={initialItem}
       backHref={day === today ? "/" : `/?date=${day}`}
     />
   );

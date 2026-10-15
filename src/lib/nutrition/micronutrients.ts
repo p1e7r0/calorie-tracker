@@ -1,0 +1,42 @@
+type MicronutrientInfo = { label: string; unit: string; group: "macro" | "vitamin" | "mineral" };
+
+export const micronutrientInfo: Record<string, MicronutrientInfo> = {
+  kj: { label: "Energia", unit: "kJ", group: "macro" },
+  fat_monounsaturated_g: { label: "Grassi monoinsaturi", unit: "g", group: "macro" },
+  fat_polyunsaturated_g: { label: "Grassi polinsaturi", unit: "g", group: "macro" },
+  cholesterol_mg: { label: "Colesterolo", unit: "mg", group: "macro" },
+  starch_g: { label: "Amido", unit: "g", group: "macro" },
+  alcohol_g: { label: "Alcol", unit: "g", group: "macro" },
+  water_g: { label: "Acqua", unit: "g", group: "macro" },
+  vitamin_a_re_ug: { label: "Vitamina A (RE)", unit: "µg", group: "vitamin" },
+  vitamin_a_rae_ug: { label: "Vitamina A (RAE)", unit: "µg", group: "vitamin" },
+  retinol_ug: { label: "Retinolo", unit: "µg", group: "vitamin" },
+  betacarotene_bce_ug: { label: "Beta-carotene (equivalenti)", unit: "µg", group: "vitamin" },
+  betacarotene_ug: { label: "Beta-carotene", unit: "µg", group: "vitamin" },
+  vitamin_b1_thiamine_mg: { label: "Vitamina B1", unit: "mg", group: "vitamin" },
+  vitamin_b2_riboflavin_mg: { label: "Vitamina B2", unit: "mg", group: "vitamin" },
+  vitamin_b6_pyridoxine_mg: { label: "Vitamina B6", unit: "mg", group: "vitamin" },
+  vitamin_b12_cobalamin_ug: { label: "Vitamina B12", unit: "µg", group: "vitamin" },
+  niacin_mg: { label: "Niacina", unit: "mg", group: "vitamin" },
+  folate_ug: { label: "Folati", unit: "µg", group: "vitamin" },
+  panthotenic_acid_mg: { label: "Acido pantotenico", unit: "mg", group: "vitamin" },
+  vitamin_c_ascorbic_acid_mg: { label: "Vitamina C", unit: "mg", group: "vitamin" },
+  vitamin_d_calciferol_ug: { label: "Vitamina D", unit: "µg", group: "vitamin" },
+  vitamin_e_mg: { label: "Vitamina E", unit: "mg", group: "vitamin" },
+  potassium_k_mg: { label: "Potassio", unit: "mg", group: "mineral" },
+  sodium_na_mg: { label: "Sodio", unit: "mg", group: "mineral" },
+  chloride_cl_mg: { label: "Cloruro", unit: "mg", group: "mineral" },
+  calcium_ca_mg: { label: "Calcio", unit: "mg", group: "mineral" },
+  magnesium_mg_mg: { label: "Magnesio", unit: "mg", group: "mineral" },
+  phosphorus_p_mg: { label: "Fosforo", unit: "mg", group: "mineral" },
+  iron_fe_mg: { label: "Ferro", unit: "mg", group: "mineral" },
+  iodide_i_ug: { label: "Iodio", unit: "µg", group: "mineral" },
+  zinc_zn_mg: { label: "Zinco", unit: "mg", group: "mineral" },
+  selenium_se_ug: { label: "Selenio", unit: "µg", group: "mineral" },
+};
+
+export const micronutrientGroups = [
+  { group: "macro", label: "Altri valori" },
+  { group: "vitamin", label: "Vitamine" },
+  { group: "mineral", label: "Minerali" },
+] as const;

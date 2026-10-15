@@ -2,7 +2,7 @@
 
 import { CopyIcon, EllipsisIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useLayoutEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { copyMeal } from "@/app/actions/diary";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -32,6 +32,10 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
   const [editingEntry, setEditingEntry] = useState<DiaryEntryView | null>(null);
   const [isPending, startTransition] = useTransition();
   const label = mealLabels[meal.meal];
+
+  useLayoutEffect(() => {
+    return () => setEditingEntry(null);
+  }, []);
   const addHref = `/add?date=${day}&meal=${meal.meal}`;
 
   function copyFromYesterday() {
