@@ -48,3 +48,17 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 - Le voci del diario salvano una copia dei nutrienti calcolati al momento dell'inserimento (la storia non cambia se l'alimento viene corretto); vengono ricalcolate quando la voce viene modificata.
 - Il giorno del diario è una data (`date`) nel fuso dell'utente, non un timestamp.
 - Mifflin-St Jeor: BMR = 10·kg + 6,25·cm − 5·età + 5 (uomo) / −161 (donna); TDEE = BMR · fattore attività; obiettivo dimagrimento/aumento ± kcal. Macro di default: proteine 1,8 g/kg, grassi 25% kcal, resto carboidrati.
+
+## Infrastruttura
+
+- Neon: progetto `calorie-tracker` (`divine-recipe-92638535`), organizzazione personale `pietro@balestra.dev`, regione `aws-eu-central-1`, Postgres 18. Branch `main` (produzione) e `dev` (sviluppo). Schema e catalogo comune (1080 alimenti) già presenti su entrambi.
+- Strumenti per gli agenti: skill Neon (`neon`, `neon-postgres`, `neon-postgres-branches`) in `.claude/skills/`, server MCP Neon con OAuth in `.mcp.json`.
+- Sviluppo locale alternativo: Postgres 17 in Docker (`docker-compose.yml`, porta 5433).
+
+## Scelte fatte durante lo sviluppo
+
+- Nome dell'app: «Bilancia».
+- Driver `pg` (TCP) invece di `@neondatabase/serverless`: è la raccomandazione Neon per Vercel Fluid compute e funziona anche con Postgres locale.
+- La schermata «Aggiungi» e le schermate di dettaglio non mostrano la barra in basso, per lasciare spazio all'inserimento.
+- La ricerca su Open Food Facts parte solo su richiesta (limite di 10 ricerche al minuto); il codice a barre invece è immediato.
+- Colori dei grafici e dei macronutrienti validati per daltonismo e contrasto in entrambi i temi.
