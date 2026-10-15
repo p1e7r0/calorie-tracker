@@ -14,7 +14,8 @@ import {
   roundNutrients,
   scaleNutrients,
 } from "@/lib/nutrition/nutrients";
-import { recipePortionNutrients, type RecipeNutrition } from "@/lib/nutrition/recipe";
+import { recipePortionNutrients } from "@/lib/nutrition/recipe";
+import { entryItemSchema, recipeNutritionFromLoggable, resolveEntryValues } from "@/server/diary-entries";
 import { getVisibleFood } from "@/server/foods";
 import { getLoggableRecipe } from "@/server/recipes";
 
@@ -27,103 +28,15 @@ const quantity = z.number().positive().max(10_000);
 const addEntrySchema = z.object({
   day: isoDate,
   meal,
-  item: z.discriminatedUnion("type", [
-    z.object({
-      type: z.literal("food"),
-      foodId: z.uuid(),
-      grams: quantity,
-      portionLabel: z.string().max(80).nullish(),
-    }),
-    z.object({
-      type: z.literal("recipe"),
-      recipeId: z.uuid(),
-      grams: quantity.nullish(),
-      servings: z.number().positive().max(100).nullish(),
-    }),
-    z.object({
-      type: z.literal("quick"),
-      label: z.string().trim().max(80).nullish(),
-      kcal: z.number().min(0).max(20_000),
-      protein: z.number().min(0).max(2_000).nullish(),
-      carbs: z.number().min(0).max(2_000).nullish(),
-      fat: z.number().min(0).max(2_000).nullish(),
-    }),
-  ]),
+  item: entryItemSchema,
 });
 
 export type AddEntryInput = z.input<typeof addEntrySchema>;
-
-function recipeNutritionFromLoggable(recipe: NonNullable<Awaited<ReturnType<typeof getLoggableRecipe>>>) {
-  return {
-    total: multiplyNutrients(recipe.perServing, recipe.servings),
-    rawWeightG: recipe.finalWeightG,
-    finalWeightG: recipe.finalWeightG,
-    per100g: recipe.per100,
-    perServing: recipe.perServing,
-    servings: recipe.servings,
-  } satisfies RecipeNutrition;
-}
 
 function failure(error: unknown): { ok: false; error: string } {
   if (error instanceof z.ZodError) return { ok: false, error: "Controlla i valori inseriti." };
   if (error instanceof Error) return { ok: false, error: error.message };
   return { ok: false, error: "Qualcosa non ha funzionato. Riprova." };
-}
-
-async function resolveEntryValues(userId: string, item: z.infer<typeof addEntrySchema>["item"]) {
-  if (item.type === "food") {
-    const foodRow = await getVisibleFood(userId, item.foodId);
-    if (!foodRow) throw new Error("Alimento non trovato.");
-    const per100: Nutrients = {
-      kcal: foodRow.kcal,
-      protein: foodRow.protein,
-      carbs: foodRow.carbs,
-      fat: foodRow.fat,
-    };
-    return {
-      kind: "food" as const,
-      foodId: foodRow.id,
-      recipeId: null,
-      label: foodRow.brand ? `${foodRow.name}, ${foodRow.brand}` : foodRow.name,
-      grams: item.grams,
-      servings: null,
-      portionLabel: item.portionLabel ?? null,
-      nutrients: scaleNutrients(per100, item.grams),
-    };
-  }
-
-  if (item.type === "recipe") {
-    const recipe = await getLoggableRecipe(userId, item.recipeId);
-    if (!recipe) throw new Error("Ricetta non trovata.");
-    const nutrition = recipeNutritionFromLoggable(recipe);
-    const portion = item.grams ? { grams: item.grams } : { servings: item.servings ?? 1 };
-    return {
-      kind: "recipe" as const,
-      foodId: null,
-      recipeId: recipe.id,
-      label: recipe.name,
-      grams: item.grams ?? null,
-      servings: item.grams ? null : (item.servings ?? 1),
-      portionLabel: null,
-      nutrients: recipePortionNutrients(nutrition, portion),
-    };
-  }
-
-  return {
-    kind: "quick" as const,
-    foodId: null,
-    recipeId: null,
-    label: item.label || "Kcal veloci",
-    grams: null,
-    servings: null,
-    portionLabel: null,
-    nutrients: {
-      kcal: item.kcal,
-      protein: item.protein ?? 0,
-      carbs: item.carbs ?? 0,
-      fat: item.fat ?? 0,
-    },
-  };
 }
 
 export async function addDiaryEntry(input: AddEntryInput): Promise<ActionResult<{ id: string }>> {

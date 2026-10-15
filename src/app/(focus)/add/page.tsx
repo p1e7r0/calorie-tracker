@@ -7,6 +7,7 @@ import { currentHour, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { isMealType, suggestMeal } from "@/lib/nutrition/meals";
 import { favoriteFoods, getLoggableFood, recentFoods } from "@/server/foods";
 import { getLoggableRecipe, listLoggableRecipes } from "@/server/recipes";
+import { listSavedMealViews } from "@/server/saved-meals";
 
 export const metadata: Metadata = { title: "Aggiungi" };
 
@@ -25,10 +26,11 @@ async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
   const day = isIsoDate(date) ? date : today;
   const initialMeal = isMealType(meal) ? meal : suggestMeal(currentHour());
   const isIdentifier = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f-]{36}$/.test(value);
-  const [recent, favorites, recipes, initialItem] = await Promise.all([
+  const [recent, favorites, recipes, savedMeals, initialItem] = await Promise.all([
     recentFoods(user.id),
     favoriteFoods(user.id),
     listLoggableRecipes(user.id),
+    listSavedMealViews(user.id),
     isIdentifier(food)
       ? getLoggableFood(user.id, food)
       : isIdentifier(recipe)
@@ -43,6 +45,7 @@ async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
       recentFoods={recent}
       favoriteFoods={favorites}
       recipes={recipes}
+      savedMeals={savedMeals}
       initialItem={initialItem}
       backHref={day === today ? "/" : `/?date=${day}`}
     />
