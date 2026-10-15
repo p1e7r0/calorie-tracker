@@ -167,3 +167,31 @@ export async function getLoggableFood(userId: string, foodId: string) {
   const [loggable] = await toLoggableFoods(userId, [row]);
   return loggable;
 }
+
+export async function listOwnFoods(userId: string) {
+  const rows = await database
+    .select(foodColumns)
+    .from(food)
+    .where(and(eq(food.ownerId, userId), isNull(food.archivedAt)))
+    .orderBy(food.name);
+  return toLoggableFoods(userId, rows);
+}
+
+export async function getFoodDetail(userId: string, foodId: string) {
+  const row = await getVisibleFood(userId, foodId);
+  if (!row) return null;
+  const [portions, favorite] = await Promise.all([
+    database
+      .select({ label: foodPortion.label, grams: foodPortion.grams })
+      .from(foodPortion)
+      .where(eq(foodPortion.foodId, row.id))
+      .orderBy(foodPortion.position),
+    database
+      .select({ foodId: favoriteFood.foodId })
+      .from(favoriteFood)
+      .where(and(eq(favoriteFood.userId, userId), eq(favoriteFood.foodId, row.id))),
+  ]);
+  return { ...row, portions, isFavorite: favorite.length > 0, isOwn: row.ownerId === userId };
+}
+
+export type FoodDetail = NonNullable<Awaited<ReturnType<typeof getFoodDetail>>>;

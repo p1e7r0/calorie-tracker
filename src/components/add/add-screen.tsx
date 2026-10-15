@@ -3,7 +3,7 @@
 import { ArrowLeftIcon, ChefHatIcon, FlameIcon, PlusIcon, SearchIcon, StarIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useDeferredValue, useEffect, useState } from "react";
+import { useState } from "react";
 import { MealPicker } from "@/components/diary/meal-picker";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
@@ -15,69 +15,36 @@ import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableItem, LoggableRecipe } from "@/server/loggable";
 import { LogItemDrawer } from "./log-item-drawer";
 import { QuickKcalDrawer } from "./quick-kcal-drawer";
+import { type SearchResults, useFoodSearch } from "@/components/food/use-food-search";
 
-type SearchResults = { foods: LoggableFood[]; recipes: LoggableRecipe[] };
-
-function useFoodSearch(query: string) {
-  const deferredQuery = useDeferredValue(query.trim());
-  const [state, setState] = useState<{ query: string; results: SearchResults | null; failed: boolean }>({
-    query: "",
-    results: null,
-    failed: false,
-  });
-
-  useEffect(() => {
-    if (deferredQuery.length < 2) return;
-    const controller = new AbortController();
-    const timeout = setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/foods/search?q=${encodeURIComponent(deferredQuery)}`, {
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error(String(response.status));
-        const results = (await response.json()) as SearchResults;
-        setState({ query: deferredQuery, results, failed: false });
-      } catch (error) {
-        if (!controller.signal.aborted) {
-          console.error(error);
-          setState({ query: deferredQuery, results: null, failed: true });
-        }
-      }
-    }, 150);
-    return () => {
-      controller.abort();
-      clearTimeout(timeout);
-    };
-  }, [deferredQuery]);
-
-  const isActive = deferredQuery.length >= 2;
-  return {
-    isActive,
-    isLoading: isActive && state.query !== deferredQuery,
-    results: isActive && state.query === deferredQuery ? state.results : null,
-    failed: isActive && state.query === deferredQuery && state.failed,
-  };
-}
-
-export function AddScreen({
-  day,
-  initialMeal,
-  recentFoods,
-  favoriteFoods,
-  recipes,
-  backHref,
-}: {
+type AddScreenProperties = {
   day: string;
   initialMeal: MealType;
   recentFoods: LoggableFood[];
   favoriteFoods: LoggableFood[];
   recipes: LoggableRecipe[];
+  initialItem: LoggableItem | null;
   backHref: string;
-}) {
+};
+
+export function AddScreen(properties: AddScreenProperties) {
+  const { bfcacheId } = useRouter();
+  return <AddScreenContent key={bfcacheId} {...properties} />;
+}
+
+function AddScreenContent({
+  day,
+  initialMeal,
+  recentFoods,
+  favoriteFoods,
+  recipes,
+  initialItem,
+  backHref,
+}: AddScreenProperties) {
   const router = useRouter();
   const [meal, setMeal] = useState<MealType>(initialMeal);
   const [query, setQuery] = useState("");
-  const [selectedItem, setSelectedItem] = useState<LoggableItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<LoggableItem | null>(initialItem);
   const [quickKcalOpen, setQuickKcalOpen] = useState(false);
   const [loggedCount, setLoggedCount] = useState(0);
   const search = useFoodSearch(query);
