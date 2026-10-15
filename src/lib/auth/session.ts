@@ -16,3 +16,11 @@ export async function getCurrentUser(): Promise<CurrentUser> {
   }
   return { id: session.user.id, name: session.user.name, email: session.user.email };
 }
+
+export async function requireUserId(): Promise<string> {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    throw new Error("Sessione scaduta. Accedi di nuovo.");
+  }
+  return session.user.id;
+}
