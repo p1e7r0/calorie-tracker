@@ -13,7 +13,7 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T09 Ricette: editor, peso da cotto, porzioni, registrazione nel diario
 - [x] T10 Pasti salvati
 - [ ] T11 Misure corporee: inserimento e grafici
-- [ ] T12 Profilo e obiettivi: calcolo, modifica, tema
+- [x] T12 Profilo e obiettivi: calcolo, modifica, tema
 - [ ] T13 Progressi: statistiche kcal, macro, peso
 - [ ] T14 Neon: progetto, branch, migrazione dati in cloud
 - [ ] T15 Rifinitura: e2e smoke, controllo visivo, README
