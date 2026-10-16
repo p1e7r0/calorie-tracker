@@ -142,7 +142,7 @@ export const recipeIngredient = pgTable(
       .references(() => recipe.id, { onDelete: "cascade" }),
     foodId: uuid()
       .notNull()
-      .references(() => food.id, { onDelete: "restrict" }),
+      .references(() => food.id, { onDelete: "no action" }),
     grams: real().notNull(),
     position: integer().notNull().default(0),
   },

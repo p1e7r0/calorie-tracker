@@ -56,7 +56,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           disableTransitionOnChange
         >
           <TooltipProvider>{children}</TooltipProvider>
-          <Toaster position="top-center" />
+          <Toaster position="bottom-center" mobileOffset={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom))" }} offset={{ bottom: "6rem" }} />
           <VisualViewportSync />
         </ThemeProvider>
       </body>
