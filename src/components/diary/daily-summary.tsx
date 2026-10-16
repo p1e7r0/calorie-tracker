@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatGrams, formatKcal } from "@/lib/nutrition/format";
 import type { Nutrients } from "@/lib/nutrition/nutrients";
+import type { WeeklyBudget } from "@/lib/nutrition/weekly-budget";
 import type { DailyTargetsView } from "@/server/diary";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +11,15 @@ const macros = [
   { key: "fat", target: "fatG", label: "Grassi", colorClass: "bg-fat" },
 ] as const;
 
-export function DailySummary({ totals, targets }: { totals: Nutrients; targets: DailyTargetsView }) {
+export function DailySummary({
+  totals,
+  targets,
+  weekly,
+}: {
+  totals: Nutrients;
+  targets: DailyTargetsView;
+  weekly: WeeklyBudget | null;
+}) {
   if (!targets) {
     return (
       <section aria-label="Riepilogo del giorno" className="rounded-2xl bg-card p-4 ring-1 ring-border">
@@ -94,7 +103,40 @@ export function DailySummary({ totals, targets }: { totals: Nutrients; targets: 
           );
         })}
       </div>
+
+      {weekly ? <WeeklyBudgetRow weekly={weekly} /> : null}
     </section>
+  );
+}
+
+function WeeklyBudgetRow({ weekly }: { weekly: WeeklyBudget }) {
+  const isOver = weekly.remainingKcal < 0;
+  const ratio = Math.min(weekly.eatenKcal / weekly.budgetKcal, 1);
+  return (
+    <div className="mt-4 border-t pt-3" aria-label="Budget della settimana" role="group">
+      <div className="flex items-baseline justify-between gap-3 text-sm">
+        <p>
+          <span className="text-muted-foreground">Settimana </span>
+          <span className={cn("font-medium", isOver && "text-over")}>
+            {isOver
+              ? `${formatKcal(-weekly.remainingKcal)} kcal oltre`
+              : `${formatKcal(weekly.remainingKcal)} kcal rimaste`}
+          </span>
+          <span className="text-muted-foreground"> su {formatKcal(weekly.budgetKcal)}</span>
+        </p>
+        {weekly.daysLeft > 1 && !isOver ? (
+          <p className="shrink-0 text-xs text-muted-foreground">
+            circa {formatKcal(weekly.suggestedTodayKcal)} al giorno
+          </p>
+        ) : null}
+      </div>
+      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn("h-full rounded-full", isOver ? "bg-over" : "bg-energy/70")}
+          style={{ width: `${ratio * 100}%` }}
+        />
+      </div>
+    </div>
   );
 }
 
