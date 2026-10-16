@@ -12,7 +12,9 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatKcal, parseDecimal } from "@/lib/nutrition/format";
 import { kcalFromMacros } from "@/lib/nutrition/nutrients";
 import { cn } from "@/lib/utils";
-import type { FoodFormValues, NutrientField } from "./food-form-values";
+import type { NutritionLabel } from "@/lib/ai-schemas";
+import { type FoodFormValues, type NutrientField, toFormNumber } from "./food-form-values";
+import { LabelPhotoButton } from "./label-photo-button";
 
 const mainNutrients: { field: NutrientField; label: string }[] = [
   { field: "protein", label: "Proteine" },
@@ -33,6 +35,7 @@ type FoodFormProperties = {
   submitLabel: string;
   redirectTo?: string;
   isGlobalCopy?: boolean;
+  aiEnabled?: boolean;
 };
 
 export function FoodForm(properties: FoodFormProperties) {
@@ -46,6 +49,7 @@ function FoodFormContent({
   submitLabel,
   redirectTo,
   isGlobalCopy = false,
+  aiEnabled = false,
 }: FoodFormProperties) {
   const router = useRouter();
   const [values, setValues] = useState(initialValues);
@@ -54,6 +58,32 @@ function FoodFormContent({
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  function applyLabel(label: NutritionLabel) {
+    setValues((current) => ({
+      ...current,
+      name: current.name || label.name || "",
+      brand: current.brand || label.brand || "",
+      unit: label.unit,
+      kcal: toFormNumber(label.per100.kcal),
+      protein: toFormNumber(label.per100.protein),
+      carbs: toFormNumber(label.per100.carbs),
+      sugars: toFormNumber(label.per100.sugars),
+      fat: toFormNumber(label.per100.fat),
+      saturatedFat: toFormNumber(label.per100.saturatedFat),
+      fiber: toFormNumber(label.per100.fiber),
+      salt: toFormNumber(label.per100.salt),
+      portions:
+        label.portion && !current.portions.some((portion) => portion.label === label.portion?.label)
+          ? [...current.portions, { label: label.portion.label, grams: toFormNumber(label.portion.grams) }]
+          : current.portions,
+    }));
+    setShowOtherNutrients(
+      [label.per100.sugars, label.per100.saturatedFat, label.per100.fiber, label.per100.salt].some(
+        (value) => value !== null,
+      ),
+    );
+  }
 
   const protein = parseDecimal(values.protein) ?? 0;
   const carbs = parseDecimal(values.carbs) ?? 0;
@@ -118,6 +148,7 @@ function FoodFormContent({
       }}
     >
       <FieldGroup className="gap-4">
+        {aiEnabled && !isGlobalCopy ? <LabelPhotoButton onRead={applyLabel} /> : null}
         {isGlobalCopy ? (
           <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
             Questo alimento fa parte del catalogo comune. Le modifiche creano una tua copia personale, che userai al

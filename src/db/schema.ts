@@ -33,6 +33,7 @@ export const activityLevelEnum = pgEnum("activity_level", [
 ]);
 export const goalTypeEnum = pgEnum("goal_type", ["lose", "maintain", "gain"]);
 export const diaryEntryKindEnum = pgEnum("diary_entry_kind", ["food", "recipe", "quick"]);
+export const aiRequestKindEnum = pgEnum("ai_request_kind", ["nutrition_label", "meal_description"]);
 
 const timestamps = {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -262,4 +263,17 @@ export const measurement = pgTable(
     ...timestamps,
   },
   (table) => [index("measurement_user_day_index").on(table.userId, table.measuredOn)],
+);
+
+export const aiRequest = pgTable(
+  "ai_request",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    kind: aiRequestKindEnum().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("ai_request_user_created_index").on(table.userId, table.createdAt)],
 );
