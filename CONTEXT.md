@@ -95,7 +95,7 @@ Aggiornato al 2026-10-16. Per lo stato reale usa `git log` e `git status`.
 - Tutti i task T01-T32 sono completati, mergiati in `main` e in produzione dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
 - Ultimo merge in `main`: `feature/claude-connector` (T32, connettore MCP per Claude), verificato in produzione con uno smoke test del flusso OAuth completo.
 - Migrazioni fino a `0009_claude_client_secret_post` applicate sia a dev sia a main.
-- Connettore per Claude: da provare con claude.ai reale (credenziali da Profilo › Impostazioni › Claude); il client usa `client_secret_post` perché claude.ai (SDK MCP Python) invia il segreto nel corpo della richiesta; con `client_secret_basic` lo scambio del token rispondeva 400 `invalid_client`.
+- Connettore per Claude: verificato con claude.ai reale (Claude Desktop, credenziali da Profilo › Impostazioni › Claude); il client usa `client_secret_post` perché claude.ai (SDK MCP Python) invia il segreto nel corpo della richiesta; con `client_secret_basic` lo scambio del token rispondeva 400 `invalid_client`.
 - Funzioni AI nascoste in produzione finché manca `ANTHROPIC_API_KEY`; link "Password dimenticata" nascosto finché mancano `RESEND_API_KEY` ed `EMAIL_FROM`; login Google assente senza credenziali OAuth.
 
 ## Punti aperti e idee
