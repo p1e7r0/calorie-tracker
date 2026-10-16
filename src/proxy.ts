@@ -16,7 +16,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (hasSession && isPublicPath) {
+  if (hasSession && isPublicPath && !request.nextUrl.searchParams.has("sig")) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
@@ -25,6 +25,6 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|icons|icon.svg|apple-icon|manifest.webmanifest|favicon.ico|sw.js).*)",
+    "/((?!api|\\.well-known|_next/static|_next/image|icons|icon.svg|apple-icon|manifest.webmanifest|favicon.ico|sw.js).*)",
   ],
 };

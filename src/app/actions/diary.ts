@@ -18,9 +18,9 @@ import { recipePortionNutrients } from "@/lib/nutrition/recipe";
 import { extrasFromRow, multiplyExtras, roundExtras, scaleExtras } from "@/lib/nutrition/extra-nutrients";
 import {
   entryItemSchema,
+  insertDiaryEntries,
   recipeNutritionFromLoggable,
   recipePortionExtras,
-  resolveEntryValues,
 } from "@/server/diary-entries";
 import { getVisibleFood } from "@/server/foods";
 import { getLoggableRecipe } from "@/server/recipes";
@@ -49,11 +49,7 @@ export async function addDiaryEntry(input: AddEntryInput): Promise<ActionResult<
   try {
     const userId = await requireUserId();
     const { day, meal: mealType, item } = addEntrySchema.parse(input);
-    const { nutrients, extras, ...values } = await resolveEntryValues(userId, item);
-    const [created] = await database
-      .insert(diaryEntry)
-      .values({ ...values, ...roundNutrients(nutrients), ...roundExtras(extras), userId, day, meal: mealType })
-      .returning({ id: diaryEntry.id });
+    const [created] = await insertDiaryEntries(userId, day, mealType, [item]);
     refresh();
     return { ok: true, data: { id: created.id } };
   } catch (error) {

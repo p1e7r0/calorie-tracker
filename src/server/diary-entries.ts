@@ -1,12 +1,16 @@
 import "server-only";
 import { z } from "zod";
+import { database } from "@/db";
+import { diaryEntry } from "@/db/schema";
 import {
   emptyExtraNutrients,
   extrasFromRow,
   multiplyExtras,
+  roundExtras,
   scaleExtras,
 } from "@/lib/nutrition/extra-nutrients";
-import { multiplyNutrients, type Nutrients, scaleNutrients } from "@/lib/nutrition/nutrients";
+import type { MealType } from "@/lib/nutrition/meals";
+import { multiplyNutrients, type Nutrients, roundNutrients, scaleNutrients } from "@/lib/nutrition/nutrients";
 import { recipePortionNutrients, type RecipeNutrition } from "@/lib/nutrition/recipe";
 import { getVisibleFood } from "./foods";
 import { getLoggableRecipe, getRecipeExtras } from "./recipes";
@@ -118,4 +122,22 @@ export async function recipePortionExtras(recipeId: string, portion: { grams: nu
         : 0
       : portion.servings / recipeExtras.servings;
   return multiplyExtras(recipeExtras.total, factor);
+}
+
+export async function insertDiaryEntries(userId: string, day: string, meal: MealType, items: readonly EntryItem[]) {
+  const resolved = await Promise.all(items.map((item) => resolveEntryValues(userId, item)));
+  if (resolved.length === 0) return [];
+  return database
+    .insert(diaryEntry)
+    .values(
+      resolved.map(({ nutrients, extras, ...values }) => ({
+        ...values,
+        ...roundNutrients(nutrients),
+        ...roundExtras(extras),
+        userId,
+        day,
+        meal,
+      })),
+    )
+    .returning();
 }
