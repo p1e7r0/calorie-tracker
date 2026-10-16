@@ -26,7 +26,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 | Q8 | Ricette | Ingredienti crudi in grammi + peso da cotto facoltativo + numero di porzioni. Si registra in grammi di cotto o in porzioni |
 | Q9 | Open Food Facts | Ricerca per nome e barcode con fotocamera; il prodotto usato viene salvato nel catalogo globale |
 | Q10 | PWA | Sì, senza offline |
-| Q11 | Git | Un branch per task, commit locali, merge su `main`, nessun push |
+| Q11 | Git | Un branch per task, commit locali, merge su `main`; aggiornato: l'utente sincronizza `main` su GitHub da VS Code, i branch di task restano locali |
 | Q12 | Catalogo | Globale in sola lettura (banca dati svizzera + Open Food Facts) + privato per utente. Modificare un alimento globale crea una copia privata che lo sostituisce |
 | Q13 | Pasti condivisi | No: ognuno registra la propria porzione (ricetta + peso da cotto) |
 | Q14 | Nutrienti | Colonne: kcal, proteine, carboidrati, zuccheri, grassi, saturi, fibre, sale (per 100 g/ml). Vitamine e minerali in `jsonb` |
@@ -36,8 +36,8 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 | Q18 | Unità | Grammi/ml più porzioni con nome per alimento |
 | Q19 | Navigazione | Barra in basso: Oggi, Cibo, "+", Progressi, Profilo |
 | Q20 | Statistiche | Kcal 7/30 giorni con obiettivo, media macro settimanale, peso vs kcal medie |
-| Q21 | Fuori scope | Acqua, attività, integrazioni salute, notifiche, digiuno, AI |
-| Q22 | Account | Email/password senza verifica; Google pronto ma attivo con le variabili; reset password più avanti |
+| Q21 | Fuori scope | Acqua, attività, integrazioni salute, digiuno; aggiornato: AI (T27) e promemoria push (T31) implementati su richiesta dell'utente |
+| Q22 | Account | Email/password senza verifica; Google pronto ma attivo con le variabili; reset password via email implementato in T26 (attivo con Resend) |
 | Q23 | Stile | Neutro e compatto, un accento lime per le kcal, colori distinti per P/C/G, numeri tabellari |
 | Q24 | Qualità | Vitest sulla logica, Playwright smoke, `tsc`/`eslint`/`next build` puliti, controllo visivo mobile chiaro/scuro |
 
@@ -51,7 +51,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 
 ## Infrastruttura
 
-- Neon: progetto `calorie-tracker` (`divine-recipe-92638535`), organizzazione personale `pietro@balestra.dev`, regione `aws-eu-central-1`, Postgres 18. Branch `main` (produzione) e `dev` (sviluppo). Schema e catalogo comune (1080 alimenti) già presenti su entrambi.
+- Neon: progetto `calorie-tracker` nell'organizzazione personale del proprietario (id con `npx neonctl projects list`), regione `aws-eu-central-1`, Postgres 18. Branch `main` (produzione) e `dev` (sviluppo). Schema e catalogo comune (1080 alimenti) già presenti su entrambi.
 - Vercel: progetto `bilancia` nello spazio personale `p1e7r0s-projects` (Hobby), produzione su https://bilancia-cyan.vercel.app. Funzioni in `fra1` (Francoforte), accanto al database. Variabili di produzione: `DATABASE_URL`, `DATABASE_URL_UNPOOLED` (branch `main`), `BETTER_AUTH_SECRET` (diverso da quello locale), `BETTER_AUTH_URL`, `BETTER_AUTH_TRUSTED_ORIGINS` (alias `bilancia-p1e7r0s-projects.vercel.app`). Deploy dalla CLI, senza collegamento a GitHub; `.vercelignore` esclude i file `.env*`.
 - Strumenti per gli agenti: skill Neon (`neon`, `neon-postgres`, `neon-postgres-branches`) in `.claude/skills/`, server MCP Neon con OAuth in `.mcp.json`.
 - Sviluppo locale alternativo: Postgres 17 in Docker (`docker-compose.yml`, porta 5433).
