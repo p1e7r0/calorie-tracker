@@ -36,3 +36,9 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T29 Esporta i dati in CSV ed elimina l'account
 - [x] T30 Fibre, zuccheri, grassi saturi e sale nel diario
 - [x] T31 Promemoria con notifiche push della PWA
+
+## Fix successivi
+
+- [x] `fix/weekly-budget-unlogged-days`: i giorni passati senza voci contano come in linea con l'obiettivo nel budget settimanale
+- [x] `fix/standalone-status-bar`: header lontani dalla sfocatura della status bar nella PWA iOS installata
+- [x] `fix/today-header-offset`: header di Oggi allineato a quello delle altre schede
