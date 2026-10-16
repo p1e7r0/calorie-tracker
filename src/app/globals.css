@@ -171,5 +171,8 @@
 }
 
 @utility pt-safe {
-  padding-top: env(safe-area-inset-top);
+  padding-top: max(env(safe-area-inset-top), var(--status-bar-fallback, 0px));
+  @media (display-mode: standalone) {
+    padding-top: calc(max(env(safe-area-inset-top), var(--status-bar-fallback, 0px)) + 0.75rem);
+  }
 }
