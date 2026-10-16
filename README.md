@@ -96,6 +96,18 @@ drizzle/          migrazioni SQL
 e2e/              test Playwright
 ```
 
+## Connettore per Claude
+
+Bilancia espone un server MCP su `/api/mcp` (strumenti `search_foods`, `recent_foods`, `log_meal`, `get_day`, `delete_entry`), protetto da OAuth 2.1 con il plugin MCP di better-auth (`@better-auth/mcp`, token JWT legati alla risorsa, metadata su `/.well-known/oauth-protected-resource/api/mcp` e `/.well-known/oauth-authorization-server/api/auth`).
+
+La registrazione dinamica dei client è disattivata. Per collegare Claude:
+
+1. In Bilancia apri Profilo › Impostazioni › Claude e premi «Crea credenziali».
+2. Su claude.ai apri Impostazioni › Connettori › Aggiungi connettore personalizzato, incolla l'URL del server e, nelle impostazioni avanzate, Client ID e Client Secret.
+3. Premi «Connetti», accedi a Bilancia e consenti l'accesso.
+
+«Rigenera» e «Scollega» cancellano il client e revocano i token già emessi. Sono attivi anche i Client ID Metadata Document (`@better-auth/cimd`).
+
 ## Deploy su Vercel
 
 Produzione: https://bilancia-cyan.vercel.app (progetto `bilancia`, funzioni in `fra1` accanto al database Neon).

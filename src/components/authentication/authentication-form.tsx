@@ -61,6 +61,7 @@ export function AuthenticationForm({
         setErrorMessage(describeError(result.error));
         return;
       }
+      if ("redirect" in result.data && result.data.redirect) return;
       router.replace(mode === "register" ? "/profile?setup=1" : redirectTarget);
       router.refresh();
     });

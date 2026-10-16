@@ -6,6 +6,7 @@ import { ScreenBody } from "@/components/app-shell/screen";
 import { toFormNumber } from "@/components/food/food-form-values";
 import { AccountSummary } from "@/components/profile/account-summary";
 import { AdaptiveGoalCard } from "@/components/profile/adaptive-goal-card";
+import { ClaudeConnectorSettings } from "@/components/profile/claude-connector-settings";
 import { DeleteAccountButton } from "@/components/profile/delete-account-button";
 import { ReminderSettings } from "@/components/profile/reminder-settings";
 import { ProfileForm } from "@/components/profile/profile-form";
@@ -13,9 +14,11 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { mcpResourceUrl } from "@/lib/auth/mcp-resource";
 import { getCurrentUser } from "@/lib/auth/session";
 import { todayIsoDate } from "@/lib/nutrition/days";
 import { getAdaptiveGoal } from "@/server/adaptive-goal";
+import { getClaudeClientCreatedAt } from "@/server/oauth-clients";
 import { getProfileWithLatestWeight } from "@/server/profile";
 import { isPushEnabled } from "@/server/push";
 
@@ -64,6 +67,14 @@ export default function ProfilePage({ searchParams }: PageProps<"/profile">) {
                 </Suspense>
               </section>
             ) : null}
+            <section aria-labelledby="claude-heading" className="flex flex-col gap-2">
+              <h2 id="claude-heading" className="text-sm font-medium text-muted-foreground">
+                Claude
+              </h2>
+              <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+                <ClaudeConnector />
+              </Suspense>
+            </section>
             <section aria-labelledby="theme-heading" className="flex flex-col gap-2">
               <h2 id="theme-heading" className="text-sm font-medium text-muted-foreground">
                 Tema
@@ -153,4 +164,10 @@ async function Reminders() {
       initialWeighInWeekday={profile?.reminderWeighInWeekday ?? null}
     />
   );
+}
+
+async function ClaudeConnector() {
+  const user = await getCurrentUser();
+  const createdAt = await getClaudeClientCreatedAt(user.id);
+  return <ClaudeConnectorSettings serverUrl={mcpResourceUrl} credentialsCreatedAt={createdAt?.toISOString() ?? null} />;
 }

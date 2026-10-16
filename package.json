@@ -20,6 +20,10 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
     "@base-ui/react": "^1.9.0",
+    "@better-auth/cimd": "1.7.10",
+    "@better-auth/mcp": "1.7.10",
+    "@better-auth/oauth-provider": "1.7.10",
+    "@modelcontextprotocol/server": "2.3.1",
     "@vercel/functions": "^3.10.1",
     "barcode-detector": "^3.2.2",
     "better-auth": "^1.7.10",

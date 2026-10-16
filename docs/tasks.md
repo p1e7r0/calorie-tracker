@@ -37,6 +37,10 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T30 Fibre, zuccheri, grassi saturi e sale nel diario
 - [x] T31 Promemoria con notifiche push della PWA
 
+## Terza fase
+
+- [x] T32 Connettore per Claude: server MCP con OAuth (credenziali dal profilo, consenso, strumenti per cercare alimenti e registrare i pasti)
+
 ## Fix successivi
 
 - [x] `fix/weekly-budget-unlogged-days`: i giorni passati senza voci contano come in linea con l'obiettivo nel budget settimanale

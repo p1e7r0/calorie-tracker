@@ -57,6 +57,13 @@
       "when": 1792137684359,
       "tag": "0007_push_reminders",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792149497507,
+      "tag": "0008_oauth_provider",
+      "breakpoints": true
     }
   ]
 }
