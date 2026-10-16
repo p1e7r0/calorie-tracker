@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2Icon } from "lucide-react";
+import { ChevronDownIcon, Trash2Icon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { deleteMeasurement, saveMeasurement } from "@/app/actions/measurements";
@@ -17,15 +17,19 @@ import {
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { type BodyMetricKey, bodyMetrics } from "@/lib/nutrition/body-metrics";
-import { parseDecimal } from "@/lib/nutrition/format";
+import { formatShortDay } from "@/lib/nutrition/days";
+import { formatDecimal, parseDecimal } from "@/lib/nutrition/format";
+import { cn } from "@/lib/utils";
 import type { MeasurementView } from "@/server/measurements";
 
 export function MeasurementDrawer({
   measurement,
+  previous,
   today,
   onOpenChange,
 }: {
   measurement: MeasurementView | null;
+  previous: MeasurementView | null;
   today: string;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -39,6 +43,14 @@ export function MeasurementDrawer({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [primaryMetric, ...otherMetrics] = bodyMetrics;
+  const [showOtherMetrics, setShowOtherMetrics] = useState(() =>
+    otherMetrics.some((metric) => measurement?.[metric.key] != null),
+  );
+
+  function placeholderFor(key: BodyMetricKey) {
+    const value = previous?.[key];
+    return value == null ? undefined : formatDecimal(value);
+  }
 
   function save() {
     setErrorMessage(null);
@@ -87,7 +99,11 @@ export function MeasurementDrawer({
       <DrawerContent>
         <DrawerHeader className="text-left">
           <DrawerTitle className="text-lg">{measurement ? "Modifica misurazione" : "Nuova misurazione"}</DrawerTitle>
-          <DrawerDescription>Solo il peso è obbligatorio. Copia gli altri valori dalla bilancia, se li hai.</DrawerDescription>
+          <DrawerDescription>
+            {previous && !measurement
+              ? `L'ultima volta (${formatShortDay(previous.measuredOn)}): ${formatDecimal(previous.weightKg)} kg.`
+              : "Solo il peso è obbligatorio."}
+          </DrawerDescription>
         </DrawerHeader>
         <form
           className="flex flex-col gap-3 overflow-y-auto p-4"
@@ -116,12 +132,23 @@ export function MeasurementDrawer({
                 inputMode="decimal"
                 autoFocus
                 className="font-semibold"
+                placeholder={placeholderFor("weightKg")}
                 value={values.weightKg}
                 onChange={(event) => setValues((current) => ({ ...current, weightKg: event.target.value }))}
               />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            aria-expanded={showOtherMetrics}
+            aria-controls="measurement-other-metrics"
+            onClick={() => setShowOtherMetrics((current) => !current)}
+            className="flex items-center gap-1 self-start rounded-md text-sm text-muted-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            Altre misure: grasso, muscolo, viscerale, acqua, ossa, vita, fianchi
+            <ChevronDownIcon className={cn("size-4 transition-transform", showOtherMetrics && "rotate-180")} />
+          </button>
+          <div id="measurement-other-metrics" hidden={!showOtherMetrics} className="grid grid-cols-2 gap-2">
             {otherMetrics.map((metric) => (
               <Field key={metric.key} className="gap-1.5">
                 <FieldLabel htmlFor={`measurement-${metric.key}`} className="text-xs text-muted-foreground">
@@ -131,6 +158,7 @@ export function MeasurementDrawer({
                 <Input
                   id={`measurement-${metric.key}`}
                   inputMode="decimal"
+                  placeholder={placeholderFor(metric.key)}
                   value={values[metric.key]}
                   onChange={(event) => setValues((current) => ({ ...current, [metric.key]: event.target.value }))}
                 />

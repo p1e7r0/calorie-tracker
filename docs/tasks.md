@@ -25,7 +25,7 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T18 Open Food Facts automatico quando il catalogo trova pochi risultati
 - [x] T19 Ricetta in sola lettura con «Aggiungi al diario», modifica separata, porzioni ricalcolabili, duplica ricetta
 - [x] T20 Calendario con i giorni registrati, niente giorni futuri
-- [ ] T21 Pesata rapida: solo peso, «Altre misure» precompilate dall'ultima volta
+- [x] T21 Pesata rapida: solo peso, «Altre misure» precompilate dall'ultima volta
 - [ ] T22 Scheda Cibo: filtri e ordinamento per uso
 - [ ] T23 Gesti sulle voci del diario: scorri per eliminare o duplicare
 - [ ] T24 Grafica: righe del diario compatte, data nell'intestazione, schede allineate a sinistra, variazione del peso chiara, profilo diviso
