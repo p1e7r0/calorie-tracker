@@ -23,7 +23,7 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T16 Bug: linea dell'obiettivo nel grafico kcal, media senza il giorno in corso, cancellazione di un account con ricette, notifiche in basso
 - [x] T17 Aggiunta in un tocco dai recenti con l'ultima quantità e «Annulla»; scorciatoie utili nella scheda quantità (ultima, porzioni, ±10 g)
 - [x] T18 Open Food Facts automatico quando il catalogo trova pochi risultati
-- [ ] T19 Ricetta in sola lettura con «Aggiungi al diario», modifica separata, porzioni ricalcolabili, duplica ricetta
+- [x] T19 Ricetta in sola lettura con «Aggiungi al diario», modifica separata, porzioni ricalcolabili, duplica ricetta
 - [ ] T20 Calendario con i giorni registrati, niente giorni futuri
 - [ ] T21 Pesata rapida: solo peso, «Altre misure» precompilate dall'ultima volta
 - [ ] T22 Scheda Cibo: filtri e ordinamento per uso
