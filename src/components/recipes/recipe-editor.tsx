@@ -82,7 +82,7 @@ export function RecipeEditor({
         return;
       }
       toast.success("Ricetta salvata");
-      if (!recipeId) router.replace(`/recipes/${result.data.id}`);
+      router.replace(`/recipes/${result.data.id}`);
     });
   }
 

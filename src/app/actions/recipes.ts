@@ -108,3 +108,41 @@ export async function archiveRecipe(recipeId: string): Promise<ActionResult> {
     return failure(error);
   }
 }
+
+export async function duplicateRecipe(recipeId: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    const userId = await requireUserId();
+    const sourceId = z.uuid().parse(recipeId);
+    const id = await database.transaction(async (transaction) => {
+      const [source] = await transaction
+        .select()
+        .from(recipe)
+        .where(and(eq(recipe.id, sourceId), eq(recipe.ownerId, userId), isNull(recipe.archivedAt)));
+      if (!source) throw new Error("Ricetta non trovata.");
+      const ingredients = await transaction
+        .select({ foodId: recipeIngredient.foodId, grams: recipeIngredient.grams, position: recipeIngredient.position })
+        .from(recipeIngredient)
+        .where(eq(recipeIngredient.recipeId, sourceId));
+      const [created] = await transaction
+        .insert(recipe)
+        .values({
+          ownerId: userId,
+          name: `${source.name} (copia)`.slice(0, 120),
+          servings: source.servings,
+          cookedWeightG: source.cookedWeightG,
+          notes: source.notes,
+        })
+        .returning({ id: recipe.id });
+      if (ingredients.length > 0) {
+        await transaction
+          .insert(recipeIngredient)
+          .values(ingredients.map((ingredient) => ({ ...ingredient, recipeId: created.id })));
+      }
+      return created.id;
+    });
+    refresh();
+    return { ok: true, data: { id } };
+  } catch (error) {
+    return failure(error);
+  }
+}
