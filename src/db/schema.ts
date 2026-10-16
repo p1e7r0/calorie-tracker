@@ -198,6 +198,10 @@ export const diaryEntry = pgTable(
     protein: real().notNull().default(0),
     carbs: real().notNull().default(0),
     fat: real().notNull().default(0),
+    fiber: real(),
+    sugars: real(),
+    saturatedFat: real(),
+    salt: real(),
     ...timestamps,
   },
   (table) => [

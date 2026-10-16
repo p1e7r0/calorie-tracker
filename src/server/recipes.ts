@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { database } from "@/db";
 import { favoriteRecipe, food, recipe, recipeIngredient } from "@/db/schema";
+import { extrasFromRow, scaleExtras, sumExtras } from "@/lib/nutrition/extra-nutrients";
 import { computeRecipeNutrition } from "@/lib/nutrition/recipe";
 import { allowedTypos, searchWords } from "@/lib/search";
 import type { LoggableRecipe } from "./loggable";
@@ -22,6 +23,10 @@ export async function loadRecipeIngredients(recipeIds: string[]) {
       protein: food.protein,
       carbs: food.carbs,
       fat: food.fat,
+      fiber: food.fiber,
+      sugars: food.sugars,
+      saturatedFat: food.saturatedFat,
+      salt: food.salt,
     })
     .from(recipeIngredient)
     .innerJoin(food, eq(food.id, recipeIngredient.foodId))
@@ -146,3 +151,18 @@ export async function getRecipeForEditing(userId: string, recipeId: string) {
 }
 
 export type RecipeForEditing = NonNullable<Awaited<ReturnType<typeof getRecipeForEditing>>>;
+
+export async function getRecipeExtras(recipeId: string) {
+  const [row] = await database
+    .select({ servings: recipe.servings, cookedWeightG: recipe.cookedWeightG })
+    .from(recipe)
+    .where(eq(recipe.id, recipeId));
+  if (!row) return null;
+  const ingredients = await loadRecipeIngredients([recipeId]);
+  const rawWeightG = ingredients.reduce((sum, ingredient) => sum + ingredient.grams, 0);
+  return {
+    total: sumExtras(ingredients.map((ingredient) => scaleExtras(extrasFromRow(ingredient), ingredient.grams))),
+    finalWeightG: row.cookedWeightG && row.cookedWeightG > 0 ? row.cookedWeightG : rawWeightG,
+    servings: row.servings,
+  };
+}

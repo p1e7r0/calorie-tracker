@@ -1,9 +1,15 @@
 import "server-only";
 import { z } from "zod";
+import {
+  emptyExtraNutrients,
+  extrasFromRow,
+  multiplyExtras,
+  scaleExtras,
+} from "@/lib/nutrition/extra-nutrients";
 import { multiplyNutrients, type Nutrients, scaleNutrients } from "@/lib/nutrition/nutrients";
 import { recipePortionNutrients, type RecipeNutrition } from "@/lib/nutrition/recipe";
 import { getVisibleFood } from "./foods";
-import { getLoggableRecipe } from "./recipes";
+import { getLoggableRecipe, getRecipeExtras } from "./recipes";
 
 const quantity = z.number().positive().max(10_000);
 
@@ -62,6 +68,7 @@ export async function resolveEntryValues(userId: string, item: EntryItem) {
       servings: null,
       portionLabel: item.portionLabel ?? null,
       nutrients: scaleNutrients(per100, item.grams),
+      extras: scaleExtras(extrasFromRow(foodRow), item.grams),
     };
   }
 
@@ -79,6 +86,7 @@ export async function resolveEntryValues(userId: string, item: EntryItem) {
       servings: item.grams ? null : (item.servings ?? 1),
       portionLabel: null,
       nutrients: recipePortionNutrients(nutrition, portion),
+      extras: await recipePortionExtras(recipe.id, portion),
     };
   }
 
@@ -96,5 +104,18 @@ export async function resolveEntryValues(userId: string, item: EntryItem) {
       carbs: item.carbs ?? 0,
       fat: item.fat ?? 0,
     },
+    extras: emptyExtraNutrients,
   };
+}
+
+export async function recipePortionExtras(recipeId: string, portion: { grams: number } | { servings: number }) {
+  const recipeExtras = await getRecipeExtras(recipeId);
+  if (!recipeExtras) return emptyExtraNutrients;
+  const factor =
+    "grams" in portion
+      ? recipeExtras.finalWeightG > 0
+        ? portion.grams / recipeExtras.finalWeightG
+        : 0
+      : portion.servings / recipeExtras.servings;
+  return multiplyExtras(recipeExtras.total, factor);
 }

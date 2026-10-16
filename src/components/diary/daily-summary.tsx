@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatGrams, formatKcal } from "@/lib/nutrition/format";
 import type { Nutrients } from "@/lib/nutrition/nutrients";
+import { type ExtraNutrients, extraNutrients } from "@/lib/nutrition/extra-nutrients";
 import type { WeeklyBudget } from "@/lib/nutrition/weekly-budget";
 import type { DailyTargetsView } from "@/server/diary";
 import { cn } from "@/lib/utils";
@@ -13,10 +14,12 @@ const macros = [
 
 export function DailySummary({
   totals,
+  extras,
   targets,
   weekly,
 }: {
   totals: Nutrients;
+  extras: ExtraNutrients;
   targets: DailyTargetsView;
   weekly: WeeklyBudget | null;
 }) {
@@ -29,6 +32,7 @@ export function DailySummary({
           <span className="ml-1.5 text-base font-medium text-muted-foreground">kcal</span>
         </p>
         <MacroTotals totals={totals} />
+        <ExtraNutrientsDetails extras={extras} targetKcal={null} />
         <Link
           href="/profile"
           className="mt-4 flex h-10 items-center justify-center rounded-lg bg-secondary text-sm font-medium"
@@ -104,6 +108,7 @@ export function DailySummary({
         })}
       </div>
 
+      <ExtraNutrientsDetails extras={extras} targetKcal={targets.kcal} />
       {weekly ? <WeeklyBudgetRow weekly={weekly} /> : null}
     </section>
   );
@@ -153,5 +158,37 @@ function MacroTotals({ totals }: { totals: Nutrients }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+const fiberMinimumG = 25;
+const saltMaximumG = 5;
+const saturatedFatShare = 0.1;
+
+function ExtraNutrientsDetails({ extras, targetKcal }: { extras: ExtraNutrients; targetKcal: number | null }) {
+  if (extraNutrients.every(({ key }) => extras[key] === null)) return null;
+  const references: Partial<Record<keyof ExtraNutrients, string>> = {
+    fiber: `almeno ${fiberMinimumG} g`,
+    salt: `al massimo ${saltMaximumG} g`,
+    ...(targetKcal ? { saturatedFat: `al massimo ${formatGrams((targetKcal * saturatedFatShare) / 9)} g` } : {}),
+  };
+  return (
+    <details className="group mt-3 text-sm">
+      <summary className="cursor-pointer list-none text-muted-foreground marker:hidden">
+        <span className="underline-offset-4 group-open:underline">Fibre, zuccheri, saturi e sale</span>
+      </summary>
+      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5">
+        {extraNutrients.map(({ key, label }) => (
+          <div key={key} className="flex items-baseline justify-between gap-2">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="text-right">
+              <span className="font-medium">{extras[key] === null ? "–" : `${formatGrams(extras[key])} g`}</span>
+              {references[key] ? <span className="block text-xs text-muted-foreground">{references[key]}</span> : null}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2 text-xs text-muted-foreground">Solo dagli alimenti che hanno questi valori.</p>
+    </details>
   );
 }

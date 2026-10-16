@@ -3,6 +3,7 @@ import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { database } from "@/db";
 import { diaryEntry, profile } from "@/db/schema";
 import { mealTypes, type MealType } from "@/lib/nutrition/meals";
+import { extrasFromRow, sumExtras } from "@/lib/nutrition/extra-nutrients";
 import { type Nutrients, sumNutrients } from "@/lib/nutrition/nutrients";
 
 export type DiaryEntryView = {
@@ -68,7 +69,11 @@ export async function getDiaryDay(userId: string, day: string) {
     };
   });
 
-  return { meals, totals: sumNutrients(entries.map((entry) => entry.nutrients)) };
+  return {
+    meals,
+    totals: sumNutrients(entries.map((entry) => entry.nutrients)),
+    extras: sumExtras(rows.map(extrasFromRow)),
+  };
 }
 
 export async function getDailyTargets(userId: string): Promise<DailyTargetsView> {
