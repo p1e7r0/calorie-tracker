@@ -33,6 +33,6 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T26 Reset della password via email (attivo con `RESEND_API_KEY`)
 - [x] T27 AI: foto dell'etichetta e pasto descritto a parole (attivo con `ANTHROPIC_API_KEY`)
 - [x] T28 Budget settimanale
-- [ ] T29 Esporta i dati in CSV ed elimina l'account
+- [x] T29 Esporta i dati in CSV ed elimina l'account
 - [ ] T30 Fibre, zuccheri, grassi saturi e sale nel diario
 - [ ] T31 Promemoria con notifiche push della PWA

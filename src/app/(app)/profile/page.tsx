@@ -1,3 +1,4 @@
+import { DownloadIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
@@ -5,8 +6,10 @@ import { ScreenBody } from "@/components/app-shell/screen";
 import { toFormNumber } from "@/components/food/food-form-values";
 import { AccountSummary } from "@/components/profile/account-summary";
 import { AdaptiveGoalCard } from "@/components/profile/adaptive-goal-card";
+import { DeleteAccountButton } from "@/components/profile/delete-account-button";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -15,6 +18,12 @@ import { getAdaptiveGoal } from "@/server/adaptive-goal";
 import { getProfileWithLatestWeight } from "@/server/profile";
 
 export const metadata: Metadata = { title: "Profilo" };
+
+const exportLinks = [
+  { kind: "diary", label: "Diario" },
+  { kind: "measurements", label: "Misure" },
+  { kind: "foods", label: "Alimenti" },
+] as const;
 
 export default function ProfilePage({ searchParams }: PageProps<"/profile">) {
   return (
@@ -48,6 +57,31 @@ export default function ProfilePage({ searchParams }: PageProps<"/profile">) {
                 Tema
               </h2>
               <ThemeSwitcher />
+            </section>
+            <section aria-labelledby="data-heading" className="flex flex-col gap-2">
+              <h2 id="data-heading" className="text-sm font-medium text-muted-foreground">
+                I tuoi dati
+              </h2>
+              <p className="text-sm text-muted-foreground">File CSV che si aprono con Excel o Numbers.</p>
+              <div className="grid grid-cols-3 gap-2">
+                {exportLinks.map((link) => (
+                  <a
+                    key={link.kind}
+                    href={`/api/export/${link.kind}`}
+                    download
+                    className={buttonVariants({ variant: "outline", className: "px-2" })}
+                  >
+                    <DownloadIcon />
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            </section>
+            <section aria-labelledby="delete-heading" className="flex flex-col gap-2">
+              <h2 id="delete-heading" className="text-sm font-medium text-muted-foreground">
+                Elimina l&apos;account
+              </h2>
+              <DeleteAccountButton />
             </section>
           </TabsContent>
         </ScreenBody>
