@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { ScreenBody } from "@/components/app-shell/screen";
 import { toFormNumber } from "@/components/food/food-form-values";
 import { AccountSummary } from "@/components/profile/account-summary";
 import { ProfileForm } from "@/components/profile/profile-form";
@@ -16,21 +17,23 @@ export default function ProfilePage({ searchParams }: PageProps<"/profile">) {
   return (
     <>
       <PageHeader title="Profilo" />
-      <section className="py-2">
-        <Suspense fallback={<Skeleton className="h-11 w-full" />}>
-          <AccountSummary />
-        </Suspense>
-      </section>
-      <section className="py-4">
-        <h2 className="mb-3 font-heading text-lg font-semibold tracking-tight">I tuoi dati e l&apos;obiettivo</h2>
-        <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-          <Goals searchParams={searchParams} />
-        </Suspense>
-      </section>
-      <section className="flex flex-col gap-2 py-4">
-        <h2 className="text-sm font-medium text-muted-foreground">Tema</h2>
-        <ThemeSwitcher />
-      </section>
+      <ScreenBody>
+        <section className="py-2">
+          <Suspense fallback={<Skeleton className="h-11 w-full" />}>
+            <AccountSummary />
+          </Suspense>
+        </section>
+        <section className="py-4">
+          <h2 className="mb-3 font-heading text-lg font-semibold tracking-tight">I tuoi dati e l&apos;obiettivo</h2>
+          <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+            <Goals searchParams={searchParams} />
+          </Suspense>
+        </section>
+        <section className="flex flex-col gap-2 py-4">
+          <h2 className="text-sm font-medium text-muted-foreground">Tema</h2>
+          <ThemeSwitcher />
+        </section>
+      </ScreenBody>
     </>
   );
 }

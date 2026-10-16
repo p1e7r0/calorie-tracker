@@ -5,7 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 
 export function BackHeader({ title, backHref, actions }: { title: string; backHref: string; actions?: ReactNode }) {
   return (
-    <header className="sticky top-0 z-10 -mx-4 flex h-14 items-center gap-1 bg-background/95 px-2 backdrop-blur-md">
+    <header className="-mx-4 flex h-14 shrink-0 items-center gap-1 px-2">
       <Link href={backHref} aria-label="Indietro" className={buttonVariants({ variant: "ghost", size: "icon" })}>
         <ArrowLeftIcon />
       </Link>

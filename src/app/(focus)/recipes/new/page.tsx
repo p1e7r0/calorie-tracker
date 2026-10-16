@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { BackHeader } from "@/components/app-shell/back-header";
+import { ScreenBody } from "@/components/app-shell/screen";
 import { RecipeEditor } from "@/components/recipes/recipe-editor";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -12,7 +13,13 @@ export default function NewRecipePage() {
   return (
     <>
       <BackHeader title="Nuova ricetta" backHref="/food?tab=recipes" />
-      <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+      <Suspense
+        fallback={
+          <ScreenBody>
+            <Skeleton className="h-64 w-full" />
+          </ScreenBody>
+        }
+      >
         <NewRecipe />
       </Suspense>
     </>

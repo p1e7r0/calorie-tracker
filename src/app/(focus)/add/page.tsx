@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AddScreen } from "@/components/add/add-screen";
+import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
 import { currentHour, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
@@ -54,13 +55,20 @@ async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
 
 function AddSkeleton() {
   return (
-    <div className="flex flex-col gap-3 pt-2">
-      <Skeleton className="h-11 w-full" />
-      <Skeleton className="h-9 w-full" />
-      <Skeleton className="h-11 w-full" />
-      {Array.from({ length: 6 }, (_, index) => (
-        <Skeleton key={index} className="h-12 w-full" />
-      ))}
-    </div>
+    <>
+      <div className="flex h-14 shrink-0 items-center">
+        <Skeleton className="h-9 w-full" />
+      </div>
+      <ScreenBody className="flex flex-col gap-3">
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-11 w-full" />
+        {Array.from({ length: 6 }, (_, index) => (
+          <Skeleton key={index} className="h-12 w-full" />
+        ))}
+      </ScreenBody>
+      <ScreenFooter>
+        <Skeleton className="h-11 w-full" />
+      </ScreenFooter>
+    </>
   );
 }

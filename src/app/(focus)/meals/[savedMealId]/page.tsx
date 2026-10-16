@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { BackHeader } from "@/components/app-shell/back-header";
+import { ScreenBody } from "@/components/app-shell/screen";
 import { SavedMealEditor } from "@/components/saved-meals/saved-meal-editor";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -13,9 +14,11 @@ export default function SavedMealPage({ params }: PageProps<"/meals/[savedMealId
   return (
     <>
       <BackHeader title="Pasto salvato" backHref="/food?tab=meals" />
-      <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-        <SavedMeal params={params} />
-      </Suspense>
+      <ScreenBody>
+        <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+          <SavedMeal params={params} />
+        </Suspense>
+      </ScreenBody>
     </>
   );
 }

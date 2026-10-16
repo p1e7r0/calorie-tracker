@@ -128,10 +128,38 @@
     @apply font-sans;
     font-feature-settings: "tnum" 1;
   }
+  html:has(.app-viewport) {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  input[type="search"]::-webkit-search-cancel-button {
+    appearance: none;
+  }
 }
 
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
+  :root[data-keyboard-open] & {
+    padding-bottom: 0;
+  }
+}
+
+@utility pb-safe-or-3 {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  :root[data-keyboard-open] & {
+    padding-bottom: 0.5rem;
+  }
+}
+
+@utility app-viewport {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  height: var(--viewport-height, 100dvh);
+  overflow: hidden;
+  transform: translateY(var(--viewport-offset-top, 0px));
 }
 
 @utility pt-safe {

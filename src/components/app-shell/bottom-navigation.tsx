@@ -23,7 +23,7 @@ export function BottomNavigation() {
   return (
     <nav
       aria-label="Navigazione principale"
-      className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/90 pb-safe backdrop-blur-md"
+      className="shrink-0 border-t bg-background pb-safe in-data-keyboard-open:hidden [.app-viewport:has([data-slot=screen-footer])_&]:border-t-transparent"
     >
       <div className="mx-auto grid h-16 max-w-md grid-cols-5 items-center px-2">
         <NavigationLink destination={today} active={isActive(pathname, today.href)} />
