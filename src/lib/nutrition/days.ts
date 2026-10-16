@@ -71,3 +71,10 @@ export function formatLongDay(isoDate: string) {
 export function formatShortDay(isoDate: string) {
   return shortDayFormatter.format(new Date(`${isoDate}T12:00:00Z`));
 }
+
+export function formatElapsed(days: number) {
+  if (days < 14) return days === 1 ? "in 1 giorno" : `in ${days} giorni`;
+  if (days < 60) return `in ${Math.round(days / 7)} settimane`;
+  const months = Math.round(days / 30);
+  return months === 1 ? "in 1 mese" : `in ${months} mesi`;
+}

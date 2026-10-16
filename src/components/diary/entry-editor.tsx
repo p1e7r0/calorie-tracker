@@ -87,7 +87,7 @@ export function EntryEditor({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
-        <DrawerHeader className="text-left">
+        <DrawerHeader>
           <DrawerTitle className="text-lg leading-snug">{entry.label}</DrawerTitle>
           <DrawerDescription>
             {formatKcal(preview.kcal)} kcal in {mealLabels[meal].toLowerCase()}

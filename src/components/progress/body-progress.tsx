@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type BodyMetricKey, bodyMetrics } from "@/lib/nutrition/body-metrics";
-import { addDays, formatShortDay } from "@/lib/nutrition/days";
+import { addDays, daysBetween, formatElapsed, formatShortDay } from "@/lib/nutrition/days";
 import { formatDecimal } from "@/lib/nutrition/format";
 import { changeOverDays, lastValuePerDay, movingAverage } from "@/lib/nutrition/trends";
 import { cn } from "@/lib/utils";
@@ -83,7 +83,7 @@ export function BodyProgress({ measurements, today }: { measurements: Measuremen
           </p>
           <p className="text-sm text-muted-foreground">
             {change
-              ? `${change.change > 0 ? "+" : change.change < 0 ? "−" : ""}${formatDecimal(Math.abs(change.change))}${unitSuffix} dal ${formatShortDay(change.fromDay)}`
+              ? `${change.change > 0 ? "+" : change.change < 0 ? "−" : ""}${formatDecimal(Math.abs(change.change))}${unitSuffix} ${formatElapsed(daysBetween(change.fromDay, latest!.day))}, dal ${formatShortDay(change.fromDay)}`
               : latest
                 ? `Ultima misurazione ${formatShortDay(latest.day)}`
                 : "Nessuna misurazione"}

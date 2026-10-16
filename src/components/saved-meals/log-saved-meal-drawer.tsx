@@ -47,7 +47,7 @@ export function LogSavedMealDrawer({
   return (
     <Drawer open onOpenChange={onOpenChange}>
       <DrawerContent>
-        <DrawerHeader className="text-left">
+        <DrawerHeader>
           <DrawerTitle className="text-lg">{savedMeal.name}</DrawerTitle>
           <DrawerDescription>
             {savedMeal.items.length} voci, {formatKcal(savedMeal.totals.kcal)} kcal

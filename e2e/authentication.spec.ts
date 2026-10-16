@@ -8,6 +8,7 @@ test("redirects anonymous visitors to the login page", async ({ page }) => {
 
 test("registers, signs out and signs back in", async ({ page }) => {
   const { email, password } = await registerUser(page);
+  await page.getByRole("tab", { name: "Impostazioni" }).click();
   await expect(page.getByText(email)).toBeVisible();
 
   await page.getByRole("button", { name: "Esci" }).click();

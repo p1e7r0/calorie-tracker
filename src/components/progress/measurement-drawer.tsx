@@ -97,7 +97,7 @@ export function MeasurementDrawer({
   return (
     <Drawer open onOpenChange={onOpenChange}>
       <DrawerContent>
-        <DrawerHeader className="text-left">
+        <DrawerHeader>
           <DrawerTitle className="text-lg">{measurement ? "Modifica misurazione" : "Nuova misurazione"}</DrawerTitle>
           <DrawerDescription>
             {previous && !measurement

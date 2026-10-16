@@ -20,7 +20,7 @@ test("records body measurements and shows the trend", async ({ page }) => {
   }
 
   await expect(page.getByText("81,1kg", { exact: true })).toBeVisible();
-  await expect(page.getByText("−1,3 kg dal 20 set")).toBeVisible();
+  await expect(page.getByText("−1,3 kg in 3 settimane, dal 20 set")).toBeVisible();
   await expect(page.locator(".recharts-surface").first()).toBeVisible();
 
   await page.getByRole("button", { name: "Misura" }).click();

@@ -63,7 +63,7 @@ export function QuickKcalDrawer({
   return (
     <Drawer open onOpenChange={onOpenChange}>
       <DrawerContent>
-        <DrawerHeader className="text-left">
+        <DrawerHeader>
           <DrawerTitle className="text-lg">Kcal veloci</DrawerTitle>
           <DrawerDescription>Quando non sai di preciso cosa hai mangiato.</DrawerDescription>
         </DrawerHeader>

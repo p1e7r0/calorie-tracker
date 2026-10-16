@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, currentHour, formatDayLabel, formatLongDay, isIsoDate, todayIsoDate } from "./days";
+import { addDays, currentHour, formatDayLabel, formatElapsed, formatLongDay, isIsoDate, todayIsoDate } from "./days";
 import { suggestMeal } from "./meals";
 import { formatGrams, formatKcal, parseDecimal } from "./format";
 
@@ -55,5 +55,16 @@ describe("format", () => {
 describe("formatLongDay", () => {
   it("writes the weekday and month in full with a capital letter", () => {
     expect(formatLongDay("2026-10-07")).toBe("Mercoledì 7 ottobre");
+  });
+});
+
+describe("formatElapsed", () => {
+  it("uses days, weeks or months depending on the span", () => {
+    expect(formatElapsed(1)).toBe("in 1 giorno");
+    expect(formatElapsed(9)).toBe("in 9 giorni");
+    expect(formatElapsed(20)).toBe("in 3 settimane");
+    expect(formatElapsed(30)).toBe("in 4 settimane");
+    expect(formatElapsed(95)).toBe("in 3 mesi");
+    expect(formatElapsed(45 + 0)).toBe("in 6 settimane");
   });
 });

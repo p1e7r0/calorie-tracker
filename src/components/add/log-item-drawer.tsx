@@ -81,7 +81,7 @@ function FoodQuantity({
 
   return (
     <>
-      <DrawerHeader className="text-left">
+      <DrawerHeader>
         <DrawerTitle className="text-lg leading-snug">{food.name}</DrawerTitle>
         <DrawerDescription>
           {food.brand ? `${food.brand}. ` : ""}
@@ -168,7 +168,7 @@ function RecipeQuantity({
 
   return (
     <>
-      <DrawerHeader className="text-left">
+      <DrawerHeader>
         <DrawerTitle className="text-lg leading-snug">{recipe.name}</DrawerTitle>
         <DrawerDescription>
           Ricetta da {recipe.servings} {recipe.servings === 1 ? "porzione" : "porzioni"},{" "}

@@ -80,7 +80,7 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
           >
             <EllipsisIcon />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="min-w-48">
             <DropdownMenuItem onClick={copyFromYesterday}>
               <CopyIcon />
               Copia da ieri

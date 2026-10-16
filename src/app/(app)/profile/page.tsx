@@ -7,6 +7,7 @@ import { AccountSummary } from "@/components/profile/account-summary";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
 import { todayIsoDate } from "@/lib/nutrition/days";
 import { getProfileWithLatestWeight } from "@/server/profile";
@@ -17,23 +18,35 @@ export default function ProfilePage({ searchParams }: PageProps<"/profile">) {
   return (
     <>
       <PageHeader title="Profilo" />
-      <ScreenBody>
-        <section className="py-2">
-          <Suspense fallback={<Skeleton className="h-11 w-full" />}>
-            <AccountSummary />
-          </Suspense>
-        </section>
-        <section className="py-4">
-          <h2 className="mb-3 font-heading text-lg font-semibold tracking-tight">I tuoi dati e l&apos;obiettivo</h2>
-          <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-            <Goals searchParams={searchParams} />
-          </Suspense>
-        </section>
-        <section className="flex flex-col gap-2 py-4">
-          <h2 className="text-sm font-medium text-muted-foreground">Tema</h2>
-          <ThemeSwitcher />
-        </section>
-      </ScreenBody>
+      <Tabs defaultValue="goal" className="min-h-0 flex-1 gap-0">
+        <TabsList className="mb-3 w-full shrink-0">
+          <TabsTrigger value="goal">Dati e obiettivo</TabsTrigger>
+          <TabsTrigger value="settings">Impostazioni</TabsTrigger>
+        </TabsList>
+        <ScreenBody>
+          <TabsContent value="goal">
+            <Suspense fallback={<Skeleton className="h-96 w-full" />}>
+              <Goals searchParams={searchParams} />
+            </Suspense>
+          </TabsContent>
+          <TabsContent value="settings" className="flex flex-col gap-6">
+            <section aria-labelledby="account-heading" className="flex flex-col gap-2">
+              <h2 id="account-heading" className="text-sm font-medium text-muted-foreground">
+                Account
+              </h2>
+              <Suspense fallback={<Skeleton className="h-11 w-full" />}>
+                <AccountSummary />
+              </Suspense>
+            </section>
+            <section aria-labelledby="theme-heading" className="flex flex-col gap-2">
+              <h2 id="theme-heading" className="text-sm font-medium text-muted-foreground">
+                Tema
+              </h2>
+              <ThemeSwitcher />
+            </section>
+          </TabsContent>
+        </ScreenBody>
+      </Tabs>
     </>
   );
 }
