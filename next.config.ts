@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "*.local"],
   partialPrefetching: true,
+  experimental: {
+    serverActions: { bodySizeLimit: "3mb" },
+  },
   turbopack: {
     rules: {
       "*.css": {

@@ -18,6 +18,7 @@
     "db:migrate:production": "NODE_ENV=production drizzle-kit migrate"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
     "@base-ui/react": "^1.9.0",
     "@vercel/functions": "^3.10.1",
     "barcode-detector": "^3.2.2",

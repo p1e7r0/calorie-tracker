@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { BackHeader } from "@/components/app-shell/back-header";
 import { ScreenBody } from "@/components/app-shell/screen";
 import { FoodForm } from "@/components/food/food-form";
+import { isAiEnabled } from "@/server/ai";
 import { toFormNumber } from "@/components/food/food-form-values";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getFoodDetail } from "@/server/foods";
@@ -29,6 +30,7 @@ async function EditFood({ params }: Pick<PageProps<"/food/[foodId]/edit">, "para
       <BackHeader title="Modifica alimento" backHref={`/food/${detail.id}`} />
       <ScreenBody>
         <FoodForm
+          aiEnabled={isAiEnabled}
           foodId={detail.id}
           isGlobalCopy={!detail.isOwn}
           submitLabel={detail.isOwn ? "Salva" : "Salva la mia copia"}

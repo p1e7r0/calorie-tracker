@@ -31,7 +31,7 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T24 Grafica: righe del diario compatte, data nell'intestazione, schede allineate a sinistra, variazione del peso chiara, profilo diviso
 - [x] T25 Obiettivo che si adatta: fabbisogno stimato da peso e kcal reali
 - [x] T26 Reset della password via email (attivo con `RESEND_API_KEY`)
-- [ ] T27 AI: foto dell'etichetta e pasto descritto a parole (attivo con `ANTHROPIC_API_KEY`)
+- [x] T27 AI: foto dell'etichetta e pasto descritto a parole (attivo con `ANTHROPIC_API_KEY`)
 - [ ] T28 Budget settimanale
 - [ ] T29 Esporta i dati in CSV ed elimina l'account
 - [ ] T30 Fibre, zuccheri, grassi saturi e sale nel diario

@@ -7,6 +7,7 @@ import {
   PlusIcon,
   ScanBarcodeIcon,
   SearchIcon,
+  SparklesIcon,
   StarIcon,
   XIcon,
 } from "lucide-react";
@@ -29,6 +30,7 @@ import { LogItemDrawer } from "./log-item-drawer";
 import { useLogEntry } from "./use-log-entry";
 import { BarcodeScanner } from "./barcode-scanner";
 import { OpenFoodFactsResults } from "./open-food-facts-results";
+import { DescribeMealDrawer } from "./describe-meal-drawer";
 import { QuickKcalDrawer } from "./quick-kcal-drawer";
 import { LogSavedMealDrawer } from "@/components/saved-meals/log-saved-meal-drawer";
 import type { SavedMealView } from "@/server/saved-meals";
@@ -43,6 +45,7 @@ type AddScreenProperties = {
   savedMeals: SavedMealView[];
   initialItem: LoggableItem | null;
   backHref: string;
+  aiEnabled: boolean;
 };
 
 export function AddScreen(properties: AddScreenProperties) {
@@ -60,12 +63,14 @@ function AddScreenContent({
   savedMeals,
   initialItem,
   backHref,
+  aiEnabled,
 }: AddScreenProperties) {
   const router = useRouter();
   const [meal, setMeal] = useState<MealType>(initialMeal);
   const [query, setQuery] = useState("");
   const [selectedItem, setSelectedItem] = useState<LoggableItem | null>(initialItem);
   const [quickKcalOpen, setQuickKcalOpen] = useState(false);
+  const [describeMealOpen, setDescribeMealOpen] = useState(false);
   const [selectedSavedMeal, setSelectedSavedMeal] = useState<SavedMealView | null>(null);
   const [loggedCount, setLoggedCount] = useState(0);
   const search = useFoodSearch(query);
@@ -95,6 +100,7 @@ function AddScreenContent({
   function handleLogged(count = 1) {
     setSelectedItem(null);
     setQuickKcalOpen(false);
+    setDescribeMealOpen(false);
     setSelectedSavedMeal(null);
     setLoggedCount((current) => current + count);
   }
@@ -140,15 +146,21 @@ function AddScreenContent({
             <TabsTrigger value="meals">Pasti</TabsTrigger>
           </TabsList>
           <ScreenBody>
-            <div className="grid grid-cols-2 gap-2 py-1">
-              <Button variant="outline" size="lg" onClick={() => setQuickKcalOpen(true)}>
+            <div className={cn("grid gap-2 py-1", aiEnabled ? "grid-cols-3" : "grid-cols-2")}>
+              <Button variant="outline" size="lg" className="px-2" onClick={() => setQuickKcalOpen(true)}>
                 <FlameIcon />
                 Kcal veloci
               </Button>
-              <Link href={createHref} className={buttonVariants({ variant: "outline", size: "lg" })}>
+              <Link href={createHref} className={buttonVariants({ variant: "outline", size: "lg", className: "px-2" })}>
                 <PlusIcon />
-                Nuovo alimento
+                {aiEnabled ? "Nuovo" : "Nuovo alimento"}
               </Link>
+              {aiEnabled ? (
+                <Button variant="outline" size="lg" className="px-2" onClick={() => setDescribeMealOpen(true)}>
+                  <SparklesIcon />
+                  Descrivi
+                </Button>
+              ) : null}
             </div>
             <TabsContent value="recent">
               <ItemList
@@ -267,6 +279,9 @@ function AddScreenContent({
       ) : null}
       {scannerOpen ? (
         <BarcodeScanner isLookingUp={isLookingUp} onDetected={handleBarcode} onClose={() => setScannerOpen(false)} />
+      ) : null}
+      {describeMealOpen ? (
+        <DescribeMealDrawer day={day} meal={meal} onLogged={handleLogged} onOpenChange={setDescribeMealOpen} />
       ) : null}
       {quickKcalOpen ? (
         <QuickKcalDrawer

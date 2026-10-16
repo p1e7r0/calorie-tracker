@@ -36,6 +36,13 @@
       "when": 1792135283072,
       "tag": "0004_recipe_ingredient_food_check_at_commit",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792136998368,
+      "tag": "0005_ai_requests",
+      "breakpoints": true
     }
   ]
 }

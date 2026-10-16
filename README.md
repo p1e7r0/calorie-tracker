@@ -42,6 +42,7 @@ docker compose up -d          # postgres://calorie:calorie@localhost:5433/calori
 | `BETTER_AUTH_SECRET` | `openssl rand -base64 32` |
 | `BETTER_AUTH_URL` | URL pubblico dell'app |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Facoltative: attivano «Continua con Google» |
+| `ANTHROPIC_API_KEY` | Facoltativa: attiva la foto dell'etichetta e «Descrivi il pasto» (massimo 40 richieste al giorno per utente). `ANTHROPIC_MODEL` cambia il modello, di default `claude-haiku-5-5` |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Facoltative: email per il reset della password. In sviluppo, senza, il link compare nel log del server |
 | `LEGACY_MONGODB_URI` | Solo per lo script di migrazione dal vecchio MongoDB |
 

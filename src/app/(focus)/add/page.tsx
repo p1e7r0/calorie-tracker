@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { currentHour, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { isMealType, suggestMeal } from "@/lib/nutrition/meals";
 import { favoriteFoods, getLoggableFood, recentFoods } from "@/server/foods";
+import { isAiEnabled } from "@/server/ai";
 import { getLoggableRecipe, listLoggableRecipes } from "@/server/recipes";
 import { listSavedMealViews } from "@/server/saved-meals";
 
@@ -49,6 +50,7 @@ async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
       savedMeals={savedMeals}
       initialItem={initialItem}
       backHref={day === today ? "/" : `/?date=${day}`}
+      aiEnabled={isAiEnabled}
     />
   );
 }

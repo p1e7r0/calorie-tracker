@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { BackHeader } from "@/components/app-shell/back-header";
 import { ScreenBody } from "@/components/app-shell/screen";
 import { FoodForm } from "@/components/food/food-form";
+import { isAiEnabled } from "@/server/ai";
 import { emptyFoodFormValues } from "@/components/food/food-form-values";
 import { safeInternalPath } from "@/lib/safe-path";
 
@@ -24,6 +25,7 @@ async function NewFood({ searchParams }: Pick<PageProps<"/food/new">, "searchPar
       <BackHeader title="Nuovo alimento" backHref={redirectTo ?? "/food"} />
       <ScreenBody>
         <FoodForm
+          aiEnabled={isAiEnabled}
           submitLabel={redirectTo?.startsWith("/add") ? "Crea e aggiungi" : "Crea alimento"}
           redirectTo={redirectTo}
           initialValues={{
