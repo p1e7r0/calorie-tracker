@@ -5,7 +5,7 @@ import { ScreenBody } from "@/components/app-shell/screen";
 import { FoodBrowser } from "@/components/food/food-browser";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
-import { favoriteFoods, listOwnFoods } from "@/server/foods";
+import { favoriteFoods, listOwnFoods, mostUsedFoods } from "@/server/foods";
 import { listLoggableRecipes } from "@/server/recipes";
 import { listSavedMeals } from "@/server/saved-meals";
 
@@ -31,9 +31,10 @@ export default function FoodPage({ searchParams }: PageProps<"/food">) {
 async function Catalog({ searchParams }: Pick<PageProps<"/food">, "searchParams">) {
   const user = await getCurrentUser();
   const { tab } = await searchParams;
-  const [ownFoods, favorites, recipes, savedMeals] = await Promise.all([
+  const [ownFoods, favorites, mostUsed, recipes, savedMeals] = await Promise.all([
     listOwnFoods(user.id),
     favoriteFoods(user.id),
+    mostUsedFoods(user.id),
     listLoggableRecipes(user.id),
     listSavedMeals(user.id),
   ]);
@@ -41,6 +42,7 @@ async function Catalog({ searchParams }: Pick<PageProps<"/food">, "searchParams"
     <FoodBrowser
       ownFoods={ownFoods}
       favoriteFoods={favorites}
+      mostUsedFoods={mostUsed}
       recipes={recipes}
       savedMeals={savedMeals}
       initialTab={tab === "recipes" || tab === "meals" ? tab : "foods"}

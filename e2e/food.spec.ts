@@ -55,3 +55,26 @@ test("finds foods even with typos", async ({ page }) => {
   await page.getByRole("searchbox", { name: "Cerca nel catalogo" }).fill("prosiuto crudo");
   await expect(page.getByRole("link", { name: /^Prosciutto, crudo/ })).toBeVisible();
 });
+
+test("filters the catalog by most used, favorites and own foods", async ({ page }) => {
+  await registerUser(page);
+  await page.goto("/food/new?name=Barretta%20test");
+  await page.getByLabel("Kcal", { exact: true }).fill("400");
+  await page.getByRole("button", { name: "Crea alimento" }).click();
+  await page.waitForURL(/\/food\/[0-9a-f-]{36}$/);
+
+  await page.goto("/add?meal=snack");
+  await page.getByRole("searchbox", { name: "Cerca un alimento o una ricetta" }).fill("mela cruda");
+  await page.getByRole("button", { name: /^Mela, cruda/ }).first().click();
+  await page.getByRole("button", { name: "Aggiungi a spuntini" }).click();
+  await expect(page.getByText("1 voce aggiunta")).toBeVisible();
+
+  await page.goto("/food");
+  const filters = page.getByRole("tablist", { name: "Mostra" });
+  await expect(filters.getByRole("tab", { name: /Più usati/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("link", { name: /^Mela, cruda/ })).toBeVisible();
+  await filters.getByRole("tab", { name: /Creati da te/ }).click();
+  await expect(page.getByRole("link", { name: /^Barretta test/ })).toBeVisible();
+  await filters.getByRole("tab", { name: /Preferiti/ }).click();
+  await expect(page.getByText("Tocca la stella su un alimento per vederlo qui.")).toBeVisible();
+});

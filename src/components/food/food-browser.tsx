@@ -9,6 +9,7 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatKcal } from "@/lib/nutrition/format";
+import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableRecipe } from "@/server/loggable";
 import { useFoodSearch } from "./use-food-search";
 
@@ -17,18 +18,29 @@ export type SavedMealSummary = { id: string; name: string; itemCount: number; kc
 export function FoodBrowser({
   ownFoods,
   favoriteFoods,
+  mostUsedFoods,
   recipes,
   savedMeals,
   initialTab,
 }: {
   ownFoods: LoggableFood[];
   favoriteFoods: LoggableFood[];
+  mostUsedFoods: LoggableFood[];
   recipes: LoggableRecipe[];
   savedMeals: SavedMealSummary[];
   initialTab: string;
 }) {
   const [query, setQuery] = useState("");
   const search = useFoodSearch(query);
+  const foodFilters = [
+    { value: "used", label: "Più usati", items: mostUsedFoods, empty: "Qui compaiono gli alimenti che registri più spesso." },
+    { value: "favorites", label: "Preferiti", items: favoriteFoods, empty: "Tocca la stella su un alimento per vederlo qui." },
+    { value: "own", label: "Creati da te", items: ownFoods, empty: "Gli alimenti che crei compaiono qui." },
+  ] as const;
+  const [foodFilter, setFoodFilter] = useState<(typeof foodFilters)[number]["value"]>(() =>
+    mostUsedFoods.length > 0 ? "used" : favoriteFoods.length > 0 ? "favorites" : "own",
+  );
+  const activeFilter = foodFilters.find((filter) => filter.value === foodFilter)!;
 
   return (
     <>
@@ -69,13 +81,28 @@ export function FoodBrowser({
                 <PlusIcon />
                 Nuovo alimento
               </Link>
-              <section>
-                <h2 className="text-sm font-medium text-muted-foreground">Preferiti</h2>
-                <BrowserList items={favoriteFoods} emptyMessage="Tocca la stella su un alimento per vederlo qui." />
-              </section>
-              <section>
-                <h2 className="text-sm font-medium text-muted-foreground">Creati da te</h2>
-                <BrowserList items={ownFoods} emptyMessage="Gli alimenti che crei compaiono qui." />
+              <section aria-label="Elenco degli alimenti">
+                <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]" role="tablist" aria-label="Mostra">
+                  {foodFilters.map((filter) => (
+                    <button
+                      key={filter.value}
+                      type="button"
+                      role="tab"
+                      aria-selected={filter.value === foodFilter}
+                      onClick={() => setFoodFilter(filter.value)}
+                      className={cn(
+                        "flex shrink-0 items-baseline gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                        filter.value === foodFilter ? "border-foreground bg-foreground text-background" : "bg-card",
+                      )}
+                    >
+                      {filter.label}
+                      <span className={cn("text-xs", filter.value === foodFilter ? "text-background/70" : "text-muted-foreground")}>
+                        {filter.items.length}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <BrowserList items={activeFilter.items} emptyMessage={activeFilter.empty} />
               </section>
             </TabsContent>
             <TabsContent value="recipes" className="flex flex-col gap-4">
