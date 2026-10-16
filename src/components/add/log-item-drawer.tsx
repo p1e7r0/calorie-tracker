@@ -1,8 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { toast } from "sonner";
-import { addDiaryEntry } from "@/app/actions/diary";
+import { useState } from "react";
 import { MacroLine } from "@/components/diary/macro-line";
 import { gramsShortcut, QuantityField, type QuantityShortcut } from "@/components/diary/quantity-field";
 import { Button } from "@/components/ui/button";
@@ -19,6 +17,7 @@ import { formatDecimal, formatGrams, formatKcal, parseDecimal } from "@/lib/nutr
 import { mealLabels, type MealType } from "@/lib/nutrition/meals";
 import { multiplyNutrients, scaleNutrients } from "@/lib/nutrition/nutrients";
 import type { LoggableFood, LoggableItem, LoggableRecipe } from "@/server/loggable";
+import { useLogEntry } from "./use-log-entry";
 
 function toInputValue(value: number) {
   return formatDecimal(value).replace(/\./g, "");
@@ -30,40 +29,26 @@ export function LogItemDrawer({
   meal,
   onOpenChange,
   onLogged,
+  onUndone,
 }: {
   item: LoggableItem;
   day: string;
   meal: MealType;
   onOpenChange: (open: boolean) => void;
   onLogged: () => void;
+  onUndone?: () => void;
 }) {
   return (
     <Drawer open onOpenChange={onOpenChange}>
       <DrawerContent>
         {item.type === "food" ? (
-          <FoodQuantity food={item} day={day} meal={meal} onLogged={onLogged} />
+          <FoodQuantity food={item} day={day} meal={meal} onLogged={onLogged} onUndone={onUndone} />
         ) : (
-          <RecipeQuantity recipe={item} day={day} meal={meal} onLogged={onLogged} />
+          <RecipeQuantity recipe={item} day={day} meal={meal} onLogged={onLogged} onUndone={onUndone} />
         )}
       </DrawerContent>
     </Drawer>
   );
-}
-
-function useLog(onLogged: () => void) {
-  const [isPending, startTransition] = useTransition();
-  function log(input: Parameters<typeof addDiaryEntry>[0], label: string) {
-    startTransition(async () => {
-      const result = await addDiaryEntry(input);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(`${label} aggiunto a ${mealLabels[input.meal as MealType].toLowerCase()}`);
-      onLogged();
-    });
-  }
-  return { isPending, log };
 }
 
 function FoodQuantity({
@@ -71,24 +56,28 @@ function FoodQuantity({
   day,
   meal,
   onLogged,
+  onUndone,
 }: {
   food: LoggableFood;
   day: string;
   meal: MealType;
   onLogged: () => void;
+  onUndone?: () => void;
 }) {
   const defaultGrams = food.lastGrams ?? food.portions[0]?.grams ?? 100;
   const [quantity, setQuantity] = useState(() => toInputValue(defaultGrams));
   const [portionLabel, setPortionLabel] = useState<string | null>(null);
-  const { isPending, log } = useLog(onLogged);
+  const { isPending, log } = useLogEntry(onLogged, onUndone);
   const grams = parseDecimal(quantity);
   const preview = scaleNutrients(food.per100, grams ?? 0);
 
   const shortcuts: QuantityShortcut[] = [
-    ...food.portions.map((portion) => gramsShortcut(portion.label, portion.grams, food.unit, true)),
     ...(food.lastGrams ? [gramsShortcut("Ultima volta", food.lastGrams, food.unit)] : []),
-    { label: `100 ${food.unit}`, value: 100 },
+    ...food.portions.map((portion) => gramsShortcut(portion.label, portion.grams, food.unit, true)),
   ];
+  if (defaultGrams !== 100 && !shortcuts.some((shortcut) => shortcut.value === 100)) {
+    shortcuts.push({ label: `100 ${food.unit}`, value: 100 });
+  }
 
   return (
     <>
@@ -105,6 +94,7 @@ function FoodQuantity({
           unit={food.unit}
           value={quantity}
           autoFocus
+          step={10}
           shortcuts={shortcuts}
           onValueChange={(value, shortcut) => {
             setQuantity(value);
@@ -147,17 +137,19 @@ function RecipeQuantity({
   day,
   meal,
   onLogged,
+  onUndone,
 }: {
   recipe: LoggableRecipe;
   day: string;
   meal: MealType;
   onLogged: () => void;
+  onUndone?: () => void;
 }) {
   const [mode, setMode] = useState<"servings" | "grams">(recipe.servings > 1 || !recipe.hasCookedWeight ? "servings" : "grams");
   const [quantity, setQuantity] = useState(() =>
     mode === "servings" ? "1" : toInputValue(Math.round(recipe.finalWeightG / recipe.servings)),
   );
-  const { isPending, log } = useLog(onLogged);
+  const { isPending, log } = useLogEntry(onLogged, onUndone);
   const amount = parseDecimal(quantity);
   const preview =
     mode === "servings"

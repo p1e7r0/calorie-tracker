@@ -1,8 +1,15 @@
 "use client";
 
 import { useId } from "react";
-import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
-import { formatDecimal, formatGrams } from "@/lib/nutrition/format";
+import { MinusIcon, PlusIcon } from "lucide-react";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupText,
+} from "@/components/ui/input-group";
+import { formatDecimal, formatGrams, parseDecimal } from "@/lib/nutrition/format";
 import { cn } from "@/lib/utils";
 
 export type QuantityShortcut = { label: string; value: number; detail?: string; isPortion?: boolean };
@@ -14,6 +21,7 @@ export function QuantityField({
   onValueChange,
   shortcuts = [],
   autoFocus = false,
+  step,
 }: {
   label: string;
   unit: string;
@@ -21,8 +29,14 @@ export function QuantityField({
   onValueChange: (value: string, shortcut?: QuantityShortcut) => void;
   shortcuts?: QuantityShortcut[];
   autoFocus?: boolean;
+  step?: number;
 }) {
   const inputId = useId();
+
+  function stepBy(delta: number) {
+    const next = Math.max(0, (parseDecimal(value) ?? 0) + delta);
+    onValueChange(formatDecimal(next).replace(/\./g, ""));
+  }
 
   return (
     <div className="flex flex-col gap-2">
@@ -30,6 +44,13 @@ export function QuantityField({
         {label}
       </label>
       <InputGroup className="h-12">
+        {step ? (
+          <InputGroupAddon>
+            <InputGroupButton size="icon-sm" aria-label={`${step} ${unit} in meno`} onClick={() => stepBy(-step)}>
+              <MinusIcon />
+            </InputGroupButton>
+          </InputGroupAddon>
+        ) : null}
         <InputGroupInput
           id={inputId}
           inputMode="decimal"
@@ -43,6 +64,11 @@ export function QuantityField({
         />
         <InputGroupAddon align="inline-end">
           <InputGroupText className="text-base">{unit}</InputGroupText>
+          {step ? (
+            <InputGroupButton size="icon-sm" aria-label={`${step} ${unit} in più`} onClick={() => stepBy(step)}>
+              <PlusIcon />
+            </InputGroupButton>
+          ) : null}
         </InputGroupAddon>
       </InputGroup>
       {shortcuts.length > 0 ? (
