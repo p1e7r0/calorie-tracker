@@ -327,7 +327,12 @@ function SearchResultsList({
         </span>
         Crea «{query}»
       </Link>
-      <OpenFoodFactsResults key={query} query={query} onOpenFood={onOpenFood} />
+      <OpenFoodFactsResults
+        key={query}
+        query={query}
+        automatic={!isLoading && query.length >= 3 && items.length < 3}
+        onOpenFood={onOpenFood}
+      />
     </div>
   );
 }

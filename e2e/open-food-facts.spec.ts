@@ -16,11 +16,19 @@ test.describe("Open Food Facts", () => {
     await expect(dialog.getByRole("button", { name: /^1 porzione/ })).toBeVisible();
   });
 
-  test("searches Open Food Facts and imports a result", async ({ page }) => {
+  test("searches Open Food Facts on demand when the catalog has enough results", async ({ page }) => {
     await registerUser(page);
     await page.goto("/add?meal=snack");
-    await page.getByRole("searchbox").fill("nutella");
-    await page.getByRole("button", { name: "Cerca «nutella» su Open Food Facts" }).click();
+    await page.getByRole("searchbox").fill("mela");
+    await expect(page.getByRole("button", { name: "Cerca «mela» su Open Food Facts" })).toBeVisible();
+    await page.waitForTimeout(1500);
+    await expect(page.getByRole("region", { name: "Risultati da Open Food Facts" })).toHaveCount(0);
+  });
+
+  test("searches Open Food Facts automatically and imports a result", async ({ page }) => {
+    await registerUser(page);
+    await page.goto("/add?meal=snack");
+    await page.getByRole("searchbox").fill("pan di stelle");
     const results = page.getByRole("region", { name: "Risultati da Open Food Facts" });
     await results.getByRole("button").first().click({ timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Aggiungi a spuntini" })).toBeVisible({ timeout: 20_000 });
