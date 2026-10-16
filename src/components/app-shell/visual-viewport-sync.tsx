@@ -3,12 +3,28 @@
 import { useEffect } from "react";
 
 const keyboardThreshold = 0.75;
+const statusBarFallbackPixels = 54;
+
+function standaloneStatusBarFallback(root: HTMLElement) {
+  const isStandalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  if (!isStandalone) return 0;
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;top:0;height:env(safe-area-inset-top);visibility:hidden;pointer-events:none";
+  root.appendChild(probe);
+  const insetTop = probe.getBoundingClientRect().height;
+  probe.remove();
+  const coversWholeScreen = window.innerHeight >= window.screen.height - 1;
+  return insetTop === 0 && coversWholeScreen ? statusBarFallbackPixels : 0;
+}
 
 export function VisualViewportSync() {
   useEffect(() => {
     const visualViewport = window.visualViewport;
     if (!visualViewport) return;
     const root = document.documentElement;
+    root.style.setProperty("--status-bar-fallback", `${standaloneStatusBarFallback(root)}px`);
     let tallestHeight = 0;
     let lastWidth = 0;
 
