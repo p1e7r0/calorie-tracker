@@ -4,12 +4,14 @@ import { PageHeader } from "@/components/app-shell/page-header";
 import { ScreenBody } from "@/components/app-shell/screen";
 import { toFormNumber } from "@/components/food/food-form-values";
 import { AccountSummary } from "@/components/profile/account-summary";
+import { AdaptiveGoalCard } from "@/components/profile/adaptive-goal-card";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
 import { todayIsoDate } from "@/lib/nutrition/days";
+import { getAdaptiveGoal } from "@/server/adaptive-goal";
 import { getProfileWithLatestWeight } from "@/server/profile";
 
 export const metadata: Metadata = { title: "Profilo" };
@@ -27,6 +29,9 @@ export default function ProfilePage({ searchParams }: PageProps<"/profile">) {
           <TabsContent value="goal">
             <Suspense fallback={<Skeleton className="h-96 w-full" />}>
               <Goals searchParams={searchParams} />
+            </Suspense>
+            <Suspense fallback={<Skeleton className="mt-6 h-40 w-full" />}>
+              <AdaptiveGoal />
             </Suspense>
           </TabsContent>
           <TabsContent value="settings" className="flex flex-col gap-6">
@@ -80,5 +85,15 @@ async function Goals({ searchParams }: Pick<PageProps<"/profile">, "searchParams
         }}
       />
     </>
+  );
+}
+
+async function AdaptiveGoal() {
+  const user = await getCurrentUser();
+  const adaptiveGoal = await getAdaptiveGoal(user.id, todayIsoDate());
+  return (
+    <div className="mt-6">
+      <AdaptiveGoalCard adaptiveGoal={adaptiveGoal} />
+    </div>
   );
 }

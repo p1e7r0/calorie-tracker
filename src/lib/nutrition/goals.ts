@@ -10,7 +10,7 @@ export const activityFactors: Record<ActivityLevel, number> = {
   very_active: 1.9,
 };
 
-const kcalPerKilogramOfBodyWeight = 7700;
+export const kcalPerKilogramOfBodyWeight = 7700;
 const minimumDailyKcal: Record<Sex, number> = { male: 1500, female: 1200 };
 
 export function ageOn(birthDate: string, today: string) {
@@ -63,6 +63,25 @@ export function computeDailyTargets({
 }): DailyTargets {
   const bmr = basalMetabolicRate({ sex, weightKg, heightCm, age });
   const maintenanceKcal = bmr * activityFactors[activityLevel];
+  return {
+    basalMetabolicRate: Math.round(bmr),
+    ...targetsFromMaintenance({ maintenanceKcal, sex, weightKg, goal, weeklyRateKg }),
+  };
+}
+
+export function targetsFromMaintenance({
+  maintenanceKcal,
+  sex,
+  weightKg,
+  goal,
+  weeklyRateKg,
+}: {
+  maintenanceKcal: number;
+  sex: Sex;
+  weightKg: number;
+  goal: GoalType;
+  weeklyRateKg: number;
+}): Omit<DailyTargets, "basalMetabolicRate"> {
   const dailyAdjustment = (Math.abs(weeklyRateKg) * kcalPerKilogramOfBodyWeight) / 7;
   const adjustedKcal =
     goal === "lose"
@@ -78,7 +97,6 @@ export function computeDailyTargets({
   const carbsG = Math.max(0, Math.round((kcal - proteinG * 4 - fatG * 9) / 4));
 
   return {
-    basalMetabolicRate: Math.round(bmr),
     maintenanceKcal: Math.round(maintenanceKcal),
     kcal,
     proteinG,
