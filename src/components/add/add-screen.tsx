@@ -21,11 +21,12 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatKcal } from "@/lib/nutrition/format";
+import { formatGrams, formatKcal } from "@/lib/nutrition/format";
 import type { MealType } from "@/lib/nutrition/meals";
 import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableItem, LoggableRecipe } from "@/server/loggable";
 import { LogItemDrawer } from "./log-item-drawer";
+import { useLogEntry } from "./use-log-entry";
 import { BarcodeScanner } from "./barcode-scanner";
 import { OpenFoodFactsResults } from "./open-food-facts-results";
 import { QuickKcalDrawer } from "./quick-kcal-drawer";
@@ -98,6 +99,16 @@ function AddScreenContent({
     setLoggedCount((current) => current + count);
   }
 
+  function handleUndone() {
+    setLoggedCount((current) => Math.max(0, current - 1));
+  }
+
+  const quickLog = useLogEntry(() => handleLogged(), handleUndone);
+
+  function quickAdd(food: LoggableFood, grams: number) {
+    quickLog.log({ day, meal, item: { type: "food", foodId: food.id, grams, portionLabel: null } }, food.name);
+  }
+
   return (
     <>
       <header className="-ml-2 flex h-14 shrink-0 items-center gap-1">
@@ -116,6 +127,7 @@ function AddScreenContent({
             results={search.results}
             createHref={createHref}
             onSelect={setSelectedItem}
+            onQuickAdd={quickAdd}
             onOpenFood={setSelectedItem}
           />
         </ScreenBody>
@@ -142,6 +154,7 @@ function AddScreenContent({
               <ItemList
                 items={recentFoods}
                 onSelect={setSelectedItem}
+                onQuickAdd={quickAdd}
                 emptyMessage="Qui troverai gli alimenti che usi di più."
               />
             </TabsContent>
@@ -149,6 +162,7 @@ function AddScreenContent({
               <ItemList
                 items={favoriteFoods}
                 onSelect={setSelectedItem}
+                onQuickAdd={quickAdd}
                 emptyMessage="Tocca la stella su un alimento per averlo sempre a portata di mano."
               />
             </TabsContent>
@@ -156,6 +170,7 @@ function AddScreenContent({
               <ItemList
                 items={recipes}
                 onSelect={setSelectedItem}
+                onQuickAdd={quickAdd}
                 emptyMessage="Le ricette che crei compaiono qui."
               />
             </TabsContent>
@@ -233,6 +248,7 @@ function AddScreenContent({
           day={day}
           meal={meal}
           onLogged={() => handleLogged()}
+          onUndone={handleUndone}
           onOpenChange={(open) => {
             if (!open) setSelectedItem(null);
           }}
@@ -271,6 +287,7 @@ function SearchResultsList({
   results,
   createHref,
   onSelect,
+  onQuickAdd,
   onOpenFood,
 }: {
   query: string;
@@ -279,6 +296,7 @@ function SearchResultsList({
   results: SearchResults | null;
   createHref: string;
   onSelect: (item: LoggableItem) => void;
+  onQuickAdd: (food: LoggableFood, grams: number) => void;
   onOpenFood: (item: LoggableItem) => void;
 }) {
   if (failed) {
@@ -298,7 +316,7 @@ function SearchResultsList({
       {items.length === 0 ? (
         <p className="pt-6 pb-2 text-center text-sm text-muted-foreground">Nessun alimento trovato per «{query}».</p>
       ) : (
-        <ItemList items={items} onSelect={onSelect} emptyMessage="" />
+        <ItemList items={items} onSelect={onSelect} onQuickAdd={onQuickAdd} emptyMessage="" />
       )}
       <Link
         href={createHref}
@@ -317,10 +335,12 @@ function SearchResultsList({
 function ItemList({
   items,
   onSelect,
+  onQuickAdd,
   emptyMessage,
 }: {
   items: LoggableItem[];
   onSelect: (item: LoggableItem) => void;
+  onQuickAdd: (food: LoggableFood, grams: number) => void;
   emptyMessage: string;
 }) {
   if (items.length === 0) {
@@ -328,33 +348,51 @@ function ItemList({
   }
   return (
     <ul className="divide-y">
-      {items.map((item) => (
-        <li key={`${item.type}-${item.id}`}>
-          <button
-            type="button"
-            onClick={() => onSelect(item)}
-            className="flex w-full items-center gap-3 px-1 py-2.5 text-left transition-colors outline-none hover:bg-muted/50 focus-visible:bg-muted/60"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-1.5">
-                {item.type === "recipe" ? (
-                  <ChefHatIcon className="size-4 shrink-0 text-muted-foreground" aria-label="Ricetta" />
-                ) : null}
-                <span className="truncate">{item.name}</span>
-                {item.isFavorite ? (
-                  <StarIcon className="size-3.5 shrink-0 fill-carbs text-carbs" aria-label="Preferito" />
-                ) : null}
+      {items.map((item) => {
+        const lastGrams = item.type === "food" ? item.lastGrams : null;
+        return (
+          <li key={`${item.type}-${item.id}`} className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => onSelect(item)}
+              className="flex min-w-0 flex-1 items-center gap-3 px-1 py-2.5 text-left transition-colors outline-none hover:bg-muted/50 focus-visible:bg-muted/60"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  {item.type === "recipe" ? (
+                    <ChefHatIcon className="size-4 shrink-0 text-muted-foreground" aria-label="Ricetta" />
+                  ) : null}
+                  <span className="truncate">{item.name}</span>
+                  {item.isFavorite ? (
+                    <StarIcon className="size-3.5 shrink-0 fill-carbs text-carbs" aria-label="Preferito" />
+                  ) : null}
+                </span>
+                <span className="block truncate text-sm text-muted-foreground">
+                  {item.type === "recipe"
+                    ? `${formatKcal(item.perServing.kcal)} kcal a porzione`
+                    : lastGrams
+                      ? `Ultima volta ${formatGrams(lastGrams)} ${item.unit}, ${formatKcal((item.per100.kcal * lastGrams) / 100)} kcal`
+                      : [item.brand, `${formatKcal(item.per100.kcal)} kcal per 100 ${item.unit}`].filter(Boolean).join(", ")}
+                </span>
               </span>
-              <span className="block truncate text-sm text-muted-foreground">
-                {item.type === "recipe"
-                  ? `${formatKcal(item.perServing.kcal)} kcal a porzione`
-                  : [item.brand, `${formatKcal(item.per100.kcal)} kcal per 100 ${item.unit}`].filter(Boolean).join(", ")}
-              </span>
-            </span>
-            <PlusIcon className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-          </button>
-        </li>
-      ))}
+            </button>
+            {item.type === "food" && lastGrams ? (
+              <Button
+                variant="secondary"
+                size="icon"
+                aria-label={`Aggiungi ${formatGrams(lastGrams)} ${item.unit} di ${item.name}`}
+                onClick={() => onQuickAdd(item, lastGrams)}
+              >
+                <PlusIcon />
+              </Button>
+            ) : (
+              <Button variant="ghost" size="icon" aria-label={`Scegli quanto di ${item.name}`} onClick={() => onSelect(item)}>
+                <PlusIcon className="text-muted-foreground" />
+              </Button>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
