@@ -78,3 +78,40 @@ test("steps the quantity by ten grams", async ({ page }) => {
   await page.getByRole("button", { name: "10 g in meno" }).click();
   await expect(page.getByLabel("Quantità")).toHaveValue("110");
 });
+
+test("swipes an entry right to duplicate it and left to delete it", async ({ page }) => {
+  await registerUser(page);
+  await page.goto("/add?meal=dinner");
+  await page.getByRole("searchbox", { name: "Cerca un alimento o una ricetta" }).fill("mela cruda");
+  await page.getByRole("button", { name: /^Mela, cruda/ }).first().click();
+  await page.getByRole("button", { name: "Aggiungi a cena" }).click();
+  await page.getByRole("button", { name: "Fatto" }).click();
+
+  const dinner = page.getByRole("region", { name: "Cena" });
+  const entries = dinner.getByRole("button", { name: /^Mela, cruda/ });
+  await expect(entries).toHaveCount(1);
+
+  async function swipe(index: number, distance: number) {
+    const box = (await entries.nth(index).boundingBox())!;
+    const startX = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(startX, y);
+    await page.mouse.down();
+    for (let step = 1; step <= 8; step += 1) {
+      await page.mouse.move(startX + (distance * step) / 8, y);
+    }
+    await page.mouse.up();
+  }
+
+  await swipe(0, 160);
+  await expect(entries).toHaveCount(2);
+  await expect(page.getByText("Mela, cruda duplicato")).toBeVisible();
+
+  await swipe(0, -160);
+  await expect(entries).toHaveCount(1);
+  await page.locator("[data-sonner-toast]").filter({ hasText: "eliminato" }).getByRole("button", { name: "Annulla" }).click();
+  await expect(entries).toHaveCount(2);
+
+  await entries.first().click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+});

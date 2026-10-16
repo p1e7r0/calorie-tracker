@@ -171,6 +171,41 @@ export async function restoreDiaryEntry(entry: DeletedEntry): Promise<ActionResu
   }
 }
 
+export async function duplicateDiaryEntry(id: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    const userId = await requireUserId();
+    const entryId = z.uuid().parse(id);
+    const [source] = await database
+      .select()
+      .from(diaryEntry)
+      .where(and(eq(diaryEntry.id, entryId), eq(diaryEntry.userId, userId)));
+    if (!source) throw new Error("Voce non trovata.");
+    const [created] = await database
+      .insert(diaryEntry)
+      .values({
+        userId: source.userId,
+        day: source.day,
+        meal: source.meal,
+        kind: source.kind,
+        foodId: source.foodId,
+        recipeId: source.recipeId,
+        label: source.label,
+        grams: source.grams,
+        servings: source.servings,
+        portionLabel: source.portionLabel,
+        kcal: source.kcal,
+        protein: source.protein,
+        carbs: source.carbs,
+        fat: source.fat,
+      })
+      .returning({ id: diaryEntry.id });
+    refresh();
+    return { ok: true, data: { id: created.id } };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
 const copyMealSchema = z.object({
   fromDay: isoDate,
   fromMeal: meal,

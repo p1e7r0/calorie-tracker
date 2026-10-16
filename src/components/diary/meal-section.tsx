@@ -18,6 +18,8 @@ import { mealLabels } from "@/lib/nutrition/meals";
 import type { DiaryEntryView, DiaryMeal } from "@/server/diary";
 import { SaveMealDrawer } from "@/components/saved-meals/save-meal-drawer";
 import { EntryEditor } from "./entry-editor";
+import { SwipeableRow } from "./swipeable-row";
+import { useEntryActions } from "./use-entry-actions";
 
 function describeQuantity(entry: DiaryEntryView) {
   if (entry.kind === "quick") return null;
@@ -33,6 +35,7 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
   const [editingEntry, setEditingEntry] = useState<DiaryEntryView | null>(null);
   const [saveMealOpen, setSaveMealOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const entryActions = useEntryActions();
   const label = mealLabels[meal.meal];
 
   useLayoutEffect(() => {
@@ -100,22 +103,28 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
       </header>
 
       {meal.entries.length > 0 ? (
-        <ul className="mt-1">
+        <ul className="-mx-2 mt-0.5">
           {meal.entries.map((entry) => {
             const quantity = describeQuantity(entry);
             return (
               <li key={entry.id}>
-                <button
-                  type="button"
-                  onClick={() => setEditingEntry(entry)}
-                  className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 py-2 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50"
+                <SwipeableRow
+                  disabled={entryActions.isPending}
+                  onSwipeLeft={() => entryActions.removeEntry(entry)}
+                  onSwipeRight={() => entryActions.duplicateEntry(entry)}
                 >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate">{entry.label}</span>
-                    {quantity ? <span className="block text-sm text-muted-foreground">{quantity}</span> : null}
-                  </span>
-                  <span className="shrink-0 tabular-nums">{formatKcal(entry.nutrients.kcal)}</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingEntry(entry)}
+                    className="flex w-full items-baseline gap-2 rounded-lg px-2 py-2 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+                  >
+                    <span className="min-w-0 truncate">{entry.label}</span>
+                    {quantity ? (
+                      <span className="shrink-0 text-sm text-muted-foreground">{quantity}</span>
+                    ) : null}
+                    <span className="ml-auto shrink-0 pl-2 tabular-nums">{formatKcal(entry.nutrients.kcal)}</span>
+                  </button>
+                </SwipeableRow>
               </li>
             );
           })}
