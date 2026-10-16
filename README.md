@@ -42,6 +42,7 @@ docker compose up -d          # postgres://calorie:calorie@localhost:5433/calori
 | `BETTER_AUTH_SECRET` | `openssl rand -base64 32` |
 | `BETTER_AUTH_URL` | URL pubblico dell'app |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Facoltative: attivano «Continua con Google» |
+| `RESEND_API_KEY`, `EMAIL_FROM` | Facoltative: email per il reset della password. In sviluppo, senza, il link compare nel log del server |
 | `LEGACY_MONGODB_URI` | Solo per lo script di migrazione dal vecchio MongoDB |
 
 `.env.local` punta al branch `dev`, `.env.production.local` al branch `main`. Entrambi sono esclusi da git.
