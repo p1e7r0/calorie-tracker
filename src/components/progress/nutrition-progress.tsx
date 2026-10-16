@@ -38,13 +38,15 @@ export function NutritionProgress({
   const totalsByDay = new Map(dailyTotals.map((totals) => [totals.day, totals]));
   const days = dailySeries(addDays(today, -(rangeDays - 1)), today);
   const kcalData = days.map((day) => ({ day, kcal: totalsByDay.get(day)?.kcal ?? null }));
-  const loggedDays = days.map((day) => totalsByDay.get(day)).filter((totals) => totals !== undefined);
+  const completedTotals = dailyTotals.filter((totals) => totals.day !== today);
+  const completedTotalsByDay = new Map(completedTotals.map((totals) => [totals.day, totals]));
+  const loggedDays = days.map((day) => completedTotalsByDay.get(day)).filter((totals) => totals !== undefined);
   const averageKcal = loggedDays.length
     ? loggedDays.reduce((sum, totals) => sum + totals.kcal, 0) / loggedDays.length
     : null;
 
-  const lastWeekDays = dailySeries(addDays(today, -6), today)
-    .map((day) => totalsByDay.get(day))
+  const lastWeekDays = dailySeries(addDays(today, -7), addDays(today, -1))
+    .map((day) => completedTotalsByDay.get(day))
     .filter((totals) => totals !== undefined);
   const macroAverages = macroRows.map((row) => ({
     ...row,
@@ -55,7 +57,7 @@ export function NutritionProgress({
 
   const firstWeek = weekStart(addDays(today, -7 * 11));
   const weeklyKcal = averageByWeek(
-    dailyTotals.filter((totals) => totals.day >= firstWeek),
+    completedTotals.filter((totals) => totals.day >= firstWeek),
     (totals) => totals.kcal,
   );
   const weeklyWeight = averageByWeek(
@@ -83,8 +85,9 @@ export function NutritionProgress({
               <span className="ml-1 text-sm font-medium text-muted-foreground">kcal di media</span>
             </p>
             <p className="text-sm text-muted-foreground">
-              {loggedDays.length} {loggedDays.length === 1 ? "giorno registrato" : "giorni registrati"} su {rangeDays}
-              {targets ? `, obiettivo ${formatKcal(targets.kcal)} (linea tratteggiata)` : ""}
+              {loggedDays.length} {loggedDays.length === 1 ? "giorno registrato" : "giorni registrati"} su {rangeDays - 1}, oggi
+              escluso
+              {targets ? `. Obiettivo ${formatKcal(targets.kcal)} (linea tratteggiata)` : ""}
             </p>
           </div>
           <ToggleGroup
@@ -142,6 +145,7 @@ export function NutritionProgress({
             {targets ? (
               <ReferenceLine
                 y={targets.kcal}
+                ifOverflow="extendDomain"
                 stroke="var(--muted-foreground)"
                 strokeDasharray="4 4"
                 strokeWidth={1}
@@ -154,7 +158,7 @@ export function NutritionProgress({
 
       <section aria-labelledby="macro-heading">
         <h2 id="macro-heading" className="font-heading text-lg font-semibold tracking-tight">
-          Macronutrienti, media degli ultimi 7 giorni
+          Macronutrienti, media degli ultimi 7 giorni completi
         </h2>
         {lastWeekDays.length === 0 ? (
           <p className="py-3 text-sm text-muted-foreground">Registra qualche pasto per vedere le medie.</p>

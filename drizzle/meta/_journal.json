@@ -22,6 +22,20 @@
       "when": 1792128875644,
       "tag": "0002_fuzzy_search",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792135252969,
+      "tag": "0003_recipe_ingredient_deferred_food_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792135283072,
+      "tag": "0004_recipe_ingredient_food_check_at_commit",
+      "breakpoints": true
     }
   ]
 }
