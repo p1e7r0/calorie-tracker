@@ -5,7 +5,7 @@ export function ScreenBody({ className, ...properties }: ComponentProps<"div">) 
   return (
     <div
       data-slot="screen-body"
-      className={cn("-mx-4 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6", className)}
+      className={cn("-mx-4 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain px-4 pb-6", className)}
       {...properties}
     />
   );
