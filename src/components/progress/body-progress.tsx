@@ -166,6 +166,11 @@ export function BodyProgress({ measurements, today }: { measurements: Measuremen
         <MeasurementDrawer
           key={editing === "new" ? "new" : editing.id}
           measurement={editing === "new" ? null : editing}
+          previous={
+            editing === "new"
+              ? (measurements.at(-1) ?? null)
+              : (measurements.filter((candidate) => candidate.measuredOn < editing.measuredOn).at(-1) ?? null)
+          }
           today={today}
           onOpenChange={(open) => {
             if (!open) setEditing(null);
