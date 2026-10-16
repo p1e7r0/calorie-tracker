@@ -61,4 +61,6 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 - Driver `pg` (TCP) invece di `@neondatabase/serverless`: è la raccomandazione Neon per Vercel Fluid compute e funziona anche con Postgres locale.
 - La schermata «Aggiungi» e le schermate di dettaglio non mostrano la barra in basso, per lasciare spazio all'inserimento.
 - La ricerca su Open Food Facts parte solo su richiesta (limite di 10 ricerche al minuto); il codice a barre invece è immediato.
+- Ricerca tollerante agli errori di battitura: ogni parola deve comparire nel nome oppure differire da una sua parola di al massimo 1 lettera (parole di 4–5 lettere) o 2 lettere (6 o più); accenti e maiuscole sono ignorati e i risultati esatti vengono prima.
+- Intestazioni, tab e barra in basso restano fisse e scorre solo il contenuto; il campo di ricerca sta in basso, sopra la tastiera, come in Safari.
 - Colori dei grafici e dei macronutrienti validati per daltonismo e contrasto in entrambi i temi.

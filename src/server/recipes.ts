@@ -3,6 +3,7 @@ import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { database } from "@/db";
 import { favoriteRecipe, food, recipe, recipeIngredient } from "@/db/schema";
 import { computeRecipeNutrition } from "@/lib/nutrition/recipe";
+import { allowedTypos, searchWords } from "@/lib/search";
 import type { LoggableRecipe } from "./loggable";
 
 export async function loadRecipeIngredients(recipeIds: string[]) {
@@ -85,7 +86,7 @@ const recipeColumns = {
 };
 
 export async function listLoggableRecipes(userId: string, query?: string) {
-  const words = (query ?? "").trim().split(/\s+/).filter(Boolean);
+  const words = searchWords(query ?? "");
   const rows = await database
     .select(recipeColumns)
     .from(recipe)
@@ -93,10 +94,15 @@ export async function listLoggableRecipes(userId: string, query?: string) {
       and(
         eq(recipe.ownerId, userId),
         isNull(recipe.archivedAt),
-        ...words.map((word) => sql`search_text(${recipe.name}) like '%' || search_text(${word}) || '%'`),
+        ...words.map(
+          (word) => sql`fuzzy_word_match(search_text(${recipe.name}), search_text(${word}), ${allowedTypos(word)})`,
+        ),
       ),
     )
-    .orderBy(recipe.name);
+    .orderBy(
+      ...(words.length > 0 ? [sql`similarity(search_text(${recipe.name}), search_text(${words.join(" ")})) desc`] : []),
+      recipe.name,
+    );
   return toLoggableRecipes(userId, rows);
 }
 

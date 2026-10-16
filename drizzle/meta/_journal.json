@@ -15,6 +15,13 @@
       "when": 1792094127312,
       "tag": "0001_food_search",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792128875644,
+      "tag": "0002_fuzzy_search",
+      "breakpoints": true
     }
   ]
 }
