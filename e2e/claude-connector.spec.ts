@@ -85,8 +85,9 @@ test("Claude logs a meal through the MCP connector", async ({ page, browser, req
   await claudeContext.close();
 
   const tokenResponse = await request.post("/api/auth/oauth2/token", {
-    headers: { authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}` },
     form: {
+      client_id: clientId,
+      client_secret: clientSecret,
       grant_type: "authorization_code",
       code: code!,
       redirect_uri: redirectUri,
@@ -144,8 +145,13 @@ test("Claude logs a meal through the MCP connector", async ({ page, browser, req
   await expect(page.getByText(/^Banana, cruda/)).toBeVisible();
 
   const refreshed = await request.post("/api/auth/oauth2/token", {
-    headers: { authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}` },
-    form: { grant_type: "refresh_token", refresh_token: tokens.refresh_token, resource: "http://localhost:3100/api/mcp" },
+    form: {
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: "refresh_token",
+      refresh_token: tokens.refresh_token,
+      resource: "http://localhost:3100/api/mcp",
+    },
   });
   expect(refreshed.status()).toBe(200);
 
@@ -154,8 +160,12 @@ test("Claude logs a meal through the MCP connector", async ({ page, browser, req
   await page.getByRole("button", { name: "Scollega" }).click();
   await expect(page.getByText("Claude scollegato")).toBeVisible();
   const revoked = await request.post("/api/auth/oauth2/token", {
-    headers: { authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}` },
-    form: { grant_type: "refresh_token", refresh_token: (await refreshed.json()).refresh_token },
+    form: {
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: "refresh_token",
+      refresh_token: (await refreshed.json()).refresh_token,
+    },
   });
-  expect(revoked.status()).toBe(401);
+  expect((await revoked.json()).error).toBe("invalid_client");
 });
