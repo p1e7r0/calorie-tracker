@@ -100,9 +100,9 @@ export function DailySummary({ totals, targets }: { totals: Nutrients; targets: 
 
 function MacroTotals({ totals }: { totals: Nutrients }) {
   return (
-    <div className="mt-3 flex gap-4 text-sm">
+    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
       {macros.map((macro) => (
-        <span key={macro.key} className="flex items-center gap-1.5">
+        <span key={macro.key} className="flex items-center gap-1.5 whitespace-nowrap">
           <span className={cn("size-2 rounded-full", macro.colorClass)} aria-hidden="true" />
           <span className="text-muted-foreground">{macro.label}</span>
           <span className="font-medium">{formatGrams(totals[macro.key])} g</span>
