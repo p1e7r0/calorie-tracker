@@ -48,6 +48,7 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - **Profilo**: scheda "Dati e obiettivo" (dati personali, obiettivo perdi/mantieni/aumenta, ritmo settimanale, target personalizzati, stima adattiva del fabbisogno su 28 giorni con "Usa … kcal come obiettivo") e scheda Impostazioni (account, promemoria push se configurati, tema, esportazione CSV di diario/misure/alimenti, eliminazione account).
 - **Autenticazione**: login, registrazione, password dimenticata e reset (visibili solo se l'email è configurata in produzione), Google se configurato; redirect con `?next=`.
 - **Promemoria push**: sera (se manca la cena o non c'è nulla) e pesata settimanale nel giorno scelto; service worker solo per le notifiche.
+- **Connettore per Claude** (`/api/mcp`): server MCP con OAuth 2.1; ogni utente crea Client ID e Client Secret dal profilo, li incolla su claude.ai e consente l'accesso su `/consent`; strumenti `search_foods`, `recent_foods`, `log_meal`, `get_day`, `delete_entry`; registrazione dinamica dei client disattivata, CIMD attivo.
 - **AI**: lettura dell'etichetta nutrizionale da foto e pasto descritto a parole, con limite di 40 richieste al giorno per utente.
 
 ## Dati e infrastruttura
@@ -73,7 +74,8 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - `saved_meal` + `saved_meal_item` (esattamente un alimento o una ricetta per riga).
 - `measurement`, `profile` (un record per utente, target e promemoria), `ai_request` (limite AI), `push_subscription`.
 - Tabelle better-auth: `user`, `session`, `account`, `verification`.
-- Migrazioni `0000`-`0007`; quelle custom (0001, 0002, 0004) contengono estensioni, funzioni di ricerca e la FK differita.
+- Tabelle OAuth del connettore per Claude (better-auth `jwt` + `@better-auth/mcp`): `jwks`, `oauth_client`, `oauth_resource`, `oauth_client_resource`, `oauth_access_token`, `oauth_refresh_token`, `oauth_consent`, `oauth_client_assertion`.
+- Migrazioni `0000`-`0008`; quelle custom (0001, 0002, 0004) contengono estensioni, funzioni di ricerca e la FK differita.
 
 ## Glossario
 - **Catalogo globale**: alimenti condivisi (`owner_id NULL`), dal dataset svizzero legacy o importati da Open Food Facts; nessun utente li modifica.
@@ -90,9 +92,10 @@ L'utente ha scelto sempre l'opzione raccomandata.
 
 ## Stato attuale
 Aggiornato al 2026-10-16. Per lo stato reale usa `git log` e `git status`.
-- Tutti i task T01-T31 sono completati, mergiati in `main` e in produzione dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
-- Ultimo merge in `main`: `fix/today-header-offset`, poi la documentazione per agenti (`CLAUDE.md`, `CONTEXT.md`).
-- Migrazioni fino a `0007_push_reminders` applicate sia a dev sia a main.
+- Tutti i task T01-T32 sono completati, mergiati in `main` e in produzione dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
+- Ultimo merge in `main`: `feature/claude-connector` (T32, connettore MCP per Claude), verificato in produzione con uno smoke test del flusso OAuth completo.
+- Migrazioni fino a `0008_oauth_provider` applicate sia a dev sia a main.
+- Connettore per Claude: da provare con claude.ai reale (credenziali da Profilo › Impostazioni › Claude); il client usa `client_secret_basic`, da cambiare se claude.ai invia il segreto in altro modo.
 - Funzioni AI nascoste in produzione finché manca `ANTHROPIC_API_KEY`; link "Password dimenticata" nascosto finché mancano `RESEND_API_KEY` ed `EMAIL_FROM`; login Google assente senza credenziali OAuth.
 
 ## Punti aperti e idee
@@ -112,6 +115,6 @@ Aggiornato al 2026-10-16. Per lo stato reale usa `git log` e `git status`.
 
 ## Riferimenti
 - `docs/spec.md`: stack, tabella decisioni Q1-Q24, regole di dominio (nutrienti per 100 g, ricette con peso da cotto, snapshot nel diario, Mifflin-St Jeor, macro predefinite), infrastruttura.
-- `docs/tasks.md`: T01-T31 e i fix successivi.
+- `docs/tasks.md`: T01-T32 e i fix successivi.
 - `README.md`: setup locale, variabili, comandi database, migrazione legacy, deploy.
 - `CLAUDE.md`: istruzioni operative per gli agenti.
