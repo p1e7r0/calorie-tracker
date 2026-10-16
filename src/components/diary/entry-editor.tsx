@@ -1,9 +1,9 @@
 "use client";
 
-import { Trash2Icon } from "lucide-react";
+import { CopyPlusIcon, Trash2Icon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { deleteDiaryEntry, restoreDiaryEntry, updateDiaryEntry } from "@/app/actions/diary";
+import { updateDiaryEntry } from "@/app/actions/diary";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -20,6 +20,7 @@ import type { DiaryEntryView } from "@/server/diary";
 import { MacroLine } from "./macro-line";
 import { MealPicker } from "./meal-picker";
 import { QuantityField } from "./quantity-field";
+import { useEntryActions } from "./use-entry-actions";
 
 type QuantityMode = "grams" | "servings" | "kcal";
 
@@ -46,7 +47,9 @@ export function EntryEditor({
   const mode = initialMode(entry);
   const [meal, setMeal] = useState<MealType>(entry.meal);
   const [quantity, setQuantity] = useState(() => initialQuantity(entry, mode));
-  const [isPending, startTransition] = useTransition();
+  const [isSaving, startTransition] = useTransition();
+  const entryActions = useEntryActions();
+  const isPending = isSaving || entryActions.isPending;
   const parsedQuantity = parseDecimal(quantity);
   const previousQuantity = mode === "kcal" ? entry.nutrients.kcal : mode === "servings" ? entry.servings : entry.grams;
   const preview =
@@ -74,23 +77,11 @@ export function EntryEditor({
   }
 
   function remove() {
-    startTransition(async () => {
-      const result = await deleteDiaryEntry(entry.id);
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      onOpenChange(false);
-      toast(`${entry.label} eliminato`, {
-        action: {
-          label: "Annulla",
-          onClick: async () => {
-            const restored = await restoreDiaryEntry(result.data);
-            if (!restored.ok) toast.error(restored.error);
-          },
-        },
-      });
-    });
+    entryActions.removeEntry(entry, () => onOpenChange(false));
+  }
+
+  function duplicate() {
+    entryActions.duplicateEntry(entry, () => onOpenChange(false));
   }
 
   return (
@@ -115,6 +106,9 @@ export function EntryEditor({
         <DrawerFooter className="flex-row pb-[max(1rem,env(safe-area-inset-bottom))]">
           <Button variant="destructive" size="lg" onClick={remove} disabled={isPending} aria-label="Elimina">
             <Trash2Icon />
+          </Button>
+          <Button variant="outline" size="lg" onClick={duplicate} disabled={isPending} aria-label="Duplica">
+            <CopyPlusIcon />
           </Button>
           <Button size="lg" className="flex-1" onClick={save} disabled={isPending || !isValid}>
             Salva

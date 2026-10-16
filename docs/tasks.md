@@ -27,7 +27,7 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T20 Calendario con i giorni registrati, niente giorni futuri
 - [x] T21 Pesata rapida: solo peso, «Altre misure» precompilate dall'ultima volta
 - [x] T22 Scheda Cibo: filtri e ordinamento per uso
-- [ ] T23 Gesti sulle voci del diario: scorri per eliminare o duplicare
+- [x] T23 Gesti sulle voci del diario: scorri per eliminare o duplicare
 - [ ] T24 Grafica: righe del diario compatte, data nell'intestazione, schede allineate a sinistra, variazione del peso chiara, profilo diviso
 - [ ] T25 Obiettivo che si adatta: fabbisogno stimato da peso e kcal reali
 - [ ] T26 Reset della password via email (attivo con `RESEND_API_KEY`)
