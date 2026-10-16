@@ -1,7 +1,7 @@
 "use client";
 
 import { GlobeIcon } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { importOpenFoodFactsFood } from "@/app/actions/open-food-facts";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,17 @@ type SearchState =
   | { status: "failed" }
   | { status: "done"; products: OpenFoodFactsCandidate[] };
 
-export function OpenFoodFactsResults({ query, onOpenFood }: { query: string; onOpenFood: (item: LoggableItem) => void }) {
+const automaticSearchDelay = 700;
+
+export function OpenFoodFactsResults({
+  query,
+  automatic,
+  onOpenFood,
+}: {
+  query: string;
+  automatic: boolean;
+  onOpenFood: (item: LoggableItem) => void;
+}) {
   const [state, setState] = useState<SearchState>({ status: "idle" });
   const [importingCode, setImportingCode] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -32,6 +42,12 @@ export function OpenFoodFactsResults({ query, onOpenFood }: { query: string; onO
       setState({ status: "failed" });
     }
   }
+
+  useEffect(() => {
+    if (!automatic || state.status !== "idle") return;
+    const timer = setTimeout(search, automaticSearchDelay);
+    return () => clearTimeout(timer);
+  });
 
   function importProduct(product: OpenFoodFactsCandidate) {
     setImportingCode(product.code);
