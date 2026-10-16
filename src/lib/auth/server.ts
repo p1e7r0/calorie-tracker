@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { database } from "@/db";
 import * as schema from "@/db/schema";
+import { sendEmail } from "@/lib/email";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -19,6 +20,16 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: 8,
     autoSignIn: true,
+    resetPasswordTokenExpiresIn: 60 * 60,
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, url }) => {
+      await sendEmail({
+        to: user.email,
+        subject: "Reimposta la password di Bilancia",
+        text: `Ciao ${user.name},\n\nper scegliere una nuova password apri questo link entro un'ora:\n${url}\n\nSe non hai chiesto tu il cambio, ignora questa email: la password resta quella di prima.`,
+        html: `<p>Ciao ${escapeHtml(user.name)},</p><p>per scegliere una nuova password apri questo link entro un'ora:</p><p><a href="${url}">Reimposta la password</a></p><p>Se non hai chiesto tu il cambio, ignora questa email: la password resta quella di prima.</p>`,
+      });
+    },
   },
   socialProviders:
     googleClientId && googleClientSecret
@@ -33,3 +44,7 @@ export const auth = betterAuth({
 });
 
 export type Session = typeof auth.$Infer.Session;
+
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (character) => `&#${character.charCodeAt(0)};`);
+}

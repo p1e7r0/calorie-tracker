@@ -31,9 +31,11 @@ function safeRedirectTarget(value: string | null) {
 export function AuthenticationForm({
   mode,
   googleEnabled,
+  passwordResetEnabled = false,
 }: {
   mode: AuthenticationMode;
   googleEnabled: boolean;
+  passwordResetEnabled?: boolean;
 }) {
   const router = useRouter();
   const searchParameters = useSearchParams();
@@ -97,7 +99,14 @@ export function AuthenticationForm({
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="password">Password</FieldLabel>
+          <div className="flex items-baseline justify-between">
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            {mode === "login" && passwordResetEnabled ? (
+              <Link href="/forgot-password" className="text-sm text-muted-foreground underline underline-offset-4">
+                Password dimenticata?
+              </Link>
+            ) : null}
+          </div>
           <Input
             id="password"
             name="password"
