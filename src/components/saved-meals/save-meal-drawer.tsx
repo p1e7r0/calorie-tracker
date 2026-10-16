@@ -43,7 +43,7 @@ export function SaveMealDrawer({
   return (
     <Drawer open onOpenChange={onOpenChange}>
       <DrawerContent>
-        <DrawerHeader className="text-left">
+        <DrawerHeader>
           <DrawerTitle className="text-lg">Salva come pasto</DrawerTitle>
           <DrawerDescription>La prossima volta lo aggiungi con un tocco dalla scheda Pasti.</DrawerDescription>
         </DrawerHeader>
