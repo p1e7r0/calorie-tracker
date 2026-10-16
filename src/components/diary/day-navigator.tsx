@@ -1,67 +1,99 @@
 "use client";
 
 import { it } from "date-fns/locale";
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { addDays, formatDayLabel } from "@/lib/nutrition/days";
+import { addDays, formatDayLabel, formatLongDay } from "@/lib/nutrition/days";
 
 function dayHref(day: string, today: string) {
   return day === today ? "/" : `/?date=${day}`;
 }
 
-export function DayNavigator({ day, today }: { day: string; today: string }) {
+function toLocalDate(isoDate: string) {
+  return new Date(`${isoDate}T12:00:00`);
+}
+
+function toIsoDate(date: Date) {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join(
+    "-",
+  );
+}
+
+export function DayNavigator({ day, today, loggedDays }: { day: string; today: string; loggedDays: string[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const previousDay = addDays(day, -1);
   const nextDay = addDays(day, 1);
+  const label = formatDayLabel(day, today);
+  const isRelativeLabel = label === "Oggi" || label === "Ieri" || label === "Domani";
 
   return (
-    <div className="flex items-center gap-1">
-      <Link
-        href={dayHref(previousDay, today)}
-        aria-label="Giorno precedente"
-        className={buttonVariants({ variant: "ghost", size: "icon" })}
-      >
-        <ChevronLeftIcon />
-      </Link>
+    <div className="flex w-full items-center justify-between gap-2">
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger
-          className="min-w-24 rounded-lg px-2 py-1.5 font-heading text-2xl font-semibold tracking-tight outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-          aria-label="Scegli il giorno"
+          className="-ml-2 flex min-w-0 flex-col items-start rounded-lg px-2 py-1 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          aria-label={`Scegli il giorno, ${formatLongDay(day)}`}
         >
-          {formatDayLabel(day, today)}
+          <span className="flex items-center gap-1 font-heading text-2xl leading-tight font-semibold tracking-tight">
+            {isRelativeLabel ? label : formatLongDay(day)}
+            <ChevronDownIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+          </span>
+          {isRelativeLabel ? (
+            <span className="text-sm text-muted-foreground">{formatLongDay(day)}</span>
+          ) : null}
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
           <Calendar
             mode="single"
             locale={it}
-            selected={new Date(`${day}T12:00:00`)}
-            defaultMonth={new Date(`${day}T12:00:00`)}
+            selected={toLocalDate(day)}
+            defaultMonth={toLocalDate(day)}
+            disabled={{ after: toLocalDate(today) }}
+            endMonth={toLocalDate(today)}
+            modifiers={{ logged: loggedDays.map(toLocalDate) }}
+            modifiersClassNames={{
+              logged:
+                "relative after:pointer-events-none after:absolute after:bottom-1 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-energy",
+            }}
             onSelect={(date) => {
               if (!date) return;
-              const selectedDay = [
-                date.getFullYear(),
-                String(date.getMonth() + 1).padStart(2, "0"),
-                String(date.getDate()).padStart(2, "0"),
-              ].join("-");
               setOpen(false);
-              router.push(dayHref(selectedDay, today));
+              router.push(dayHref(toIsoDate(date), today));
             }}
           />
+          <p className="flex items-center gap-1.5 border-t px-3 py-2 text-xs text-muted-foreground">
+            <span className="size-1.5 rounded-full bg-energy" aria-hidden="true" />
+            Giorni con qualcosa registrato
+          </p>
         </PopoverContent>
       </Popover>
-      <Link
-        href={dayHref(nextDay, today)}
-        aria-label="Giorno successivo"
-        className={buttonVariants({ variant: "ghost", size: "icon" })}
-      >
-        <ChevronRightIcon />
-      </Link>
+      <div className="flex shrink-0 items-center">
+        <Link
+          href={dayHref(previousDay, today)}
+          aria-label="Giorno precedente"
+          className={buttonVariants({ variant: "ghost", size: "icon" })}
+        >
+          <ChevronLeftIcon />
+        </Link>
+        {day < today ? (
+          <Link
+            href={dayHref(nextDay, today)}
+            aria-label="Giorno successivo"
+            className={buttonVariants({ variant: "ghost", size: "icon" })}
+          >
+            <ChevronRightIcon />
+          </Link>
+        ) : (
+          <Button variant="ghost" size="icon" aria-label="Giorno successivo" disabled>
+            <ChevronRightIcon />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
