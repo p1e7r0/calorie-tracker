@@ -5,8 +5,11 @@ import { DayNavigator } from "@/components/diary/day-navigator";
 import { MealSection } from "@/components/diary/meal-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
-import { addDays, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
+import { addDays, daysBetween, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
+import { weeklyBudget } from "@/lib/nutrition/weekly-budget";
+import { weekStart } from "@/lib/nutrition/weeks";
 import { getDailyTargets, getDiaryDay, listLoggedDays } from "@/server/diary";
+import { getDailyTotals } from "@/server/statistics";
 
 export default function TodayPage({ searchParams }: PageProps<"/">) {
   return (
@@ -21,11 +24,13 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   const { date } = await searchParams;
   const today = todayIsoDate();
   const day = isIsoDate(date) ? date : today;
-  const [diary, targets, loggedDays] = await Promise.all([
+  const [diary, targets, loggedDays, weekTotals] = await Promise.all([
     getDiaryDay(user.id, day),
     getDailyTargets(user.id),
     listLoggedDays(user.id, addDays(today, -400), today),
+    getDailyTotals(user.id, day, daysBetween(weekStart(day), day) + 1),
   ]);
+  const weekly = targets ? weeklyBudget({ day, targetKcal: targets.kcal, dailyKcal: weekTotals }) : null;
 
   return (
     <>
@@ -33,7 +38,7 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
         <DayNavigator day={day} today={today} loggedDays={loggedDays} />
       </header>
       <ScreenBody>
-        <DailySummary totals={diary.totals} targets={targets} />
+        <DailySummary totals={diary.totals} targets={targets} weekly={weekly} />
         <div className="mt-2">
           {diary.meals.map((meal) => (
             <MealSection key={meal.meal} meal={meal} day={day} />
