@@ -94,6 +94,11 @@ e2e/              test Playwright
 
 ## Deploy su Vercel
 
-1. Importa il repository su Vercel.
-2. Imposta le variabili d'ambiente con i valori del branch Neon `main` e `BETTER_AUTH_URL` con l'URL di produzione.
-3. Prima del deploy applica le migrazioni con `pnpm db:migrate:production`.
+Produzione: https://bilancia-cyan.vercel.app (progetto `bilancia`, funzioni in `fra1` accanto al database Neon).
+
+```bash
+pnpm db:migrate:production       # prima, se ci sono nuove migrazioni
+npx vercel deploy --prod
+```
+
+Le variabili d'ambiente di produzione sono già impostate su Vercel e puntano al branch Neon `main`. `.vercelignore` impedisce di caricare i file `.env*` locali.
