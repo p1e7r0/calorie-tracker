@@ -31,6 +31,9 @@ export const auth = betterAuth({
       });
     },
   },
+  user: {
+    deleteUser: { enabled: true },
+  },
   socialProviders:
     googleClientId && googleClientSecret
       ? { google: { clientId: googleClientId, clientSecret: googleClientSecret } }
