@@ -101,12 +101,7 @@ export async function searchFoods(userId: string, query: string, limit = 30) {
   const conditions = searchConditions(query);
   if (!conditions) return [];
   const normalizedQuery = query.trim();
-  const usage = database
-    .select({ foodId: diaryEntry.foodId, uses: sql<number>`count(*)`.as("uses") })
-    .from(diaryEntry)
-    .where(eq(diaryEntry.userId, userId))
-    .groupBy(diaryEntry.foodId)
-    .as("usage");
+  const usage = usageSubquery(userId);
 
   const rows = await database
     .select(foodColumns)
@@ -145,13 +140,36 @@ export async function recentFoods(userId: string, limit = 15) {
   return toLoggableFoods(userId, rows);
 }
 
+function usageSubquery(userId: string) {
+  return database
+    .select({ foodId: diaryEntry.foodId, uses: sql<number>`count(*)`.as("uses") })
+    .from(diaryEntry)
+    .where(eq(diaryEntry.userId, userId))
+    .groupBy(diaryEntry.foodId)
+    .as("usage");
+}
+
 export async function favoriteFoods(userId: string) {
+  const usage = usageSubquery(userId);
   const rows = await database
     .select(foodColumns)
     .from(food)
     .innerJoin(favoriteFood, and(eq(favoriteFood.foodId, food.id), eq(favoriteFood.userId, userId)))
+    .leftJoin(usage, eq(usage.foodId, food.id))
     .where(visibleFoodCondition(userId))
-    .orderBy(food.name);
+    .orderBy(sql`coalesce(${usage.uses}, 0) desc`, food.name);
+  return toLoggableFoods(userId, rows);
+}
+
+export async function mostUsedFoods(userId: string, limit = 40) {
+  const usage = usageSubquery(userId);
+  const rows = await database
+    .select(foodColumns)
+    .from(food)
+    .innerJoin(usage, eq(usage.foodId, food.id))
+    .where(visibleFoodCondition(userId))
+    .orderBy(sql`${usage.uses} desc`, food.name)
+    .limit(limit);
   return toLoggableFoods(userId, rows);
 }
 
@@ -171,11 +189,13 @@ export async function getLoggableFood(userId: string, foodId: string) {
 }
 
 export async function listOwnFoods(userId: string) {
+  const usage = usageSubquery(userId);
   const rows = await database
     .select(foodColumns)
     .from(food)
+    .leftJoin(usage, eq(usage.foodId, food.id))
     .where(and(eq(food.ownerId, userId), isNull(food.archivedAt)))
-    .orderBy(food.name);
+    .orderBy(sql`coalesce(${usage.uses}, 0) desc`, food.name);
   return toLoggableFoods(userId, rows);
 }
 
