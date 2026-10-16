@@ -58,6 +58,8 @@ export const profile = pgTable("profile", {
   targetCarbsG: integer(),
   targetFatG: integer(),
   targetsCustomized: boolean().notNull().default(false),
+  reminderEvening: boolean().notNull().default(false),
+  reminderWeighInWeekday: integer(),
   ...timestamps,
 });
 
@@ -280,4 +282,22 @@ export const aiRequest = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("ai_request_user_created_index").on(table.userId, table.createdAt)],
+);
+
+export const pushSubscription = pgTable(
+  "push_subscription",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    endpoint: text().notNull(),
+    p256dh: text().notNull(),
+    auth: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("push_subscription_endpoint_unique").on(table.endpoint),
+    index("push_subscription_user_index").on(table.userId),
+  ],
 );

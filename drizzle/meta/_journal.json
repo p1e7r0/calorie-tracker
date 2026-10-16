@@ -50,6 +50,13 @@
       "when": 1792137477580,
       "tag": "0006_diary_entry_extra_nutrients",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792137684359,
+      "tag": "0007_push_reminders",
+      "breakpoints": true
     }
   ]
 }

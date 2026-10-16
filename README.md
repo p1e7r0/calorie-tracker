@@ -44,6 +44,8 @@ docker compose up -d          # postgres://calorie:calorie@localhost:5433/calori
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Facoltative: attivano «Continua con Google» |
 | `ANTHROPIC_API_KEY` | Facoltativa: attiva la foto dell'etichetta e «Descrivi il pasto» (massimo 40 richieste al giorno per utente). `ANTHROPIC_MODEL` cambia il modello, di default `claude-haiku-5-5` |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Facoltative: email per il reset della password. In sviluppo, senza, il link compare nel log del server |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Facoltative: promemoria con notifiche push (`npx web-push generate-vapid-keys`) |
+| `CRON_SECRET` | Protegge i job `/api/cron/*` dei promemoria, lanciati da Vercel Cron alle 19 e alle 6 UTC |
 | `LEGACY_MONGODB_URI` | Solo per lo script di migrazione dal vecchio MongoDB |
 
 `.env.local` punta al branch `dev`, `.env.production.local` al branch `main`. Entrambi sono esclusi da git.
