@@ -75,7 +75,7 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - `measurement`, `profile` (un record per utente, target e promemoria), `ai_request` (limite AI), `push_subscription`.
 - Tabelle better-auth: `user`, `session`, `account`, `verification`.
 - Tabelle OAuth del connettore per Claude (better-auth `jwt` + `@better-auth/mcp`): `jwks`, `oauth_client`, `oauth_resource`, `oauth_client_resource`, `oauth_access_token`, `oauth_refresh_token`, `oauth_consent`, `oauth_client_assertion`.
-- Migrazioni `0000`-`0008`; quelle custom (0001, 0002, 0004) contengono estensioni, funzioni di ricerca e la FK differita.
+- Migrazioni `0000`-`0009`; quelle custom (0001, 0002, 0004) contengono estensioni, funzioni di ricerca e la FK differita.
 
 ## Glossario
 - **Catalogo globale**: alimenti condivisi (`owner_id NULL`), dal dataset svizzero legacy o importati da Open Food Facts; nessun utente li modifica.
@@ -94,8 +94,8 @@ L'utente ha scelto sempre l'opzione raccomandata.
 Aggiornato al 2026-10-16. Per lo stato reale usa `git log` e `git status`.
 - Tutti i task T01-T32 sono completati, mergiati in `main` e in produzione dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
 - Ultimo merge in `main`: `feature/claude-connector` (T32, connettore MCP per Claude), verificato in produzione con uno smoke test del flusso OAuth completo.
-- Migrazioni fino a `0008_oauth_provider` applicate sia a dev sia a main.
-- Connettore per Claude: da provare con claude.ai reale (credenziali da Profilo › Impostazioni › Claude); il client usa `client_secret_basic`, da cambiare se claude.ai invia il segreto in altro modo.
+- Migrazioni fino a `0009_claude_client_secret_post` applicate sia a dev sia a main.
+- Connettore per Claude: da provare con claude.ai reale (credenziali da Profilo › Impostazioni › Claude); il client usa `client_secret_post` perché claude.ai (SDK MCP Python) invia il segreto nel corpo della richiesta; con `client_secret_basic` lo scambio del token rispondeva 400 `invalid_client`.
 - Funzioni AI nascoste in produzione finché manca `ANTHROPIC_API_KEY`; link "Password dimenticata" nascosto finché mancano `RESEND_API_KEY` ed `EMAIL_FROM`; login Google assente senza credenziali OAuth.
 
 ## Punti aperti e idee

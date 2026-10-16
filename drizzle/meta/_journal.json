@@ -64,6 +64,13 @@
       "when": 1792149497507,
       "tag": "0008_oauth_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792151777929,
+      "tag": "0009_claude_client_secret_post",
+      "breakpoints": true
     }
   ]
 }
