@@ -52,6 +52,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 ## Infrastruttura
 
 - Neon: progetto `calorie-tracker` (`divine-recipe-92638535`), organizzazione personale `pietro@balestra.dev`, regione `aws-eu-central-1`, Postgres 18. Branch `main` (produzione) e `dev` (sviluppo). Schema e catalogo comune (1080 alimenti) già presenti su entrambi.
+- Vercel: progetto `bilancia` nello spazio personale `p1e7r0s-projects` (Hobby), produzione su https://bilancia-cyan.vercel.app. Funzioni in `fra1` (Francoforte), accanto al database. Variabili di produzione: `DATABASE_URL`, `DATABASE_URL_UNPOOLED` (branch `main`), `BETTER_AUTH_SECRET` (diverso da quello locale), `BETTER_AUTH_URL`, `BETTER_AUTH_TRUSTED_ORIGINS` (alias `bilancia-p1e7r0s-projects.vercel.app`). Deploy dalla CLI, senza collegamento a GitHub; `.vercelignore` esclude i file `.env*`.
 - Strumenti per gli agenti: skill Neon (`neon`, `neon-postgres`, `neon-postgres-branches`) in `.claude/skills/`, server MCP Neon con OAuth in `.mcp.json`.
 - Sviluppo locale alternativo: Postgres 17 in Docker (`docker-compose.yml`, porta 5433).
 
