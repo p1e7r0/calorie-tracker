@@ -1,5 +1,6 @@
 "use server";
 
+import { eq } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { database } from "@/db";
@@ -7,6 +8,7 @@ import { measurement, profile } from "@/db/schema";
 import { requireUserId } from "@/lib/auth/session";
 import { isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { ageOn, computeDailyTargets } from "@/lib/nutrition/goals";
+import { getAdaptiveGoal } from "@/server/adaptive-goal";
 import { getProfileWithLatestWeight } from "@/server/profile";
 import type { ActionResult } from "./diary";
 
@@ -83,6 +85,28 @@ export async function saveProfile(input: ProfileInput): Promise<ActionResult<{ k
     if (error instanceof z.ZodError) {
       return { ok: false, error: error.issues[0]?.message ?? "Controlla i valori inseriti." };
     }
+    return { ok: false, error: error instanceof Error ? error.message : "Qualcosa non ha funzionato. Riprova." };
+  }
+}
+
+export async function applyAdaptiveGoal(): Promise<ActionResult<{ kcal: number }>> {
+  try {
+    const userId = await requireUserId();
+    const { suggestion } = await getAdaptiveGoal(userId, todayIsoDate());
+    if (!suggestion) throw new Error("Servono più dati per stimare il tuo fabbisogno.");
+    await database
+      .update(profile)
+      .set({
+        targetKcal: suggestion.kcal,
+        targetProteinG: suggestion.proteinG,
+        targetCarbsG: suggestion.carbsG,
+        targetFatG: suggestion.fatG,
+        targetsCustomized: true,
+      })
+      .where(eq(profile.userId, userId));
+    refresh();
+    return { ok: true, data: { kcal: suggestion.kcal } };
+  } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Qualcosa non ha funzionato. Riprova." };
   }
 }
