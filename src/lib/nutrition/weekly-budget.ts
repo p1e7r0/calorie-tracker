@@ -21,9 +21,12 @@ export function weeklyBudget({
 }): WeeklyBudget {
   const start = weekStart(day);
   const end = addDays(start, 6);
-  const inWeek = dailyKcal.filter((entry) => entry.day >= start && entry.day <= end);
-  const eatenKcal = inWeek.reduce((sum, entry) => sum + entry.kcal, 0);
-  const eatenBeforeDay = inWeek.filter((entry) => entry.day < day).reduce((sum, entry) => sum + entry.kcal, 0);
+  const kcalByDay = new Map(
+    dailyKcal.filter((entry) => entry.day >= start && entry.day <= day).map((entry) => [entry.day, entry.kcal]),
+  );
+  const pastDays = Array.from({ length: daysBetween(start, day) }, (_, index) => addDays(start, index));
+  const eatenBeforeDay = pastDays.reduce((sum, pastDay) => sum + (kcalByDay.get(pastDay) ?? targetKcal), 0);
+  const eatenKcal = eatenBeforeDay + (kcalByDay.get(day) ?? 0);
   const budgetKcal = targetKcal * 7;
   const daysLeft = daysBetween(day, end) + 1;
   return {

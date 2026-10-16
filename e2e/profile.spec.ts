@@ -43,7 +43,9 @@ test("shows the weekly budget once a goal is set", async ({ page }) => {
   await page.getByRole("button", { name: "Aggiungi a pranzo" }).click();
   await page.getByRole("button", { name: "Fatto" }).click();
 
+  const pastDaysThisWeek = (new Date().getDay() + 6) % 7;
+  const remaining = 14000 - pastDaysThisWeek * 2000 - 500;
   const week = page.getByRole("group", { name: "Budget della settimana" });
-  await expect(week.getByText("13.500 kcal rimaste")).toBeVisible();
+  await expect(week.getByText(`${new Intl.NumberFormat("it-IT").format(remaining)} kcal rimaste`)).toBeVisible();
   await expect(week.getByText("su 14.000")).toBeVisible();
 });

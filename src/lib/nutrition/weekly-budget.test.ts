@@ -24,6 +24,15 @@ describe("weeklyBudget", () => {
     });
   });
 
+  it("counts past days without entries as on target", () => {
+    const budget = weeklyBudget({
+      day: "2026-10-16",
+      targetKcal: 2000,
+      dailyKcal: [{ day: "2026-10-14", kcal: 2600 }],
+    });
+    expect(budget).toMatchObject({ eatenKcal: 8600, remainingKcal: 5400, daysLeft: 3, suggestedTodayKcal: 1800 });
+  });
+
   it("never suggests a negative amount", () => {
     const budget = weeklyBudget({
       day: "2026-10-18",
