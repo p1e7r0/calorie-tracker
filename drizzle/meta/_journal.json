@@ -43,6 +43,13 @@
       "when": 1792136998368,
       "tag": "0005_ai_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792137477580,
+      "tag": "0006_diary_entry_extra_nutrients",
+      "breakpoints": true
     }
   ]
 }

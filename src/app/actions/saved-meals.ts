@@ -8,6 +8,7 @@ import { diaryEntry, savedMeal, savedMealItem } from "@/db/schema";
 import { requireUserId } from "@/lib/auth/session";
 import { isIsoDate } from "@/lib/nutrition/days";
 import { mealTypes } from "@/lib/nutrition/meals";
+import { roundExtras } from "@/lib/nutrition/extra-nutrients";
 import { roundNutrients } from "@/lib/nutrition/nutrients";
 import { resolveEntryValues } from "@/server/diary-entries";
 import { getSavedMeal } from "@/server/saved-meals";
@@ -91,9 +92,10 @@ export async function logSavedMeal(
       ),
     );
     await database.insert(diaryEntry).values(
-      values.map(({ nutrients, ...entry }) => ({
+      values.map(({ nutrients, extras, ...entry }) => ({
         ...entry,
         ...roundNutrients(nutrients),
+        ...roundExtras(extras),
         userId,
         day,
         meal: mealType,

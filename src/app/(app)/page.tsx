@@ -38,7 +38,7 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
         <DayNavigator day={day} today={today} loggedDays={loggedDays} />
       </header>
       <ScreenBody>
-        <DailySummary totals={diary.totals} targets={targets} weekly={weekly} />
+        <DailySummary totals={diary.totals} extras={diary.extras} targets={targets} weekly={weekly} />
         <div className="mt-2">
           {diary.meals.map((meal) => (
             <MealSection key={meal.meal} meal={meal} day={day} />

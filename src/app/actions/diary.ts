@@ -15,7 +15,13 @@ import {
   scaleNutrients,
 } from "@/lib/nutrition/nutrients";
 import { recipePortionNutrients } from "@/lib/nutrition/recipe";
-import { entryItemSchema, recipeNutritionFromLoggable, resolveEntryValues } from "@/server/diary-entries";
+import { extrasFromRow, multiplyExtras, roundExtras, scaleExtras } from "@/lib/nutrition/extra-nutrients";
+import {
+  entryItemSchema,
+  recipeNutritionFromLoggable,
+  recipePortionExtras,
+  resolveEntryValues,
+} from "@/server/diary-entries";
 import { getVisibleFood } from "@/server/foods";
 import { getLoggableRecipe } from "@/server/recipes";
 
@@ -43,10 +49,10 @@ export async function addDiaryEntry(input: AddEntryInput): Promise<ActionResult<
   try {
     const userId = await requireUserId();
     const { day, meal: mealType, item } = addEntrySchema.parse(input);
-    const { nutrients, ...values } = await resolveEntryValues(userId, item);
+    const { nutrients, extras, ...values } = await resolveEntryValues(userId, item);
     const [created] = await database
       .insert(diaryEntry)
-      .values({ ...values, ...roundNutrients(nutrients), userId, day, meal: mealType })
+      .values({ ...values, ...roundNutrients(nutrients), ...roundExtras(extras), userId, day, meal: mealType })
       .returning({ id: diaryEntry.id });
     refresh();
     return { ok: true, data: { id: created.id } };
@@ -82,6 +88,7 @@ export async function updateDiaryEntry(input: UpdateEntryInput): Promise<ActionR
       fat: entry.fat,
     };
     let nutrients = snapshot;
+    let extras = extrasFromRow(entry);
     let grams = entry.grams;
     let servings = entry.servings;
     let portionLabel = entry.portionLabel;
@@ -89,12 +96,16 @@ export async function updateDiaryEntry(input: UpdateEntryInput): Promise<ActionR
     if (entry.kind === "quick") {
       if (update.kcal !== null && update.kcal !== undefined) {
         nutrients = entry.kcal > 0 ? multiplyNutrients(snapshot, update.kcal / entry.kcal) : { ...snapshot, kcal: update.kcal };
+        extras = entry.kcal > 0 ? multiplyExtras(extras, update.kcal / entry.kcal) : extras;
       }
     } else if (entry.kind === "food" && update.grams) {
       const foodRow = entry.foodId ? await getVisibleFood(userId, entry.foodId) : null;
       nutrients = foodRow
         ? scaleNutrients(foodRow, update.grams)
         : multiplyNutrients(snapshot, entry.grams ? update.grams / entry.grams : 1);
+      extras = foodRow
+        ? scaleExtras(extrasFromRow(foodRow), update.grams)
+        : multiplyExtras(extras, entry.grams ? update.grams / entry.grams : 1);
       if (update.grams !== entry.grams) portionLabel = null;
       grams = update.grams;
     } else if (entry.kind === "recipe" && (update.grams || update.servings)) {
@@ -102,10 +113,12 @@ export async function updateDiaryEntry(input: UpdateEntryInput): Promise<ActionR
       const portion = update.grams ? { grams: update.grams } : { servings: update.servings! };
       if (recipe) {
         nutrients = recipePortionNutrients(recipeNutritionFromLoggable(recipe), portion);
+        extras = await recipePortionExtras(recipe.id, portion);
       } else {
         const previous = entry.grams ?? entry.servings ?? 1;
         const next = update.grams ?? update.servings ?? 1;
         nutrients = multiplyNutrients(snapshot, next / previous);
+        extras = multiplyExtras(extras, next / previous);
       }
       grams = update.grams ?? null;
       servings = update.grams ? null : (update.servings ?? null);
@@ -113,7 +126,7 @@ export async function updateDiaryEntry(input: UpdateEntryInput): Promise<ActionR
 
     await database
       .update(diaryEntry)
-      .set({ meal: update.meal, grams, servings, portionLabel, ...roundNutrients(nutrients) })
+      .set({ meal: update.meal, grams, servings, portionLabel, ...roundNutrients(nutrients), ...roundExtras(extras) })
       .where(and(eq(diaryEntry.id, entry.id), eq(diaryEntry.userId, userId)));
     refresh();
     return { ok: true, data: undefined };
@@ -162,6 +175,7 @@ export async function restoreDiaryEntry(entry: DeletedEntry): Promise<ActionResu
         protein: entry.protein,
         carbs: entry.carbs,
         fat: entry.fat,
+        ...extrasFromRow(entry),
       })
       .onConflictDoNothing();
     refresh();
@@ -197,6 +211,7 @@ export async function duplicateDiaryEntry(id: string): Promise<ActionResult<{ id
         protein: source.protein,
         carbs: source.carbs,
         fat: source.fat,
+        ...extrasFromRow(source),
       })
       .returning({ id: diaryEntry.id });
     refresh();
@@ -238,6 +253,7 @@ export async function copyMeal(input: z.input<typeof copyMealSchema>): Promise<A
         protein: entry.protein,
         carbs: entry.carbs,
         fat: entry.fat,
+        ...extrasFromRow(entry),
       })),
     );
     refresh();

@@ -115,3 +115,18 @@ test("swipes an entry right to duplicate it and left to delete it", async ({ pag
   await entries.first().click();
   await expect(page.getByRole("dialog")).toBeVisible();
 });
+
+test("shows fiber, sugars, saturated fat and salt for the day", async ({ page }) => {
+  await registerUser(page);
+  await page.goto("/add?meal=snack");
+  await page.getByRole("searchbox", { name: "Cerca un alimento o una ricetta" }).fill("mela cruda");
+  await page.getByRole("button", { name: /^Mela, cruda/ }).first().click();
+  await page.getByLabel("Quantità").fill("200");
+  await page.getByRole("button", { name: "Aggiungi a spuntini" }).click();
+  await page.getByRole("button", { name: "Fatto" }).click();
+
+  const summary = page.getByRole("region", { name: "Riepilogo del giorno" });
+  await summary.getByText("Fibre, zuccheri, saturi e sale").click();
+  await expect(summary.getByText("almeno 25 g")).toBeVisible();
+  await expect(summary.locator("dd").filter({ hasText: "almeno 25 g" })).toContainText("4,2 g");
+});
