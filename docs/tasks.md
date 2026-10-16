@@ -35,4 +35,4 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T28 Budget settimanale
 - [x] T29 Esporta i dati in CSV ed elimina l'account
 - [x] T30 Fibre, zuccheri, grassi saturi e sale nel diario
-- [ ] T31 Promemoria con notifiche push della PWA
+- [x] T31 Promemoria con notifiche push della PWA

@@ -7,6 +7,7 @@ import { toFormNumber } from "@/components/food/food-form-values";
 import { AccountSummary } from "@/components/profile/account-summary";
 import { AdaptiveGoalCard } from "@/components/profile/adaptive-goal-card";
 import { DeleteAccountButton } from "@/components/profile/delete-account-button";
+import { ReminderSettings } from "@/components/profile/reminder-settings";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { buttonVariants } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { todayIsoDate } from "@/lib/nutrition/days";
 import { getAdaptiveGoal } from "@/server/adaptive-goal";
 import { getProfileWithLatestWeight } from "@/server/profile";
+import { isPushEnabled } from "@/server/push";
 
 export const metadata: Metadata = { title: "Profilo" };
 
@@ -52,6 +54,16 @@ export default function ProfilePage({ searchParams }: PageProps<"/profile">) {
                 <AccountSummary />
               </Suspense>
             </section>
+            {isPushEnabled ? (
+              <section aria-labelledby="reminders-heading" className="flex flex-col gap-2">
+                <h2 id="reminders-heading" className="text-sm font-medium text-muted-foreground">
+                  Promemoria
+                </h2>
+                <Suspense fallback={<Skeleton className="h-24 w-full" />}>
+                  <Reminders />
+                </Suspense>
+              </section>
+            ) : null}
             <section aria-labelledby="theme-heading" className="flex flex-col gap-2">
               <h2 id="theme-heading" className="text-sm font-medium text-muted-foreground">
                 Tema
@@ -129,5 +141,16 @@ async function AdaptiveGoal() {
     <div className="mt-6">
       <AdaptiveGoalCard adaptiveGoal={adaptiveGoal} />
     </div>
+  );
+}
+
+async function Reminders() {
+  const user = await getCurrentUser();
+  const { profile } = await getProfileWithLatestWeight(user.id);
+  return (
+    <ReminderSettings
+      initialEvening={profile?.reminderEvening ?? false}
+      initialWeighInWeekday={profile?.reminderWeighInWeekday ?? null}
+    />
   );
 }
