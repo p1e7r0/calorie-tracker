@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { database } from "@/db";
 import { diaryEntry, profile } from "@/db/schema";
 import { mealTypes, type MealType } from "@/lib/nutrition/meals";
@@ -30,6 +30,14 @@ export type DailyTargetsView = {
   carbsG: number;
   fatG: number;
 } | null;
+
+export async function listLoggedDays(userId: string, fromDay: string, toDay: string) {
+  const rows = await database
+    .selectDistinct({ day: diaryEntry.day })
+    .from(diaryEntry)
+    .where(and(eq(diaryEntry.userId, userId), gte(diaryEntry.day, fromDay), lte(diaryEntry.day, toDay)));
+  return rows.map((row) => row.day);
+}
 
 export async function getDiaryDay(userId: string, day: string) {
   const rows = await database

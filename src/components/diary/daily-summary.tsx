@@ -14,7 +14,7 @@ export function DailySummary({ totals, targets }: { totals: Nutrients; targets: 
   if (!targets) {
     return (
       <section aria-label="Riepilogo del giorno" className="rounded-2xl bg-card p-4 ring-1 ring-border">
-        <p className="text-sm text-muted-foreground">Mangiate oggi</p>
+        <p className="text-sm text-muted-foreground">Mangiate</p>
         <p className="font-heading text-5xl leading-none font-semibold tracking-tight">
           {formatKcal(totals.kcal)}
           <span className="ml-1.5 text-base font-medium text-muted-foreground">kcal</span>

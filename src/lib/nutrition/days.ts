@@ -56,6 +56,18 @@ export function formatDayLabel(isoDate: string, today: string) {
   return dayFormatter.format(new Date(`${isoDate}T12:00:00Z`));
 }
 
+const longDayFormatter = new Intl.DateTimeFormat("it-IT", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  timeZone: "UTC",
+});
+
+export function formatLongDay(isoDate: string) {
+  const label = longDayFormatter.format(new Date(`${isoDate}T12:00:00Z`));
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function formatShortDay(isoDate: string) {
   return shortDayFormatter.format(new Date(`${isoDate}T12:00:00Z`));
 }

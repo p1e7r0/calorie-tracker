@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, currentHour, formatDayLabel, isIsoDate, todayIsoDate } from "./days";
+import { addDays, currentHour, formatDayLabel, formatLongDay, isIsoDate, todayIsoDate } from "./days";
 import { suggestMeal } from "./meals";
 import { formatGrams, formatKcal, parseDecimal } from "./format";
 
@@ -49,5 +49,11 @@ describe("format", () => {
     expect(parseDecimal("12,5")).toBe(12.5);
     expect(parseDecimal(" ")).toBeNull();
     expect(parseDecimal("abc")).toBeNull();
+  });
+});
+
+describe("formatLongDay", () => {
+  it("writes the weekday and month in full with a capital letter", () => {
+    expect(formatLongDay("2026-10-07")).toBe("Mercoledì 7 ottobre");
   });
 });

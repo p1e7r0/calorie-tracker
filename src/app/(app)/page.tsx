@@ -5,8 +5,8 @@ import { DayNavigator } from "@/components/diary/day-navigator";
 import { MealSection } from "@/components/diary/meal-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
-import { isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
-import { getDailyTargets, getDiaryDay } from "@/server/diary";
+import { addDays, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
+import { getDailyTargets, getDiaryDay, listLoggedDays } from "@/server/diary";
 
 export default function TodayPage({ searchParams }: PageProps<"/">) {
   return (
@@ -21,12 +21,16 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   const { date } = await searchParams;
   const today = todayIsoDate();
   const day = isIsoDate(date) ? date : today;
-  const [diary, targets] = await Promise.all([getDiaryDay(user.id, day), getDailyTargets(user.id)]);
+  const [diary, targets, loggedDays] = await Promise.all([
+    getDiaryDay(user.id, day),
+    getDailyTargets(user.id),
+    listLoggedDays(user.id, addDays(today, -400), today),
+  ]);
 
   return (
     <>
-      <header className="-ml-2 flex h-14 shrink-0 items-center">
-        <DayNavigator day={day} today={today} />
+      <header className="flex h-16 shrink-0 items-center">
+        <DayNavigator day={day} today={today} loggedDays={loggedDays} />
       </header>
       <ScreenBody>
         <DailySummary totals={diary.totals} targets={targets} />
@@ -43,8 +47,8 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
 function TodaySkeleton() {
   return (
     <>
-      <div className="flex h-14 shrink-0 items-center">
-        <Skeleton className="h-8 w-32" />
+      <div className="flex h-16 shrink-0 items-center">
+        <Skeleton className="h-10 w-40" />
       </div>
       <ScreenBody>
         <Skeleton className="h-44 w-full rounded-2xl" />
