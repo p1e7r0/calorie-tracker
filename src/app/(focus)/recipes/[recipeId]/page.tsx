@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { BackHeader } from "@/components/app-shell/back-header";
+import { ScreenBody } from "@/components/app-shell/screen";
 import { FavoriteButton } from "@/components/food/favorite-button";
 import { toFormNumber } from "@/components/food/food-form-values";
 import { ArchiveRecipeButton } from "@/components/recipes/archive-recipe-button";
@@ -18,7 +19,13 @@ export const metadata: Metadata = { title: "Ricetta" };
 
 export default function RecipePage({ params }: PageProps<"/recipes/[recipeId]">) {
   return (
-    <Suspense fallback={<Skeleton className="mt-16 h-64 w-full" />}>
+    <Suspense
+      fallback={
+        <ScreenBody className="pt-14">
+          <Skeleton className="h-64 w-full" />
+        </ScreenBody>
+      }
+    >
       <Recipe params={params} />
     </Suspense>
   );

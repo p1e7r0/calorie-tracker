@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { lookupBarcode } from "@/app/actions/open-food-facts";
+import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { MealPicker } from "@/components/diary/meal-picker";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
@@ -73,7 +74,6 @@ function AddScreenContent({
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isLookingUp, startLookup] = useTransition();
 
-
   function handleBarcode(barcode: string) {
     startLookup(async () => {
       const result = await lookupBarcode(barcode);
@@ -99,70 +99,45 @@ function AddScreenContent({
   }
 
   return (
-    <div className="flex flex-1 flex-col pb-24">
-      <div className="sticky top-0 z-10 -mx-4 flex flex-col gap-2 bg-background/95 px-4 pt-2 pb-3 backdrop-blur-md">
-        <div className="flex items-center gap-1">
-          <Link href={backHref} aria-label="Torna al diario" className={buttonVariants({ variant: "ghost", size: "icon" })}>
-            <ArrowLeftIcon />
-          </Link>
-          <InputGroup className="h-11 flex-1">
-            <InputGroupAddon>
-              <SearchIcon />
-            </InputGroupAddon>
-            <InputGroupInput
-              type="search"
-              autoFocus
-              enterKeyHint="search"
-              placeholder="Cerca un alimento o una ricetta"
-              aria-label="Cerca un alimento o una ricetta"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            <InputGroupAddon align="inline-end">
-              {query ? (
-                <InputGroupButton size="icon-xs" aria-label="Cancella ricerca" onClick={() => setQuery("")}>
-                  <XIcon />
-                </InputGroupButton>
-              ) : (
-                <InputGroupButton size="icon-sm" aria-label="Scansiona codice a barre" onClick={() => setScannerOpen(true)}>
-                  <ScanBarcodeIcon />
-                </InputGroupButton>
-              )}
-            </InputGroupAddon>
-          </InputGroup>
-        </div>
-        <MealPicker value={meal} onValueChange={setMeal} className="w-full" />
-      </div>
+    <>
+      <header className="-ml-2 flex h-14 shrink-0 items-center gap-1">
+        <Link href={backHref} aria-label="Torna al diario" className={buttonVariants({ variant: "ghost", size: "icon" })}>
+          <ArrowLeftIcon />
+        </Link>
+        <MealPicker value={meal} onValueChange={setMeal} className="flex-1" />
+      </header>
 
       {search.isActive ? (
-        <SearchResultsList
-          query={trimmedQuery}
-          isLoading={search.isLoading}
-          failed={search.failed}
-          results={search.results}
-          createHref={createHref}
-          onSelect={setSelectedItem}
-          onOpenFood={setSelectedItem}
-        />
+        <ScreenBody>
+          <SearchResultsList
+            query={trimmedQuery}
+            isLoading={search.isLoading}
+            failed={search.failed}
+            results={search.results}
+            createHref={createHref}
+            onSelect={setSelectedItem}
+            onOpenFood={setSelectedItem}
+          />
+        </ScreenBody>
       ) : (
-        <>
-          <div className="grid grid-cols-2 gap-2 py-1">
-            <Button variant="outline" size="lg" onClick={() => setQuickKcalOpen(true)}>
-              <FlameIcon />
-              Kcal veloci
-            </Button>
-            <Link href={createHref} className={buttonVariants({ variant: "outline", size: "lg" })}>
-              <PlusIcon />
-              Nuovo alimento
-            </Link>
-          </div>
-          <Tabs defaultValue={recentFoods.length > 0 ? "recent" : "favorites"} className="mt-3">
-            <TabsList className="w-full">
-              <TabsTrigger value="recent">Recenti</TabsTrigger>
-              <TabsTrigger value="favorites">Preferiti</TabsTrigger>
-              <TabsTrigger value="recipes">Ricette</TabsTrigger>
-              <TabsTrigger value="meals">Pasti</TabsTrigger>
-            </TabsList>
+        <Tabs defaultValue={recentFoods.length > 0 ? "recent" : "favorites"} className="min-h-0 flex-1 gap-0">
+          <TabsList className="mb-2 w-full shrink-0">
+            <TabsTrigger value="recent">Recenti</TabsTrigger>
+            <TabsTrigger value="favorites">Preferiti</TabsTrigger>
+            <TabsTrigger value="recipes">Ricette</TabsTrigger>
+            <TabsTrigger value="meals">Pasti</TabsTrigger>
+          </TabsList>
+          <ScreenBody>
+            <div className="grid grid-cols-2 gap-2 py-1">
+              <Button variant="outline" size="lg" onClick={() => setQuickKcalOpen(true)}>
+                <FlameIcon />
+                Kcal veloci
+              </Button>
+              <Link href={createHref} className={buttonVariants({ variant: "outline", size: "lg" })}>
+                <PlusIcon />
+                Nuovo alimento
+              </Link>
+            </div>
             <TabsContent value="recent">
               <ItemList
                 items={recentFoods}
@@ -211,22 +186,45 @@ function AddScreenContent({
                 </ul>
               )}
             </TabsContent>
-          </Tabs>
-        </>
+          </ScreenBody>
+        </Tabs>
       )}
 
-      {loggedCount > 0 ? (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/95 pb-safe backdrop-blur-md">
-          <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-3">
+      <ScreenFooter className="flex flex-col gap-2">
+        {loggedCount > 0 ? (
+          <div className="flex items-center justify-between gap-3">
             <span className="text-sm text-muted-foreground">
               {loggedCount === 1 ? "1 voce aggiunta" : `${loggedCount} voci aggiunte`}
             </span>
-            <Button size="lg" onClick={() => router.push(backHref)}>
-              Fatto
-            </Button>
+            <Button onClick={() => router.push(backHref)}>Fatto</Button>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+        <InputGroup className="h-11 bg-card">
+          <InputGroupAddon>
+            <SearchIcon />
+          </InputGroupAddon>
+          <InputGroupInput
+            type="search"
+            autoFocus
+            enterKeyHint="search"
+            placeholder="Cerca un alimento o una ricetta"
+            aria-label="Cerca un alimento o una ricetta"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <InputGroupAddon align="inline-end">
+            {query ? (
+              <InputGroupButton size="icon-xs" aria-label="Cancella ricerca" onClick={() => setQuery("")}>
+                <XIcon />
+              </InputGroupButton>
+            ) : (
+              <InputGroupButton size="icon-sm" aria-label="Scansiona codice a barre" onClick={() => setScannerOpen(true)}>
+                <ScanBarcodeIcon />
+              </InputGroupButton>
+            )}
+          </InputGroupAddon>
+        </InputGroup>
+      </ScreenFooter>
 
       {selectedItem ? (
         <LogItemDrawer
@@ -262,7 +260,7 @@ function AddScreenContent({
           onOpenChange={(open) => setQuickKcalOpen(open)}
         />
       ) : null}
-    </div>
+    </>
   );
 }
 

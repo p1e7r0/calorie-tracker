@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { BackHeader } from "@/components/app-shell/back-header";
+import { ScreenBody } from "@/components/app-shell/screen";
 import { FoodForm } from "@/components/food/food-form";
 import { emptyFoodFormValues } from "@/components/food/food-form-values";
 import { safeInternalPath } from "@/lib/safe-path";
@@ -21,15 +22,17 @@ async function NewFood({ searchParams }: Pick<PageProps<"/food/new">, "searchPar
   return (
     <>
       <BackHeader title="Nuovo alimento" backHref={redirectTo ?? "/food"} />
-      <FoodForm
-        submitLabel={redirectTo?.startsWith("/add") ? "Crea e aggiungi" : "Crea alimento"}
-        redirectTo={redirectTo}
-        initialValues={{
-          ...emptyFoodFormValues,
-          name: typeof name === "string" ? name : "",
-          barcode: typeof barcode === "string" ? barcode : "",
-        }}
-      />
+      <ScreenBody>
+        <FoodForm
+          submitLabel={redirectTo?.startsWith("/add") ? "Crea e aggiungi" : "Crea alimento"}
+          redirectTo={redirectTo}
+          initialValues={{
+            ...emptyFoodFormValues,
+            name: typeof name === "string" ? name : "",
+            barcode: typeof barcode === "string" ? barcode : "",
+          }}
+        />
+      </ScreenBody>
     </>
   );
 }
