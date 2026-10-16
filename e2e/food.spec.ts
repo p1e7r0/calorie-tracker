@@ -46,3 +46,12 @@ test("editing a shared food creates a personal copy", async ({ page }) => {
   await expect(page.getByText("50", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Togli dai preferiti" })).toBeVisible();
 });
+
+test("finds foods even with typos", async ({ page }) => {
+  await registerUser(page);
+  await page.goto("/food");
+  await page.getByRole("searchbox", { name: "Cerca nel catalogo" }).fill("mozarela");
+  await expect(page.getByRole("link", { name: /^Mozzarella/ }).first()).toBeVisible();
+  await page.getByRole("searchbox", { name: "Cerca nel catalogo" }).fill("prosiuto crudo");
+  await expect(page.getByRole("link", { name: /^Prosciutto, crudo/ })).toBeVisible();
+});

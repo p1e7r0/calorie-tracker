@@ -2,6 +2,7 @@ import "server-only";
 import { and, desc, eq, inArray, isNull, notInArray, or, sql, type SQL } from "drizzle-orm";
 import { database } from "@/db";
 import { diaryEntry, favoriteFood, food, foodPortion } from "@/db/schema";
+import { allowedTypos, searchWords } from "@/lib/search";
 import type { LoggableFood } from "./loggable";
 
 export function visibleFoodCondition(userId: string): SQL {
@@ -15,19 +16,19 @@ export function visibleFoodCondition(userId: string): SQL {
   )!;
 }
 
-function searchCondition(query: string): SQL | undefined {
-  const words = query
-    .trim()
-    .split(/\s+/)
-    .filter((word) => word.length > 0)
-    .slice(0, 6);
+const foodSearchText = sql`search_text(${food.name} || ' ' || coalesce(${food.brand}, ''))`;
+
+function searchConditions(query: string): { fuzzy: SQL; exact: SQL } | undefined {
+  const words = searchWords(query);
   if (words.length === 0) return undefined;
-  return and(
-    ...words.map(
-      (word) =>
-        sql`search_text(${food.name} || ' ' || coalesce(${food.brand}, '')) like '%' || search_text(${escapeLike(word)}) || '%'`,
-    ),
-  );
+  return {
+    fuzzy: and(
+      ...words.map((word) => sql`fuzzy_word_match(${foodSearchText}, search_text(${word}), ${allowedTypos(word)})`),
+    )!,
+    exact: and(
+      ...words.map((word) => sql`${foodSearchText} like '%' || search_text(${escapeLike(word)}) || '%'`),
+    )!,
+  };
 }
 
 function escapeLike(value: string) {
@@ -97,8 +98,8 @@ async function toLoggableFoods(userId: string, rows: FoodRow[]): Promise<Loggabl
 }
 
 export async function searchFoods(userId: string, query: string, limit = 30) {
-  const condition = searchCondition(query);
-  if (!condition) return [];
+  const conditions = searchConditions(query);
+  if (!conditions) return [];
   const normalizedQuery = query.trim();
   const usage = database
     .select({ foodId: diaryEntry.foodId, uses: sql<number>`count(*)`.as("uses") })
@@ -112,8 +113,9 @@ export async function searchFoods(userId: string, query: string, limit = 30) {
     .from(food)
     .leftJoin(usage, eq(usage.foodId, food.id))
     .leftJoin(favoriteFood, and(eq(favoriteFood.foodId, food.id), eq(favoriteFood.userId, userId)))
-    .where(and(visibleFoodCondition(userId), condition))
+    .where(and(visibleFoodCondition(userId), conditions.fuzzy))
     .orderBy(
+      sql`(${conditions.exact}) desc`,
       sql`(${favoriteFood.foodId} is not null) desc`,
       sql`coalesce(${usage.uses}, 0) desc`,
       sql`(search_text(${food.name}) like search_text(${escapeLike(normalizedQuery)}) || '%') desc`,
