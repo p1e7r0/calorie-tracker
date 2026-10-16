@@ -34,7 +34,7 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center">
+      <header className="flex shrink-0 items-start pt-2 pb-2">
         <DayNavigator day={day} today={today} loggedDays={loggedDays} />
       </header>
       <ScreenBody>
@@ -52,8 +52,8 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
 function TodaySkeleton() {
   return (
     <>
-      <div className="flex h-16 shrink-0 items-center">
-        <Skeleton className="h-10 w-40" />
+      <div className="flex shrink-0 items-start pt-3 pb-3">
+        <Skeleton className="h-12 w-40" />
       </div>
       <ScreenBody>
         <Skeleton className="h-44 w-full rounded-2xl" />
