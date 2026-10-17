@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PullToRefresh } from "@/components/app-shell/pull-to-refresh";
 import { ScreenBody } from "@/components/app-shell/screen";
 import { DailySummary } from "@/components/diary/daily-summary";
 import { DayNavigator } from "@/components/diary/day-navigator";
@@ -37,14 +38,16 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
       <header className="flex shrink-0 items-start pt-2 pb-2">
         <DayNavigator day={day} today={today} loggedDays={loggedDays} />
       </header>
-      <ScreenBody>
-        <DailySummary totals={diary.totals} extras={diary.extras} targets={targets} weekly={weekly} />
-        <div className="mt-2">
-          {diary.meals.map((meal) => (
-            <MealSection key={meal.meal} meal={meal} day={day} />
-          ))}
-        </div>
-      </ScreenBody>
+      <PullToRefresh>
+        <ScreenBody>
+          <DailySummary totals={diary.totals} extras={diary.extras} targets={targets} weekly={weekly} />
+          <div className="mt-2">
+            {diary.meals.map((meal) => (
+              <MealSection key={meal.meal} meal={meal} day={day} />
+            ))}
+          </div>
+        </ScreenBody>
+      </PullToRefresh>
     </>
   );
 }

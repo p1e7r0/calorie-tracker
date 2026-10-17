@@ -58,6 +58,7 @@ Versioni esatte in `package.json`.
 - `VisualViewportSync` (nel root layout) scrive `--viewport-height`, `--viewport-offset-top`, `--status-bar-fallback` e `data-keyboard-open` su `<html>`; usare la variante Tailwind `in-data-keyboard-open:` o `:root[data-keyboard-open]`, non stato React.
 - Utility in `globals.css`: `pt-safe`, `pb-safe`, `pb-safe-or-3`, `app-viewport`.
 - I drawer vivono in un portal fuori dalla shell: `DrawerFooter` vuole `className="pb-[max(1rem,env(safe-area-inset-bottom))]"`. Pattern: montaggio condizionale, sempre `open`, `onOpenChange` che azzera lo stato del genitore.
+- Pull-to-refresh: `PullToRefresh` (`src/components/app-shell/pull-to-refresh.tsx`, logica pura in `src/lib/pull-to-refresh.ts`) avvolge `ScreenBody` solo su Oggi e Progressi; aggiorna con `router.refresh()` dentro una transizione. Non usarlo su form, impostazioni o pagine pubbliche. Si salta su elementi con `touch-action: none`/`pan-x`, dialog e contenitori interni già scrollati. Test in `e2e/pull-to-refresh.spec.ts` (tocchi via CDP, iPhone emulato in Chromium).
 - `e2e/shell.spec.ts` verifica la shell: lanciarlo dopo modifiche al layout.
 
 ### Componenti e stato client
