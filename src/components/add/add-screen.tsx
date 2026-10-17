@@ -2,6 +2,7 @@
 
 import {
   ArrowLeftIcon,
+  CalendarDaysIcon,
   ChefHatIcon,
   FlameIcon,
   PlusIcon,
@@ -13,7 +14,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { lookupBarcode } from "@/app/actions/open-food-facts";
 import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
@@ -38,6 +39,7 @@ import { type SearchResults, useFoodSearch } from "@/components/food/use-food-se
 
 type AddScreenProperties = {
   day: string;
+  dayLabel: string | null;
   initialMeal: MealType;
   recentFoods: LoggableFood[];
   favoriteFoods: LoggableFood[];
@@ -56,6 +58,7 @@ export function AddScreen(properties: AddScreenProperties) {
 
 function AddScreenContent({
   day,
+  dayLabel,
   initialMeal,
   recentFoods,
   favoriteFoods,
@@ -68,11 +71,13 @@ function AddScreenContent({
   const router = useRouter();
   const [meal, setMeal] = useState<MealType>(initialMeal);
   const [query, setQuery] = useState("");
+  const searchInputReference = useRef<HTMLInputElement>(null);
   const [selectedItem, setSelectedItem] = useState<LoggableItem | null>(initialItem);
   const [quickKcalOpen, setQuickKcalOpen] = useState(false);
   const [describeMealOpen, setDescribeMealOpen] = useState(false);
   const [selectedSavedMeal, setSelectedSavedMeal] = useState<SavedMealView | null>(null);
   const [loggedCount, setLoggedCount] = useState(0);
+  const [tab, setTab] = useState(() => (recentFoods.length > 0 ? "recent" : "favorites"));
   const search = useFoodSearch(query);
   const trimmedQuery = query.trim();
   const addHref = `/add?date=${day}&meal=${meal}`;
@@ -98,6 +103,10 @@ function AddScreenContent({
   }
 
   function handleLogged(count = 1) {
+    if (searchInputReference.current?.value) {
+      setQuery("");
+      searchInputReference.current.focus();
+    }
     setSelectedItem(null);
     setQuickKcalOpen(false);
     setDescribeMealOpen(false);
@@ -123,6 +132,12 @@ function AddScreenContent({
         </Link>
         <MealPicker value={meal} onValueChange={setMeal} className="flex-1" />
       </header>
+      {dayLabel ? (
+        <p className="-mt-1 mb-2 flex shrink-0 items-center gap-1.5 text-sm text-muted-foreground">
+          <CalendarDaysIcon className="size-4" aria-hidden="true" />
+          Diario di {dayLabel}
+        </p>
+      ) : null}
 
       {search.isActive ? (
         <ScreenBody>
@@ -138,7 +153,11 @@ function AddScreenContent({
           />
         </ScreenBody>
       ) : (
-        <Tabs defaultValue={recentFoods.length > 0 ? "recent" : "favorites"} className="min-h-0 flex-1 gap-0">
+        <Tabs
+          value={tab}
+          onValueChange={(value) => setTab(String(value))}
+          className="min-h-0 flex-1 gap-0"
+        >
           <TabsList className="mb-2 w-full shrink-0">
             <TabsTrigger value="recent">Recenti</TabsTrigger>
             <TabsTrigger value="favorites">Preferiti</TabsTrigger>
@@ -231,6 +250,7 @@ function AddScreenContent({
             <SearchIcon />
           </InputGroupAddon>
           <InputGroupInput
+            ref={searchInputReference}
             type="search"
             autoFocus
             enterKeyHint="search"
@@ -241,11 +261,24 @@ function AddScreenContent({
           />
           <InputGroupAddon align="inline-end">
             {query ? (
-              <InputGroupButton size="icon-xs" aria-label="Cancella ricerca" onClick={() => setQuery("")}>
+              <InputGroupButton
+                size="icon-sm"
+                className="touch-target"
+                aria-label="Cancella ricerca"
+                onClick={() => {
+                  setQuery("");
+                  searchInputReference.current?.focus();
+                }}
+              >
                 <XIcon />
               </InputGroupButton>
             ) : (
-              <InputGroupButton size="icon-sm" aria-label="Scansiona codice a barre" onClick={() => setScannerOpen(true)}>
+              <InputGroupButton
+                size="icon-sm"
+                className="touch-target"
+                aria-label="Scansiona codice a barre"
+                onClick={() => setScannerOpen(true)}
+              >
                 <ScanBarcodeIcon />
               </InputGroupButton>
             )}
@@ -400,13 +433,20 @@ function ItemList({
               <Button
                 variant="secondary"
                 size="icon"
+                className="touch-target"
                 aria-label={`Aggiungi ${formatGrams(lastGrams)} ${item.unit} di ${item.name}`}
                 onClick={() => onQuickAdd(item, lastGrams)}
               >
                 <PlusIcon />
               </Button>
             ) : (
-              <Button variant="ghost" size="icon" aria-label={`Scegli quanto di ${item.name}`} onClick={() => onSelect(item)}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="touch-target"
+                aria-label={`Scegli quanto di ${item.name}`}
+                onClick={() => onSelect(item)}
+              >
                 <PlusIcon className="text-muted-foreground" />
               </Button>
             )}

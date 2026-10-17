@@ -59,7 +59,7 @@ export function EntryEditor({
   const isValid = parsedQuantity !== null && (mode === "kcal" ? parsedQuantity >= 0 : parsedQuantity > 0);
 
   function save() {
-    if (!isValid) return;
+    if (isPending || !isValid) return;
     startTransition(async () => {
       const result = await updateDiaryEntry({
         id: entry.id,
@@ -93,7 +93,13 @@ export function EntryEditor({
             {formatKcal(preview.kcal)} kcal in {mealLabels[meal].toLowerCase()}
           </DrawerDescription>
         </DrawerHeader>
-        <div className="flex flex-col gap-4 overflow-y-auto p-4">
+        <form
+          className="flex flex-col gap-4 overflow-y-auto p-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            save();
+          }}
+        >
           <QuantityField
             label={mode === "kcal" ? "Kcal" : mode === "servings" ? "Porzioni" : "Quantità"}
             unit={mode === "kcal" ? "kcal" : mode === "servings" ? "porz." : "g"}
@@ -102,7 +108,8 @@ export function EntryEditor({
           />
           <MacroLine nutrients={preview} />
           <MealPicker value={meal} onValueChange={setMeal} className="w-full" />
-        </div>
+          <button type="submit" hidden />
+        </form>
         <DrawerFooter className="flex-row pb-[max(1rem,env(safe-area-inset-bottom))]">
           <Button variant="destructive" size="lg" onClick={remove} disabled={isPending} aria-label="Elimina">
             <Trash2Icon />

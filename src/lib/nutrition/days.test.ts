@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { addDays, currentHour, formatDayLabel, formatElapsed, formatLongDay, isIsoDate, todayIsoDate } from "./days";
+import {
+  addDays,
+  currentHour,
+  formatDayInSentence,
+  formatDayLabel,
+  formatElapsed,
+  formatLongDay,
+  isIsoDate,
+  todayIsoDate,
+} from "./days";
 import { suggestMeal } from "./meals";
 import { formatGrams, formatKcal, parseDecimal } from "./format";
 
@@ -55,6 +64,14 @@ describe("format", () => {
 describe("formatLongDay", () => {
   it("writes the weekday and month in full with a capital letter", () => {
     expect(formatLongDay("2026-10-07")).toBe("Mercoledì 7 ottobre");
+  });
+});
+
+describe("formatDayInSentence", () => {
+  it("adds the relative day before the date when there is one", () => {
+    expect(formatDayInSentence("2026-10-14", "2026-10-15")).toBe("ieri, mercoledì 14 ottobre");
+    expect(formatDayInSentence("2026-10-15", "2026-10-15")).toBe("oggi, giovedì 15 ottobre");
+    expect(formatDayInSentence("2026-10-07", "2026-10-15")).toBe("mercoledì 7 ottobre");
   });
 });
 

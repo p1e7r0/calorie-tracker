@@ -46,7 +46,12 @@ export function QuantityField({
       <InputGroup className="h-12">
         {step ? (
           <InputGroupAddon>
-            <InputGroupButton size="icon-sm" aria-label={`${step} ${unit} in meno`} onClick={() => stepBy(-step)}>
+            <InputGroupButton
+              size="icon-sm"
+              className="touch-target size-10"
+              aria-label={`${step} ${unit} in meno`}
+              onClick={() => stepBy(-step)}
+            >
               <MinusIcon />
             </InputGroupButton>
           </InputGroupAddon>
@@ -65,7 +70,12 @@ export function QuantityField({
         <InputGroupAddon align="inline-end">
           <InputGroupText className="text-base">{unit}</InputGroupText>
           {step ? (
-            <InputGroupButton size="icon-sm" aria-label={`${step} ${unit} in più`} onClick={() => stepBy(step)}>
+            <InputGroupButton
+              size="icon-sm"
+              className="touch-target size-10"
+              aria-label={`${step} ${unit} in più`}
+              onClick={() => stepBy(step)}
+            >
               <PlusIcon />
             </InputGroupButton>
           ) : null}
