@@ -95,8 +95,8 @@ Aggiornato al 2026-10-17. Per lo stato reale usa `git log` e `git status`.
 - Tutti i task T01-T32 sono completati, mergiati in `main` e in produzione dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
 - Ultimo merge in `main`: `feature/claude-connector` (T32, connettore MCP per Claude), verificato in produzione con uno smoke test del flusso OAuth completo.
 - T33 (pull-to-refresh su Oggi e Progressi) in produzione dal 2026-10-17.
-- `fix/logging-flow-friction`, `feature/meal-suggestions` e `feature/weekly-check-in` (migliorie dall'analisi del 2026-10-17) mergiati in `main`, non ancora in produzione.
-- Migrazioni fino a `0009_claude_client_secret_post` applicate sia a dev sia a main; `0010_weekly_check_in` (colonna `profile.last_check_in_week`) applicata solo a dev: va applicata a main prima del prossimo deploy.
+- `fix/logging-flow-friction`, `feature/meal-suggestions` e `feature/weekly-check-in` (migliorie dall'analisi del 2026-10-17) in produzione dal 2026-10-17, verificati con uno smoke test (ricerca e aggiunta con Invio, suggerimenti con l'ultima quantità, grafico del fabbisogno, impostazioni dei promemoria).
+- Migrazioni fino a `0010_weekly_check_in` applicate sia a dev sia a main.
 - Connettore per Claude: verificato con claude.ai reale (Claude Desktop, credenziali da Profilo › Impostazioni › Claude); il client usa `client_secret_post` perché claude.ai (SDK MCP Python) invia il segreto nel corpo della richiesta; con `client_secret_basic` lo scambio del token rispondeva 400 `invalid_client`.
 - Funzioni AI nascoste in produzione finché manca `ANTHROPIC_API_KEY`; link "Password dimenticata" nascosto finché mancano `RESEND_API_KEY` ed `EMAIL_FROM`; login Google assente senza credenziali OAuth.
 
