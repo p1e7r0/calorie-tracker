@@ -174,6 +174,9 @@ export function ReminderSettings({
           ))}
         </select>
       </label>
+      <p className="text-sm text-muted-foreground">
+        Con almeno un promemoria attivo, il lunedì verso le 8 ricevi anche il riepilogo della settimana.
+      </p>
       {status === "denied" ? (
         <p className="text-sm text-muted-foreground">
           Le notifiche sono bloccate per Bilancia: riattivale dalle impostazioni del browser o del telefono.

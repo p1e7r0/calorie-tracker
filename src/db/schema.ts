@@ -60,6 +60,7 @@ export const profile = pgTable("profile", {
   targetsCustomized: boolean().notNull().default(false),
   reminderEvening: boolean().notNull().default(false),
   reminderWeighInWeekday: integer(),
+  lastCheckInWeek: date({ mode: "string" }),
   ...timestamps,
 });
 

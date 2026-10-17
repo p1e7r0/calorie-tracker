@@ -1,30 +1,16 @@
 "use client";
 
 import { TrendingDownIcon, TrendingUpIcon } from "lucide-react";
-import { useTransition } from "react";
-import { toast } from "sonner";
-import { applyAdaptiveGoal } from "@/app/actions/profile";
 import { Button } from "@/components/ui/button";
 import { requiredLoggedDays, requiredWeightSpanDays } from "@/lib/nutrition/adaptive";
 import { formatDecimal, formatKcal } from "@/lib/nutrition/format";
+import { goalPurposes } from "@/lib/nutrition/goals";
 import type { AdaptiveGoal } from "@/server/adaptive-goal";
-
-const goalLabels = { lose: "dimagrire", maintain: "mantenere il peso", gain: "aumentare" } as const;
+import { useApplyAdaptiveGoal } from "./use-apply-adaptive-goal";
 
 export function AdaptiveGoalCard({ adaptiveGoal }: { adaptiveGoal: AdaptiveGoal }) {
-  const [isPending, startTransition] = useTransition();
+  const { isPending, apply } = useApplyAdaptiveGoal();
   const { estimate, suggestion, goal, weeklyRateKg, currentTargetKcal } = adaptiveGoal;
-
-  function apply() {
-    startTransition(async () => {
-      const result = await applyAdaptiveGoal();
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(`Nuovo obiettivo: ${formatKcal(result.data.kcal)} kcal`);
-    });
-  }
 
   return (
     <section aria-labelledby="adaptive-goal-heading" className="rounded-2xl bg-card p-4 ring-1 ring-border">
@@ -56,7 +42,7 @@ export function AdaptiveGoalCard({ adaptiveGoal }: { adaptiveGoal: AdaptiveGoal 
             ) : (
               <div className="mt-3 flex flex-col gap-2">
                 <p className="text-sm">
-                  Per {goalLabels[goal]}
+                  Per {goalPurposes[goal]}
                   {goal === "maintain" ? "" : ` ${formatDecimal(weeklyRateKg ?? 0)} kg a settimana`}:{" "}
                   <span className="font-semibold">{formatKcal(suggestion.kcal)} kcal</span>
                   {currentTargetKcal ? ` invece di ${formatKcal(currentTargetKcal)}` : ""}.

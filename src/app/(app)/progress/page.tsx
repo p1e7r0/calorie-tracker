@@ -8,6 +8,7 @@ import { NutritionProgress } from "@/components/progress/nutrition-progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
+import { maintenanceHistory } from "@/lib/nutrition/check-in";
 import { todayIsoDate } from "@/lib/nutrition/days";
 import { getDailyTargets } from "@/server/diary";
 import { listMeasurements } from "@/server/measurements";
@@ -37,9 +38,16 @@ async function Progress() {
   const today = todayIsoDate();
   const [measurements, dailyTotals, targets] = await Promise.all([
     listMeasurements(user.id),
-    getDailyTotals(user.id, today, 7 * 13),
+    getDailyTotals(user.id, today, 7 * 17),
     getDailyTargets(user.id),
   ]);
+  const weights = measurements.map((measurement) => ({ day: measurement.measuredOn, value: measurement.weightKg }));
+  const history = maintenanceHistory({
+    dailyIntakes: dailyTotals.map((totals) => ({ day: totals.day, value: totals.kcal })),
+    weights,
+    today,
+    weeks: 12,
+  });
 
   return (
     <Tabs defaultValue="body" className="min-h-0 flex-1 gap-0">
@@ -57,7 +65,8 @@ async function Progress() {
               dailyTotals={dailyTotals}
               targets={targets}
               today={today}
-              weights={measurements.map((measurement) => ({ day: measurement.measuredOn, value: measurement.weightKg }))}
+              weights={weights}
+              maintenanceHistory={history}
             />
           </TabsContent>
         </ScreenBody>

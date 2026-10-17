@@ -14,6 +14,9 @@ import type { DailyTotals } from "@/server/statistics";
 
 const kcalConfig = { kcal: { label: "Kcal", color: "var(--chart-energy)" } } satisfies ChartConfig;
 const weightConfig = { weight: { label: "Peso", color: "var(--foreground)" } } satisfies ChartConfig;
+const maintenanceConfig = {
+  maintenanceKcal: { label: "Fabbisogno", color: "var(--chart-energy)" },
+} satisfies ChartConfig;
 
 const macroRows = [
   { key: "protein", target: "proteinG", label: "Proteine", colorClass: "bg-protein" },
@@ -26,11 +29,13 @@ const weekdayFormatter = new Intl.DateTimeFormat("it-IT", { weekday: "narrow", t
 export function NutritionProgress({
   dailyTotals,
   weights,
+  maintenanceHistory,
   targets,
   today,
 }: {
   dailyTotals: DailyTotals[];
   weights: { day: string; value: number }[];
+  maintenanceHistory: { day: string; maintenanceKcal: number | null }[];
   targets: DailyTargetsView;
   today: string;
 }) {
@@ -71,6 +76,7 @@ export function NutritionProgress({
     weight: weeklyWeight.find((row) => row.week === week)?.average ?? null,
   }));
   const weightValues = weeklyRows.flatMap((row) => (row.weight === null ? [] : [row.weight]));
+  const latestMaintenance = maintenanceHistory.findLast((point) => point.maintenanceKcal !== null) ?? null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -249,6 +255,81 @@ export function NutritionProgress({
           </ChartContainer>
         ) : (
           <p className="py-2 text-sm text-muted-foreground">Nessuna misurazione del peso in questo periodo.</p>
+        )}
+      </section>
+
+      <section aria-labelledby="maintenance-heading" className="flex flex-col gap-2">
+        <h2 id="maintenance-heading" className="font-heading text-lg font-semibold tracking-tight">
+          Fabbisogno stimato, settimana per settimana
+        </h2>
+        {latestMaintenance?.maintenanceKcal == null ? (
+          <p className="text-sm text-muted-foreground">
+            Con almeno 2 settimane di pasti e pesate qui vedi come cambia il fabbisogno stimato dai tuoi dati.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Calcolato ogni lunedì sulle 4 settimane precedenti,{" "}
+              {latestMaintenance.day === today ? "oggi è" : `lunedì ${formatShortDay(latestMaintenance.day)} era`}{" "}
+              {formatKcal(latestMaintenance.maintenanceKcal)} kcal
+              {targets ? `. Obiettivo ${formatKcal(targets.kcal)} (linea tratteggiata)` : ""}.
+            </p>
+            <ChartContainer config={maintenanceConfig} className="aspect-[16/7] w-full">
+              <LineChart data={maintenanceHistory} margin={{ top: 8, right: 4, bottom: 0, left: -8 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="day"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={6}
+                  minTickGap={24}
+                  tickFormatter={(day: string) => formatShortDay(day)}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  width={52}
+                  domain={["dataMin - 100", "dataMax + 100"]}
+                  tickFormatter={(value: number) => formatKcal(value)}
+                />
+                <ChartTooltip
+                  cursor={{ strokeWidth: 1 }}
+                  content={({ active, payload }) => {
+                    const row = payload?.[0]?.payload as (typeof maintenanceHistory)[number] | undefined;
+                    if (!active || !row) return null;
+                    return (
+                      <div className="rounded-lg border bg-popover px-2.5 py-1.5 text-xs shadow-md">
+                        <p className="font-medium">{row.day === today ? "Oggi" : `Lunedì ${formatShortDay(row.day)}`}</p>
+                        <p>
+                          {row.maintenanceKcal === null
+                            ? "Dati insufficienti"
+                            : `${formatKcal(row.maintenanceKcal)} kcal al giorno`}
+                        </p>
+                      </div>
+                    );
+                  }}
+                />
+                {targets ? (
+                  <ReferenceLine
+                    y={targets.kcal}
+                    ifOverflow="extendDomain"
+                    stroke="var(--muted-foreground)"
+                    strokeDasharray="4 4"
+                    strokeWidth={1}
+                  />
+                ) : null}
+                <Line
+                  dataKey="maintenanceKcal"
+                  type="monotone"
+                  stroke="var(--color-maintenanceKcal)"
+                  strokeWidth={2}
+                  connectNulls
+                  dot={{ r: 4, strokeWidth: 2, stroke: "var(--card)", fill: "var(--color-maintenanceKcal)" }}
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ChartContainer>
+          </>
         )}
       </section>
     </div>
