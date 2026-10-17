@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { addDiaryEntry } from "@/app/actions/diary";
+import { toastWithUndo } from "@/components/diary/toast-with-undo";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -14,7 +15,7 @@ import {
 } from "@/components/ui/drawer";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { parseDecimal } from "@/lib/nutrition/format";
+import { formatKcal, parseDecimal } from "@/lib/nutrition/format";
 import { mealLabels, type MealType } from "@/lib/nutrition/meals";
 
 export function QuickKcalDrawer({
@@ -22,11 +23,13 @@ export function QuickKcalDrawer({
   meal,
   onOpenChange,
   onLogged,
+  onUndone,
 }: {
   day: string;
   meal: MealType;
   onOpenChange: (open: boolean) => void;
   onLogged: () => void;
+  onUndone?: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const [values, setValues] = useState({ label: "", kcal: "", protein: "", carbs: "", fat: "" });
@@ -55,7 +58,11 @@ export function QuickKcalDrawer({
         toast.error(result.error);
         return;
       }
-      toast.success(`Aggiunte ${Math.round(kcal)} kcal a ${mealLabels[meal].toLowerCase()}`);
+      toastWithUndo(
+        `Aggiunte ${formatKcal(kcal)} kcal a ${mealLabels[meal].toLowerCase()}`,
+        [result.data.id],
+        onUndone,
+      );
       onLogged();
     });
   }

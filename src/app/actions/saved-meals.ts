@@ -73,7 +73,7 @@ const logSavedMealSchema = z.object({ savedMealId: z.uuid(), day: isoDate, meal 
 
 export async function logSavedMeal(
   input: z.input<typeof logSavedMealSchema>,
-): Promise<ActionResult<{ logged: number }>> {
+): Promise<ActionResult<{ entryIds: string[] }>> {
   try {
     const userId = await requireUserId();
     const { savedMealId, day, meal: mealType } = logSavedMealSchema.parse(input);
@@ -91,19 +91,22 @@ export async function logSavedMeal(
         ),
       ),
     );
-    await database.insert(diaryEntry).values(
-      values.map(({ nutrients, extras, ...entry }) => ({
-        ...entry,
-        ...roundNutrients(nutrients),
-        ...roundExtras(extras),
-        userId,
-        day,
-        meal: mealType,
-      })),
-    );
+    const created = await database
+      .insert(diaryEntry)
+      .values(
+        values.map(({ nutrients, extras, ...entry }) => ({
+          ...entry,
+          ...roundNutrients(nutrients),
+          ...roundExtras(extras),
+          userId,
+          day,
+          meal: mealType,
+        })),
+      )
+      .returning({ id: diaryEntry.id });
     await database.update(savedMeal).set({ updatedAt: new Date() }).where(eq(savedMeal.id, saved.id));
     refresh();
-    return { ok: true, data: { logged: values.length } };
+    return { ok: true, data: { entryIds: created.map((entry) => entry.id) } };
   } catch (error) {
     return failure(error);
   }

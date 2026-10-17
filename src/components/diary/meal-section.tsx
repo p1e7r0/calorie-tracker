@@ -17,6 +17,7 @@ import { formatDecimal, formatGrams, formatKcal } from "@/lib/nutrition/format";
 import { mealLabels } from "@/lib/nutrition/meals";
 import type { DiaryEntryView, DiaryMeal } from "@/server/diary";
 import { SaveMealDrawer } from "@/components/saved-meals/save-meal-drawer";
+import { toastWithUndo } from "./toast-with-undo";
 import { EntryEditor } from "./entry-editor";
 import { SwipeableRow } from "./swipeable-row";
 import { useEntryActions } from "./use-entry-actions";
@@ -24,7 +25,7 @@ import { useEntryActions } from "./use-entry-actions";
 function describeQuantity(entry: DiaryEntryView) {
   if (entry.kind === "quick") return null;
   if (entry.portionLabel) return entry.portionLabel;
-  if (entry.grams) return `${formatGrams(entry.grams)} g`;
+  if (entry.grams) return `${formatGrams(entry.grams)} ${entry.unit}`;
   if (entry.servings) {
     return entry.servings === 1 ? "1 porzione" : `${formatDecimal(entry.servings)} porzioni`;
   }
@@ -56,10 +57,11 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
       });
       if (!result.ok) {
         toast.error(result.error);
-      } else if (result.data.copied === 0) {
+      } else if (result.data.entryIds.length === 0) {
         toast(`Ieri non c'era niente in ${label.toLowerCase()}.`);
       } else {
-        toast.success(`${result.data.copied} voci copiate da ieri`);
+        const count = result.data.entryIds.length;
+        toastWithUndo(count === 1 ? "1 voce copiata da ieri" : `${count} voci copiate da ieri`, result.data.entryIds);
       }
     });
   }

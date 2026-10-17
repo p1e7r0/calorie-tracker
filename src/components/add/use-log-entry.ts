@@ -2,7 +2,8 @@
 
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { type AddEntryInput, addDiaryEntry, deleteDiaryEntry } from "@/app/actions/diary";
+import { type AddEntryInput, addDiaryEntry } from "@/app/actions/diary";
+import { addedToMealMessage, toastWithUndo } from "@/components/diary/toast-with-undo";
 import { mealLabels, type MealType } from "@/lib/nutrition/meals";
 
 export function useLogEntry(onLogged: () => void, onUndone?: () => void) {
@@ -15,20 +16,7 @@ export function useLogEntry(onLogged: () => void, onUndone?: () => void) {
         toast.error(result.error);
         return;
       }
-      const entryId = result.data.id;
-      toast.success(`${label} aggiunto a ${mealLabels[input.meal as MealType].toLowerCase()}`, {
-        action: {
-          label: "Annulla",
-          onClick: async () => {
-            const deleted = await deleteDiaryEntry(entryId);
-            if (!deleted.ok) {
-              toast.error(deleted.error);
-              return;
-            }
-            onUndone?.();
-          },
-        },
-      });
+      toastWithUndo(addedToMealMessage(mealLabels[input.meal as MealType], label), [result.data.id], onUndone);
       onLogged();
     });
   }

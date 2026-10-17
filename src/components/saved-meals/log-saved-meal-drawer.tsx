@@ -4,6 +4,8 @@ import { useTransition } from "react";
 import { toast } from "sonner";
 import { logSavedMeal } from "@/app/actions/saved-meals";
 import { MacroLine } from "@/components/diary/macro-line";
+import { MealPicker } from "@/components/diary/meal-picker";
+import { addedToMealMessage, toastWithUndo } from "@/components/diary/toast-with-undo";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -23,12 +25,16 @@ export function LogSavedMealDrawer({
   meal,
   onOpenChange,
   onLogged,
+  onUndone,
+  onMealChange,
 }: {
   savedMeal: SavedMealView;
   day: string;
   meal: MealType;
   onOpenChange: (open: boolean) => void;
   onLogged: (count: number) => void;
+  onUndone?: (count: number) => void;
+  onMealChange?: (meal: MealType) => void;
 }) {
   const [isPending, startTransition] = useTransition();
 
@@ -39,8 +45,11 @@ export function LogSavedMealDrawer({
         toast.error(result.error);
         return;
       }
-      toast.success(`${savedMeal.name} aggiunto a ${mealLabels[meal].toLowerCase()}`);
-      onLogged(result.data.logged);
+      const { entryIds } = result.data;
+      toastWithUndo(addedToMealMessage(mealLabels[meal], savedMeal.name), entryIds, () =>
+        onUndone?.(entryIds.length),
+      );
+      onLogged(entryIds.length);
     });
   }
 
@@ -70,6 +79,7 @@ export function LogSavedMealDrawer({
             ))}
           </ul>
           <MacroLine nutrients={savedMeal.totals} className="py-3" />
+          {onMealChange ? <MealPicker value={meal} onValueChange={onMealChange} className="mb-1 w-full" /> : null}
         </div>
         <DrawerFooter className="pb-[max(1rem,env(safe-area-inset-bottom))]">
           <Button size="lg" onClick={log} disabled={isPending}>

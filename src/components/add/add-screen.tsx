@@ -46,13 +46,16 @@ type AddScreenProperties = {
   recipes: LoggableRecipe[];
   savedMeals: SavedMealView[];
   initialItem: LoggableItem | null;
+  initialSavedMealId: string | null;
   backHref: string;
   aiEnabled: boolean;
 };
 
 export function AddScreen(properties: AddScreenProperties) {
   const { bfcacheId } = useRouter();
-  const initialKey = properties.initialItem ? `${properties.initialItem.type}-${properties.initialItem.id}` : "none";
+  const initialKey = properties.initialItem
+    ? `${properties.initialItem.type}-${properties.initialItem.id}`
+    : (properties.initialSavedMealId ?? "none");
   return <AddScreenContent key={`${bfcacheId}-${initialKey}`} {...properties} />;
 }
 
@@ -65,6 +68,7 @@ function AddScreenContent({
   recipes,
   savedMeals,
   initialItem,
+  initialSavedMealId,
   backHref,
   aiEnabled,
 }: AddScreenProperties) {
@@ -75,11 +79,14 @@ function AddScreenContent({
   const [selectedItem, setSelectedItem] = useState<LoggableItem | null>(initialItem);
   const [quickKcalOpen, setQuickKcalOpen] = useState(false);
   const [describeMealOpen, setDescribeMealOpen] = useState(false);
-  const [selectedSavedMeal, setSelectedSavedMeal] = useState<SavedMealView | null>(null);
-  const [loggedCount, setLoggedCount] = useState(0);
-  const [tab, setTab] = useState(() =>
-    mealTypes.some((mealType) => suggestions[mealType].length > 0) ? "suggested" : "favorites",
+  const [selectedSavedMeal, setSelectedSavedMeal] = useState<SavedMealView | null>(
+    () => savedMeals.find((savedMeal) => savedMeal.id === initialSavedMealId) ?? null,
   );
+  const [loggedCount, setLoggedCount] = useState(0);
+  const [tab, setTab] = useState(() => {
+    if (selectedSavedMeal) return "meals";
+    return mealTypes.some((mealType) => suggestions[mealType].length > 0) ? "suggested" : "favorites";
+  });
   const search = useFoodSearch(query);
   const trimmedQuery = query.trim();
   const addHref = `/add?date=${day}&meal=${meal}`;
@@ -116,11 +123,14 @@ function AddScreenContent({
     setLoggedCount((current) => current + count);
   }
 
-  function handleUndone() {
-    setLoggedCount((current) => Math.max(0, current - 1));
+  function handleUndone(count = 1) {
+    setLoggedCount((current) => Math.max(0, current - count));
   }
 
-  const quickLog = useLogEntry(() => handleLogged(), handleUndone);
+  const quickLog = useLogEntry(
+    () => handleLogged(),
+    () => handleUndone(),
+  );
 
   function quickAdd(item: LoggableItem) {
     if (item.type === "food") {
@@ -304,7 +314,7 @@ function AddScreenContent({
           day={day}
           meal={meal}
           onLogged={() => handleLogged()}
-          onUndone={handleUndone}
+          onUndone={() => handleUndone()}
           onOpenChange={(open) => {
             if (!open) setSelectedItem(null);
           }}
@@ -316,6 +326,8 @@ function AddScreenContent({
           day={day}
           meal={meal}
           onLogged={handleLogged}
+          onUndone={handleUndone}
+          onMealChange={setMeal}
           onOpenChange={(open) => {
             if (!open) setSelectedSavedMeal(null);
           }}
@@ -325,13 +337,20 @@ function AddScreenContent({
         <BarcodeScanner isLookingUp={isLookingUp} onDetected={handleBarcode} onClose={() => setScannerOpen(false)} />
       ) : null}
       {describeMealOpen ? (
-        <DescribeMealDrawer day={day} meal={meal} onLogged={handleLogged} onOpenChange={setDescribeMealOpen} />
+        <DescribeMealDrawer
+          day={day}
+          meal={meal}
+          onLogged={handleLogged}
+          onUndone={handleUndone}
+          onOpenChange={setDescribeMealOpen}
+        />
       ) : null}
       {quickKcalOpen ? (
         <QuickKcalDrawer
           day={day}
           meal={meal}
           onLogged={() => handleLogged()}
+          onUndone={() => handleUndone()}
           onOpenChange={(open) => setQuickKcalOpen(open)}
         />
       ) : null}

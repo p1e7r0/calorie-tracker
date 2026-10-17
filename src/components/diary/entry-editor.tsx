@@ -13,13 +13,13 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { formatDecimal, formatKcal, parseDecimal } from "@/lib/nutrition/format";
+import { formatDecimal, formatGrams, formatKcal, parseDecimal } from "@/lib/nutrition/format";
 import { mealLabels, type MealType } from "@/lib/nutrition/meals";
 import { multiplyNutrients } from "@/lib/nutrition/nutrients";
 import type { DiaryEntryView } from "@/server/diary";
 import { MacroLine } from "./macro-line";
 import { MealPicker } from "./meal-picker";
-import { QuantityField } from "./quantity-field";
+import { gramsShortcut, QuantityField, type QuantityShortcut } from "./quantity-field";
 import { useEntryActions } from "./use-entry-actions";
 
 type QuantityMode = "grams" | "servings" | "kcal";
@@ -35,6 +35,23 @@ function initialQuantity(entry: DiaryEntryView, mode: QuantityMode) {
   return value ? formatDecimal(value).replace(/\./g, "") : "";
 }
 
+const servingShortcuts: QuantityShortcut[] = [
+  { label: "½", value: 0.5 },
+  { label: "1", value: 1 },
+  { label: "1½", value: 1.5 },
+  { label: "2", value: 2 },
+];
+
+function quantityShortcuts(entry: DiaryEntryView, mode: QuantityMode): QuantityShortcut[] {
+  if (mode === "servings") return servingShortcuts;
+  if (mode !== "grams" || entry.kind !== "food") return [];
+  const shortcuts = entry.portions.map((portion) => gramsShortcut(portion.label, portion.grams, entry.unit, true));
+  if (entry.grams !== 100 && !shortcuts.some((shortcut) => shortcut.value === 100)) {
+    shortcuts.push({ label: `100 ${entry.unit}`, value: 100 });
+  }
+  return shortcuts;
+}
+
 export function EntryEditor({
   entry,
   open,
@@ -47,6 +64,7 @@ export function EntryEditor({
   const mode = initialMode(entry);
   const [meal, setMeal] = useState<MealType>(entry.meal);
   const [quantity, setQuantity] = useState(() => initialQuantity(entry, mode));
+  const [portionLabel, setPortionLabel] = useState(entry.portionLabel);
   const [isSaving, startTransition] = useTransition();
   const entryActions = useEntryActions();
   const isPending = isSaving || entryActions.isPending;
@@ -67,6 +85,7 @@ export function EntryEditor({
         grams: mode === "grams" ? parsedQuantity : null,
         servings: mode === "servings" ? parsedQuantity : null,
         kcal: mode === "kcal" ? parsedQuantity : null,
+        ...(entry.kind === "food" ? { portionLabel } : {}),
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -102,9 +121,19 @@ export function EntryEditor({
         >
           <QuantityField
             label={mode === "kcal" ? "Kcal" : mode === "servings" ? "Porzioni" : "Quantità"}
-            unit={mode === "kcal" ? "kcal" : mode === "servings" ? "porz." : "g"}
+            unit={mode === "kcal" ? "kcal" : mode === "servings" ? "porz." : entry.unit}
             value={quantity}
-            onValueChange={(value) => setQuantity(value)}
+            step={mode === "grams" ? 10 : undefined}
+            shortcuts={quantityShortcuts(entry, mode)}
+            onValueChange={(value, shortcut) => {
+              setQuantity(value);
+              const grams = parseDecimal(value);
+              if (shortcut?.isPortion && grams !== null) {
+                setPortionLabel(`${shortcut.label} (${formatGrams(grams)} ${entry.unit})`);
+              } else {
+                setPortionLabel(grams === entry.grams ? entry.portionLabel : null);
+              }
+            }}
           />
           <MacroLine nutrients={preview} />
           <MealPicker value={meal} onValueChange={setMeal} className="w-full" />

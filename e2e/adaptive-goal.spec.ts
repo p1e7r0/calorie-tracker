@@ -1,11 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { registerUser } from "./helpers";
-
-function isoDay(offset: number) {
-  const date = new Date();
-  date.setDate(date.getDate() + offset);
-  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
-}
+import { isoDay, registerUser } from "./helpers";
 
 test("estimates maintenance from logged kcal and weight and applies it as the goal", async ({ page }) => {
   test.setTimeout(120_000);

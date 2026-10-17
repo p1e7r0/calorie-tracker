@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { database } from "@/db";
@@ -63,6 +63,7 @@ const updateEntrySchema = z.object({
   grams: quantity.nullish(),
   servings: z.number().positive().max(100).nullish(),
   kcal: z.number().min(0).max(20_000).nullish(),
+  portionLabel: z.string().trim().max(200).nullish(),
 });
 
 export type UpdateEntryInput = z.input<typeof updateEntrySchema>;
@@ -102,7 +103,8 @@ export async function updateDiaryEntry(input: UpdateEntryInput): Promise<ActionR
       extras = foodRow
         ? scaleExtras(extrasFromRow(foodRow), update.grams)
         : multiplyExtras(extras, entry.grams ? update.grams / entry.grams : 1);
-      if (update.grams !== entry.grams) portionLabel = null;
+      if (update.portionLabel !== undefined) portionLabel = update.portionLabel || null;
+      else if (update.grams !== entry.grams) portionLabel = null;
       grams = update.grams;
     } else if (entry.kind === "recipe" && (update.grams || update.servings)) {
       const recipe = entry.recipeId ? await getLoggableRecipe(userId, entry.recipeId) : null;
@@ -144,6 +146,22 @@ export async function deleteDiaryEntry(id: string): Promise<ActionResult<Deleted
     if (!deleted) throw new Error("Voce non trovata.");
     refresh();
     return { ok: true, data: deleted };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function deleteDiaryEntries(ids: string[]): Promise<ActionResult<{ deleted: number }>> {
+  try {
+    const userId = await requireUserId();
+    const entryIds = z.array(z.uuid()).min(1).max(100).parse(ids);
+    const deleted = await database
+      .delete(diaryEntry)
+      .where(and(eq(diaryEntry.userId, userId), inArray(diaryEntry.id, entryIds)))
+      .returning({ id: diaryEntry.id });
+    if (deleted.length === 0) throw new Error("Voci non trovate.");
+    refresh();
+    return { ok: true, data: { deleted: deleted.length } };
   } catch (error) {
     return failure(error);
   }
@@ -224,7 +242,7 @@ const copyMealSchema = z.object({
   toMeal: meal,
 });
 
-export async function copyMeal(input: z.input<typeof copyMealSchema>): Promise<ActionResult<{ copied: number }>> {
+export async function copyMeal(input: z.input<typeof copyMealSchema>): Promise<ActionResult<{ entryIds: string[] }>> {
   try {
     const userId = await requireUserId();
     const { fromDay, fromMeal, toDay, toMeal } = copyMealSchema.parse(input);
@@ -232,8 +250,8 @@ export async function copyMeal(input: z.input<typeof copyMealSchema>): Promise<A
       .select()
       .from(diaryEntry)
       .where(and(eq(diaryEntry.userId, userId), eq(diaryEntry.day, fromDay), eq(diaryEntry.meal, fromMeal)));
-    if (source.length === 0) return { ok: true, data: { copied: 0 } };
-    await database.insert(diaryEntry).values(
+    if (source.length === 0) return { ok: true, data: { entryIds: [] } };
+    const created = await database.insert(diaryEntry).values(
       source.map((entry) => ({
         userId,
         day: toDay,
@@ -251,9 +269,9 @@ export async function copyMeal(input: z.input<typeof copyMealSchema>): Promise<A
         fat: entry.fat,
         ...extrasFromRow(entry),
       })),
-    );
+    ).returning({ id: diaryEntry.id });
     refresh();
-    return { ok: true, data: { copied: source.length } };
+    return { ok: true, data: { entryIds: created.map((entry) => entry.id) } };
   } catch (error) {
     return failure(error);
   }

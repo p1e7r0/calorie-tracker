@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { registerUser } from "./helpers";
+import { isoDay, registerUser } from "./helpers";
 
 test("logs a food, edits it, deletes it and undoes the deletion", async ({ page }) => {
   await registerUser(page);
@@ -45,6 +45,33 @@ test("logs quick kcal", async ({ page }) => {
   await expect(page.getByRole("region", { name: "Spuntini" }).getByText("Aperitivo")).toBeVisible();
 });
 
+test("undoes quick kcal and a meal copied from yesterday", async ({ page }) => {
+  await registerUser(page);
+  await page.goto("/add?meal=snack");
+  await page.getByRole("button", { name: "Kcal veloci" }).click();
+  await page.getByLabel("Kcal", { exact: true }).fill("350");
+  await page.getByRole("button", { name: "Aggiungi a spuntini" }).click();
+  await expect(page.getByText("1 voce aggiunta")).toBeVisible();
+  await page.locator("[data-sonner-toast]").filter({ hasText: "Aggiunte 350 kcal a spuntini" }).getByRole("button", { name: "Annulla" }).click();
+  await expect(page.getByText("1 voce aggiunta")).toBeHidden();
+
+  await page.goto(`/add?date=${isoDay(-1)}&meal=lunch`);
+  await page.getByRole("button", { name: "Kcal veloci" }).click();
+  await page.getByLabel("Kcal", { exact: true }).fill("600");
+  await page.getByLabel("Descrizione").fill("Pizza");
+  await page.getByRole("button", { name: "Aggiungi a pranzo" }).click();
+  await expect(page.getByText("1 voce aggiunta")).toBeVisible();
+
+  await page.goto("/");
+  await expect(page.getByRole("region", { name: "Spuntini" }).getByText("Niente ancora.")).toBeVisible();
+  const lunch = page.getByRole("region", { name: "Pranzo" });
+  await lunch.getByRole("button", { name: "Altre azioni per pranzo" }).click();
+  await page.getByRole("menuitem", { name: "Copia da ieri" }).click();
+  await expect(lunch.getByText("Pizza")).toBeVisible();
+  await page.locator("[data-sonner-toast]").filter({ hasText: "1 voce copiata da ieri" }).getByRole("button", { name: "Annulla" }).click();
+  await expect(lunch.getByText("Niente ancora.")).toBeVisible();
+});
+
 test("adds a recent food in one tap with the last quantity and undoes it", async ({ page }) => {
   await registerUser(page);
   await page.goto("/add?meal=breakfast");
@@ -65,6 +92,30 @@ test("adds a recent food in one tap with the last quantity and undoes it", async
   await page.getByRole("button", { name: "Fatto" }).click();
   const breakfast = page.getByRole("region", { name: "Colazione" });
   await expect(breakfast.getByText("Banana, cruda")).toHaveCount(1);
+});
+
+test("edits an entry with ten gram steps and quick quantities", async ({ page }) => {
+  await registerUser(page);
+  await page.goto("/add?meal=lunch");
+  await page.getByRole("searchbox", { name: "Cerca un alimento o una ricetta" }).fill("banana cruda");
+  await page.getByRole("button", { name: /^Banana, cruda/ }).click();
+  await page.getByLabel("Quantità").fill("120");
+  await page.getByRole("button", { name: "Aggiungi a pranzo" }).click();
+  await expect(page.getByText("Aggiunto a pranzo: «Banana, cruda»")).toBeVisible();
+  await page.getByRole("button", { name: "Fatto" }).click();
+
+  const lunch = page.getByRole("region", { name: "Pranzo" });
+  await lunch.getByRole("button", { name: /Banana, cruda/ }).click();
+  await page.getByRole("button", { name: "10 g in più" }).click();
+  await page.getByRole("button", { name: "10 g in più" }).click();
+  await expect(page.getByLabel("Quantità")).toHaveValue("140");
+  await page.getByRole("button", { name: "Salva" }).click();
+  await expect(lunch.getByText("140 g")).toBeVisible();
+
+  await lunch.getByRole("button", { name: /Banana, cruda/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "100 g" }).click();
+  await page.getByRole("button", { name: "Salva" }).click();
+  await expect(lunch.getByText("100 g")).toBeVisible();
 });
 
 test("steps the quantity by ten grams", async ({ page }) => {
@@ -105,7 +156,7 @@ test("swipes an entry right to duplicate it and left to delete it", async ({ pag
 
   await swipe(0, 160);
   await expect(entries).toHaveCount(2);
-  await expect(page.getByText("Mela, cruda duplicato")).toBeVisible();
+  await expect(page.getByText("Duplicato: «Mela, cruda»")).toBeVisible();
 
   await swipe(0, -160);
   await expect(entries).toHaveCount(1);
