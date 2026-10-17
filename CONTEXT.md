@@ -96,7 +96,7 @@ Aggiornato al 2026-10-17. Per lo stato reale usa `git log` e `git status`.
 - Ultimo merge in `main`: `feature/claude-connector` (T32, connettore MCP per Claude), verificato in produzione con uno smoke test del flusso OAuth completo.
 - T33 (pull-to-refresh su Oggi e Progressi) in produzione dal 2026-10-17.
 - `fix/logging-flow-friction`, `feature/meal-suggestions` e `feature/weekly-check-in` (migliorie dall'analisi del 2026-10-17) in produzione dal 2026-10-17, verificati con uno smoke test (ricerca e aggiunta con Invio, suggerimenti con l'ultima quantità, grafico del fabbisogno, impostazioni dei promemoria).
-- `feature/quick-undo-and-editing` mergiato in `main`, non ancora in produzione (nessuna migrazione).
+- `feature/quick-undo-and-editing` in produzione dal 2026-10-17, verificato con uno smoke test (annullamento di Kcal veloci e del pasto salvato, ±10 g nell'editor della voce, «Aggiungi al diario» dal dettaglio del pasto salvato, conferma prima di eliminarlo).
 - Migrazioni fino a `0010_weekly_check_in` applicate sia a dev sia a main.
 - Connettore per Claude: verificato con claude.ai reale (Claude Desktop, credenziali da Profilo › Impostazioni › Claude); il client usa `client_secret_post` perché claude.ai (SDK MCP Python) invia il segreto nel corpo della richiesta; con `client_secret_basic` lo scambio del token rispondeva 400 `invalid_client`.
 - Funzioni AI nascoste in produzione finché manca `ANTHROPIC_API_KEY`; link "Password dimenticata" nascosto finché mancano `RESEND_API_KEY` ed `EMAIL_FROM`; login Google assente senza credenziali OAuth.
