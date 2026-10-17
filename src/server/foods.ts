@@ -45,6 +45,7 @@ const foodColumns = {
   carbs: food.carbs,
   fat: food.fat,
   ownerId: food.ownerId,
+  replacesFoodId: food.replacesFoodId,
 };
 
 type FoodRow = {
@@ -57,11 +58,13 @@ type FoodRow = {
   carbs: number;
   fat: number;
   ownerId: string | null;
+  replacesFoodId: string | null;
 };
 
 async function toLoggableFoods(userId: string, rows: FoodRow[]): Promise<LoggableFood[]> {
   if (rows.length === 0) return [];
   const foodIds = rows.map((row) => row.id);
+  const replacedFoodIds = rows.flatMap((row) => (row.replacesFoodId ? [row.replacesFoodId] : []));
   const [portions, favorites, lastQuantities] = await Promise.all([
     database
       .select({ foodId: foodPortion.foodId, label: foodPortion.label, grams: foodPortion.grams })
@@ -73,13 +76,23 @@ async function toLoggableFoods(userId: string, rows: FoodRow[]): Promise<Loggabl
       .from(favoriteFood)
       .where(and(eq(favoriteFood.userId, userId), inArray(favoriteFood.foodId, foodIds))),
     database
-      .selectDistinctOn([diaryEntry.foodId], { foodId: diaryEntry.foodId, grams: diaryEntry.grams })
+      .selectDistinctOn([diaryEntry.foodId], {
+        foodId: diaryEntry.foodId,
+        grams: diaryEntry.grams,
+        createdAt: diaryEntry.createdAt,
+      })
       .from(diaryEntry)
-      .where(and(eq(diaryEntry.userId, userId), inArray(diaryEntry.foodId, foodIds)))
+      .where(and(eq(diaryEntry.userId, userId), inArray(diaryEntry.foodId, [...foodIds, ...replacedFoodIds])))
       .orderBy(diaryEntry.foodId, desc(diaryEntry.createdAt)),
   ]);
   const favoriteIds = new Set(favorites.map((favorite) => favorite.foodId));
-  const lastGramsByFood = new Map(lastQuantities.map((row) => [row.foodId, row.grams]));
+  const lastQuantityByFood = new Map(lastQuantities.map((row) => [row.foodId, row]));
+  function lastGramsOf(row: FoodRow) {
+    const own = lastQuantityByFood.get(row.id);
+    const replaced = row.replacesFoodId ? lastQuantityByFood.get(row.replacesFoodId) : undefined;
+    const latest = own && replaced ? (own.createdAt >= replaced.createdAt ? own : replaced) : (own ?? replaced);
+    return latest?.grams ?? null;
+  }
 
   return rows.map((row) => ({
     type: "food",
@@ -91,7 +104,7 @@ async function toLoggableFoods(userId: string, rows: FoodRow[]): Promise<Loggabl
     portions: portions
       .filter((portion) => portion.foodId === row.id)
       .map((portion) => ({ label: portion.label, grams: portion.grams })),
-    lastGrams: lastGramsByFood.get(row.id) ?? null,
+    lastGrams: lastGramsOf(row),
     isFavorite: favoriteIds.has(row.id),
     isOwn: row.ownerId === userId,
   }));
@@ -130,14 +143,34 @@ export async function recentFoods(userId: string, limit = 15) {
     .orderBy(sql`max(${diaryEntry.createdAt}) desc`)
     .limit(limit);
   const foodIds = recent.map((row) => row.foodId).filter((foodId): foodId is string => Boolean(foodId));
-  if (foodIds.length === 0) return [];
+  const foodsByRequestedId = await loggableFoodsByIds(userId, foodIds);
+  return [...new Set(foodIds.flatMap((foodId) => foodsByRequestedId.get(foodId) ?? []))];
+}
+
+export async function visibleFoodIdsByRequested(userId: string, foodIds: string[]): Promise<Map<string, string>> {
+  if (foodIds.length === 0) return new Map();
+  const copies = await database
+    .select({ id: food.id, replacesFoodId: food.replacesFoodId })
+    .from(food)
+    .where(and(eq(food.ownerId, userId), isNull(food.archivedAt), inArray(food.replacesFoodId, foodIds)));
+  const copyByReplaced = new Map(copies.map((copy) => [copy.replacesFoodId, copy.id]));
+  return new Map(foodIds.map((foodId) => [foodId, copyByReplaced.get(foodId) ?? foodId]));
+}
+
+export async function loggableFoodsByIds(userId: string, foodIds: string[]): Promise<Map<string, LoggableFood>> {
+  if (foodIds.length === 0) return new Map();
+  const visibleIdByRequested = await visibleFoodIdsByRequested(userId, foodIds);
   const rows = await database
     .select(foodColumns)
     .from(food)
-    .where(and(visibleFoodCondition(userId), inArray(food.id, foodIds)));
-  const order = new Map(foodIds.map((foodId, index) => [foodId, index]));
-  rows.sort((first, second) => (order.get(first.id) ?? 0) - (order.get(second.id) ?? 0));
-  return toLoggableFoods(userId, rows);
+    .where(and(visibleFoodCondition(userId), inArray(food.id, [...new Set(visibleIdByRequested.values())])));
+  const loggableById = new Map((await toLoggableFoods(userId, rows)).map((loggable) => [loggable.id, loggable]));
+  const foodsByRequestedId = new Map<string, LoggableFood>();
+  for (const [requestedId, visibleId] of visibleIdByRequested) {
+    const loggable = loggableById.get(visibleId);
+    if (loggable) foodsByRequestedId.set(requestedId, loggable);
+  }
+  return foodsByRequestedId;
 }
 
 function usageSubquery(userId: string) {

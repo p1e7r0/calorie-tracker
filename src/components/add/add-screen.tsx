@@ -23,8 +23,8 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatGrams, formatKcal } from "@/lib/nutrition/format";
-import type { MealType } from "@/lib/nutrition/meals";
+import { formatDecimal, formatGrams, formatKcal } from "@/lib/nutrition/format";
+import { mealTypes, type MealType } from "@/lib/nutrition/meals";
 import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableItem, LoggableRecipe } from "@/server/loggable";
 import { LogItemDrawer } from "./log-item-drawer";
@@ -41,7 +41,7 @@ type AddScreenProperties = {
   day: string;
   dayLabel: string | null;
   initialMeal: MealType;
-  recentFoods: LoggableFood[];
+  suggestions: Record<MealType, LoggableItem[]>;
   favoriteFoods: LoggableFood[];
   recipes: LoggableRecipe[];
   savedMeals: SavedMealView[];
@@ -60,7 +60,7 @@ function AddScreenContent({
   day,
   dayLabel,
   initialMeal,
-  recentFoods,
+  suggestions,
   favoriteFoods,
   recipes,
   savedMeals,
@@ -77,7 +77,9 @@ function AddScreenContent({
   const [describeMealOpen, setDescribeMealOpen] = useState(false);
   const [selectedSavedMeal, setSelectedSavedMeal] = useState<SavedMealView | null>(null);
   const [loggedCount, setLoggedCount] = useState(0);
-  const [tab, setTab] = useState(() => (recentFoods.length > 0 ? "recent" : "favorites"));
+  const [tab, setTab] = useState(() =>
+    mealTypes.some((mealType) => suggestions[mealType].length > 0) ? "suggested" : "favorites",
+  );
   const search = useFoodSearch(query);
   const trimmedQuery = query.trim();
   const addHref = `/add?date=${day}&meal=${meal}`;
@@ -120,8 +122,17 @@ function AddScreenContent({
 
   const quickLog = useLogEntry(() => handleLogged(), handleUndone);
 
-  function quickAdd(food: LoggableFood, grams: number) {
-    quickLog.log({ day, meal, item: { type: "food", foodId: food.id, grams, portionLabel: null } }, food.name);
+  function quickAdd(item: LoggableItem) {
+    if (item.type === "food") {
+      if (!item.lastGrams) return;
+      quickLog.log({ day, meal, item: { type: "food", foodId: item.id, grams: item.lastGrams, portionLabel: null } }, item.name);
+      return;
+    }
+    if (!item.lastServings && !item.lastGrams) return;
+    quickLog.log(
+      { day, meal, item: { type: "recipe", recipeId: item.id, grams: item.lastGrams, servings: item.lastServings } },
+      item.name,
+    );
   }
 
   return (
@@ -159,7 +170,7 @@ function AddScreenContent({
           className="min-h-0 flex-1 gap-0"
         >
           <TabsList className="mb-2 w-full shrink-0">
-            <TabsTrigger value="recent">Recenti</TabsTrigger>
+            <TabsTrigger value="suggested">Suggeriti</TabsTrigger>
             <TabsTrigger value="favorites">Preferiti</TabsTrigger>
             <TabsTrigger value="recipes">Ricette</TabsTrigger>
             <TabsTrigger value="meals">Pasti</TabsTrigger>
@@ -181,12 +192,12 @@ function AddScreenContent({
                 </Button>
               ) : null}
             </div>
-            <TabsContent value="recent">
+            <TabsContent value="suggested">
               <ItemList
-                items={recentFoods}
+                items={suggestions[meal]}
                 onSelect={setSelectedItem}
                 onQuickAdd={quickAdd}
-                emptyMessage="Qui troverai gli alimenti che usi di più."
+                emptyMessage="Qui troverai quello che registri più spesso in questo pasto."
               />
             </TabsContent>
             <TabsContent value="favorites">
@@ -344,7 +355,7 @@ function SearchResultsList({
   results: SearchResults | null;
   createHref: string;
   onSelect: (item: LoggableItem) => void;
-  onQuickAdd: (food: LoggableFood, grams: number) => void;
+  onQuickAdd: (item: LoggableItem) => void;
   onOpenFood: (item: LoggableItem) => void;
 }) {
   if (failed) {
@@ -393,7 +404,7 @@ function ItemList({
 }: {
   items: LoggableItem[];
   onSelect: (item: LoggableItem) => void;
-  onQuickAdd: (food: LoggableFood, grams: number) => void;
+  onQuickAdd: (item: LoggableItem) => void;
   emptyMessage: string;
 }) {
   if (items.length === 0) {
@@ -402,7 +413,7 @@ function ItemList({
   return (
     <ul className="divide-y">
       {items.map((item) => {
-        const lastGrams = item.type === "food" ? item.lastGrams : null;
+        const lastQuantity = describeLastQuantity(item);
         return (
           <li key={`${item.type}-${item.id}`} className="flex items-center gap-1">
             <button
@@ -421,21 +432,21 @@ function ItemList({
                   ) : null}
                 </span>
                 <span className="block truncate text-sm text-muted-foreground">
-                  {item.type === "recipe"
-                    ? `${formatKcal(item.perServing.kcal)} kcal a porzione`
-                    : lastGrams
-                      ? `Ultima volta ${formatGrams(lastGrams)} ${item.unit}, ${formatKcal((item.per100.kcal * lastGrams) / 100)} kcal`
+                  {lastQuantity
+                    ? `Ultima volta ${lastQuantity.label}, ${formatKcal(lastQuantity.kcal)} kcal`
+                    : item.type === "recipe"
+                      ? `${formatKcal(item.perServing.kcal)} kcal a porzione`
                       : [item.brand, `${formatKcal(item.per100.kcal)} kcal per 100 ${item.unit}`].filter(Boolean).join(", ")}
                 </span>
               </span>
             </button>
-            {item.type === "food" && lastGrams ? (
+            {lastQuantity ? (
               <Button
                 variant="secondary"
                 size="icon"
                 className="touch-target"
-                aria-label={`Aggiungi ${formatGrams(lastGrams)} ${item.unit} di ${item.name}`}
-                onClick={() => onQuickAdd(item, lastGrams)}
+                aria-label={`Aggiungi ${lastQuantity.label} di ${item.name}`}
+                onClick={() => onQuickAdd(item)}
               >
                 <PlusIcon />
               </Button>
@@ -455,4 +466,21 @@ function ItemList({
       })}
     </ul>
   );
+}
+
+function describeLastQuantity(item: LoggableItem) {
+  if (item.type === "food") {
+    if (!item.lastGrams) return null;
+    return { label: `${formatGrams(item.lastGrams)} ${item.unit}`, kcal: (item.per100.kcal * item.lastGrams) / 100 };
+  }
+  if (item.lastServings) {
+    return {
+      label: `${formatDecimal(item.lastServings)} ${item.lastServings === 1 ? "porzione" : "porzioni"}`,
+      kcal: item.perServing.kcal * item.lastServings,
+    };
+  }
+  if (item.lastGrams) {
+    return { label: `${formatGrams(item.lastGrams)} g`, kcal: (item.per100.kcal * item.lastGrams) / 100 };
+  }
+  return null;
 }

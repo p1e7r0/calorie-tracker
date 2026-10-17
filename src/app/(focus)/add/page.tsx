@@ -6,10 +6,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
 import { currentHour, formatDayInSentence, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { isMealType, suggestMeal } from "@/lib/nutrition/meals";
-import { favoriteFoods, getLoggableFood, recentFoods } from "@/server/foods";
+import { favoriteFoods, getLoggableFood } from "@/server/foods";
 import { isAiEnabled } from "@/server/ai";
 import { getLoggableRecipe, listLoggableRecipes } from "@/server/recipes";
 import { listSavedMealViews } from "@/server/saved-meals";
+import { mealSuggestions } from "@/server/suggestions";
 
 export const metadata: Metadata = { title: "Aggiungi" };
 
@@ -28,8 +29,8 @@ async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
   const day = isIsoDate(date) ? date : today;
   const initialMeal = isMealType(meal) ? meal : suggestMeal(currentHour());
   const isIdentifier = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f-]{36}$/.test(value);
-  const [recent, favorites, recipes, savedMeals, initialItem] = await Promise.all([
-    recentFoods(user.id),
+  const [suggestions, favorites, recipes, savedMeals, initialItem] = await Promise.all([
+    mealSuggestions(user.id, today),
     favoriteFoods(user.id),
     listLoggableRecipes(user.id),
     listSavedMealViews(user.id),
@@ -45,7 +46,7 @@ async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
       day={day}
       dayLabel={day === today ? null : formatDayInSentence(day, today)}
       initialMeal={initialMeal}
-      recentFoods={recent}
+      suggestions={suggestions}
       favoriteFoods={favorites}
       recipes={recipes}
       savedMeals={savedMeals}

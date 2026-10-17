@@ -152,10 +152,15 @@ function RecipeQuantity({
   onLogged: () => void;
   onUndone?: () => void;
 }) {
-  const [mode, setMode] = useState<"servings" | "grams">(recipe.servings > 1 || !recipe.hasCookedWeight ? "servings" : "grams");
-  const [quantity, setQuantity] = useState(() =>
-    mode === "servings" ? "1" : toInputValue(Math.round(recipe.finalWeightG / recipe.servings)),
-  );
+  const [mode, setMode] = useState<"servings" | "grams">(() => {
+    if (recipe.lastServings) return "servings";
+    if (recipe.lastGrams) return "grams";
+    return recipe.servings > 1 || !recipe.hasCookedWeight ? "servings" : "grams";
+  });
+  const [quantity, setQuantity] = useState(() => {
+    if (mode === "servings") return toInputValue(recipe.lastServings ?? 1);
+    return toInputValue(recipe.lastGrams ?? Math.round(recipe.finalWeightG / recipe.servings));
+  });
   const { isPending, log } = useLogEntry(onLogged, onUndone);
   const amount = parseDecimal(quantity);
   const preview =
