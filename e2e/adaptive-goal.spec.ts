@@ -35,9 +35,29 @@ test("estimates maintenance from logged kcal and weight and applies it as the go
     await expect(page.getByRole("dialog")).toBeHidden();
   }
 
+  await page.goto("/");
+  const summary = page.getByRole("region", { name: "Riepilogo del giorno" });
+  const summaryBefore = (await summary.textContent()) ?? "";
+  const checkIn = page.getByRole("region", { name: "Il punto della settimana" });
+  await expect(checkIn.getByText(/^La settimana scorsa: in media 2000 kcal/)).toBeVisible();
+  await checkIn.getByRole("button", { name: "Aggiorna obiettivo" }).click();
+  await expect(checkIn).toBeHidden();
+  await page
+    .locator("[data-sonner-toast]")
+    .filter({ hasText: "Nuovo obiettivo" })
+    .getByRole("button", { name: "Annulla" })
+    .click();
+  await expect(summary).toHaveText(summaryBefore);
+
+  await page.goto("/progress");
+  await page.getByRole("tab", { name: "Alimentazione" }).click();
+  await expect(page.getByRole("heading", { name: "Fabbisogno stimato, settimana per settimana" })).toBeVisible();
+
   await page.goto("/profile");
   const card = page.getByRole("region", { name: "Fabbisogno dai tuoi dati" });
   await expect(card.getByText(/^25[0-9]0kcal al giorno$/)).toBeVisible();
   await card.getByRole("button", { name: /^Usa 25[0-9]0 kcal come obiettivo$/ }).click();
   await expect(card.getByText("Il tuo obiettivo è già allineato.")).toBeVisible();
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Il punto della settimana" })).toBeHidden();
 });

@@ -1,3 +1,5 @@
+import type { WeeklySummary } from "./nutrition/check-in";
+import { formatGrams, formatKcal } from "./nutrition/format";
 import type { MealType } from "./nutrition/meals";
 
 export type PushMessage = { title: string; body: string; url: string };
@@ -38,4 +40,23 @@ export function weighInReminder(weekday: number | null, today: string): PushMess
     body: "Pesati a digiuno, dopo il bagno, e annota il peso.",
     url: "/progress",
   };
+}
+
+export function weeklySummaryReminder({
+  summary,
+  maintenanceKcal,
+  isWeighInDay,
+}: {
+  summary: WeeklySummary | null;
+  maintenanceKcal: number | null;
+  isWeighInDay: boolean;
+}): PushMessage | null {
+  if (!summary) return null;
+  const days = summary.loggedDays === 1 ? "1 giorno" : `${summary.loggedDays} giorni`;
+  const parts = [
+    `Media ${formatKcal(summary.averageKcal)} kcal e ${formatGrams(summary.averageProteinG)} g di proteine in ${days}.`,
+    maintenanceKcal ? `Fabbisogno stimato ${formatKcal(maintenanceKcal)} kcal: guarda se aggiornare l'obiettivo.` : null,
+    isWeighInDay ? "Oggi è anche il giorno della pesata." : null,
+  ];
+  return { title: "La tua settimana", body: parts.filter(Boolean).join(" "), url: isWeighInDay ? "/progress" : "/" };
 }

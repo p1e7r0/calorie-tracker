@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { PullToRefresh } from "@/components/app-shell/pull-to-refresh";
+import { WeeklyCheckInCard } from "@/components/check-in/weekly-check-in-card";
 import { ScreenBody } from "@/components/app-shell/screen";
 import { DailySummary } from "@/components/diary/daily-summary";
 import { DayNavigator } from "@/components/diary/day-navigator";
@@ -9,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { addDays, daysBetween, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { weeklyBudget } from "@/lib/nutrition/weekly-budget";
 import { weekStart } from "@/lib/nutrition/weeks";
+import { getWeeklyCheckIn } from "@/server/adaptive-goal";
 import { getDailyTargets, getDiaryDay, listLoggedDays } from "@/server/diary";
 import { getDailyTotals } from "@/server/statistics";
 
@@ -25,11 +27,12 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   const { date } = await searchParams;
   const today = todayIsoDate();
   const day = isIsoDate(date) ? date : today;
-  const [diary, targets, loggedDays, weekTotals] = await Promise.all([
+  const [diary, targets, loggedDays, weekTotals, checkIn] = await Promise.all([
     getDiaryDay(user.id, day),
     getDailyTargets(user.id),
     listLoggedDays(user.id, addDays(today, -400), today),
     getDailyTotals(user.id, day, daysBetween(weekStart(day), day) + 1),
+    day === today ? getWeeklyCheckIn(user.id, today) : null,
   ]);
   const weekly = targets ? weeklyBudget({ day, targetKcal: targets.kcal, dailyKcal: weekTotals }) : null;
 
@@ -41,6 +44,7 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
       <PullToRefresh>
         <ScreenBody>
           <DailySummary totals={diary.totals} extras={diary.extras} targets={targets} weekly={weekly} />
+          {checkIn ? <WeeklyCheckInCard checkIn={checkIn} /> : null}
           <div className="mt-2">
             {diary.meals.map((meal) => (
               <MealSection key={meal.meal} meal={meal} day={day} />

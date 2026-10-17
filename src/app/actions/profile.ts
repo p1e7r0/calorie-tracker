@@ -8,6 +8,7 @@ import { measurement, profile } from "@/db/schema";
 import { requireUserId } from "@/lib/auth/session";
 import { isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { ageOn, computeDailyTargets } from "@/lib/nutrition/goals";
+import { weekStart } from "@/lib/nutrition/weeks";
 import { getAdaptiveGoal } from "@/server/adaptive-goal";
 import { getProfileWithLatestWeight } from "@/server/profile";
 import type { ActionResult } from "./diary";
@@ -89,11 +90,36 @@ export async function saveProfile(input: ProfileInput): Promise<ActionResult<{ k
   }
 }
 
-export async function applyAdaptiveGoal(): Promise<ActionResult<{ kcal: number }>> {
+export type SavedTargets = z.infer<typeof savedTargetsSchema>;
+
+const storedTarget = z.number().int().min(0).max(20000).nullable();
+
+const savedTargetsSchema = z.object({
+  kcal: storedTarget,
+  proteinG: storedTarget,
+  carbsG: storedTarget,
+  fatG: storedTarget,
+  customized: z.boolean(),
+});
+
+export async function applyAdaptiveGoal(): Promise<ActionResult<{ kcal: number; previous: SavedTargets }>> {
   try {
     const userId = await requireUserId();
-    const { suggestion } = await getAdaptiveGoal(userId, todayIsoDate());
-    if (!suggestion) throw new Error("Servono più dati per stimare il tuo fabbisogno.");
+    const today = todayIsoDate();
+    const [{ suggestion }, [current]] = await Promise.all([
+      getAdaptiveGoal(userId, today),
+      database
+        .select({
+          kcal: profile.targetKcal,
+          proteinG: profile.targetProteinG,
+          carbsG: profile.targetCarbsG,
+          fatG: profile.targetFatG,
+          customized: profile.targetsCustomized,
+        })
+        .from(profile)
+        .where(eq(profile.userId, userId)),
+    ]);
+    if (!suggestion || !current) throw new Error("Servono più dati per stimare il tuo fabbisogno.");
     await database
       .update(profile)
       .set({
@@ -102,11 +128,48 @@ export async function applyAdaptiveGoal(): Promise<ActionResult<{ kcal: number }
         targetCarbsG: suggestion.carbsG,
         targetFatG: suggestion.fatG,
         targetsCustomized: true,
+        lastCheckInWeek: weekStart(today),
       })
       .where(eq(profile.userId, userId));
     refresh();
-    return { ok: true, data: { kcal: suggestion.kcal } };
+    return { ok: true, data: { kcal: suggestion.kcal, previous: current } };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Qualcosa non ha funzionato. Riprova." };
+  }
+}
+
+export async function restoreTargets(input: SavedTargets): Promise<ActionResult<null>> {
+  try {
+    const userId = await requireUserId();
+    const previous = savedTargetsSchema.parse(input);
+    await database
+      .update(profile)
+      .set({
+        targetKcal: previous.kcal,
+        targetProteinG: previous.proteinG,
+        targetCarbsG: previous.carbsG,
+        targetFatG: previous.fatG,
+        targetsCustomized: previous.customized,
+      })
+      .where(eq(profile.userId, userId));
+    refresh();
+    return { ok: true, data: null };
+  } catch {
+    return { ok: false, error: "Non sono riuscito a ripristinare l'obiettivo. Riprova." };
+  }
+}
+
+export async function dismissWeeklyCheckIn(): Promise<ActionResult<null>> {
+  try {
+    const userId = await requireUserId();
+    const lastCheckInWeek = weekStart(todayIsoDate());
+    await database
+      .insert(profile)
+      .values({ userId, lastCheckInWeek })
+      .onConflictDoUpdate({ target: profile.userId, set: { lastCheckInWeek } });
+    refresh();
+    return { ok: true, data: null };
+  } catch {
+    return { ok: false, error: "Qualcosa non ha funzionato. Riprova." };
   }
 }

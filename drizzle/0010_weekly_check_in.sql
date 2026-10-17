@@ -1,0 +1,1 @@
+ALTER TABLE "profile" ADD COLUMN "last_check_in_week" date;

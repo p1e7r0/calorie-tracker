@@ -2,6 +2,12 @@ export type Sex = "male" | "female";
 export type ActivityLevel = "sedentary" | "light" | "moderate" | "active" | "very_active";
 export type GoalType = "lose" | "maintain" | "gain";
 
+export const goalPurposes: Record<GoalType, string> = {
+  lose: "dimagrire",
+  maintain: "mantenere il peso",
+  gain: "aumentare",
+};
+
 export const activityFactors: Record<ActivityLevel, number> = {
   sedentary: 1.2,
   light: 1.375,
