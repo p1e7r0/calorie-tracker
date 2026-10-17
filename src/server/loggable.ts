@@ -24,6 +24,8 @@ export type LoggableRecipe = {
   servings: number;
   finalWeightG: number;
   hasCookedWeight: boolean;
+  lastServings: number | null;
+  lastGrams: number | null;
   isFavorite: boolean;
 };
 

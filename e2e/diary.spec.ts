@@ -55,7 +55,7 @@ test("adds a recent food in one tap with the last quantity and undoes it", async
   await expect(page.getByText("1 voce aggiunta")).toBeVisible();
 
   await page.getByRole("searchbox", { name: "Cerca un alimento o una ricetta" }).fill("");
-  await page.getByRole("tab", { name: "Recenti" }).click();
+  await page.getByRole("tab", { name: "Suggeriti" }).click();
   await expect(page.getByText("Ultima volta 120 g, 114 kcal")).toBeVisible();
   await page.getByRole("button", { name: "Aggiungi 120 g di Banana, cruda" }).click();
   await expect(page.getByText("2 voci aggiunte")).toBeVisible();
@@ -163,4 +163,52 @@ test("adds to the viewed day from the bottom bar, with Enter and a cleared searc
   await page.getByLabel("Quantità").fill("90");
   await page.getByLabel("Quantità").press("Enter");
   await expect(lunch.getByText("90 g")).toBeVisible();
+});
+
+test("suggests what is usually logged in the chosen meal", async ({ page }) => {
+  await registerUser(page);
+  const search = page.getByRole("searchbox", { name: "Cerca un alimento o una ricetta" });
+  await page.goto("/add?meal=breakfast");
+  await search.fill("banana cruda");
+  await page.getByRole("button", { name: /^Banana, cruda/ }).click();
+  await page.getByRole("button", { name: "Aggiungi a colazione" }).click();
+  await expect(page.getByText("1 voce aggiunta")).toBeVisible();
+
+  await page.getByRole("button", { name: "Cena", exact: true }).click();
+  await search.fill("pollo petto senza pelle");
+  await page.getByRole("button", { name: /^Pollo, petto senza pelle, crudo/ }).click();
+  await page.getByRole("button", { name: "Aggiungi a cena" }).click();
+  await expect(page.getByText("2 voci aggiunte")).toBeVisible();
+
+  await page.goto("/add?meal=dinner");
+  const suggestions = page.getByRole("tabpanel").getByRole("listitem");
+  await expect(page.getByRole("tab", { name: "Suggeriti" })).toHaveAttribute("aria-selected", "true");
+  await expect(suggestions).toHaveCount(2);
+  await expect(suggestions.first()).toContainText("Pollo, petto senza pelle, crudo");
+  await page.getByRole("button", { name: "Colazione", exact: true }).click();
+  await expect(suggestions.first()).toContainText("Banana, cruda");
+});
+
+test("suggests the personal copy of an edited shared food with its last quantity", async ({ page }) => {
+  test.setTimeout(60_000);
+  await registerUser(page);
+  await page.goto("/add?meal=snack");
+  await page.getByRole("searchbox", { name: "Cerca un alimento o una ricetta" }).fill("albicocca cruda");
+  await page.getByRole("button", { name: /^Albicocca, cruda/ }).click();
+  await page.getByLabel("Quantità").fill("130");
+  await page.getByRole("button", { name: "Aggiungi a spuntini" }).click();
+  await expect(page.getByText("1 voce aggiunta")).toBeVisible();
+
+  await page.goto("/food");
+  await page.getByRole("searchbox", { name: "Cerca nel catalogo" }).fill("albicocca cruda");
+  await page.getByRole("link", { name: /Albicocca, cruda/ }).first().click();
+  await page.getByRole("link", { name: "Modifica" }).click();
+  await page.getByLabel("Kcal").fill("50");
+  await page.getByRole("button", { name: "Salva la mia copia" }).click();
+  await expect(page.getByText("Creato da te")).toBeVisible();
+
+  await page.goto("/add?meal=snack");
+  const suggestions = page.getByRole("tabpanel").getByRole("listitem");
+  await expect(suggestions).toHaveCount(1);
+  await expect(suggestions.first()).toContainText("Ultima volta 130 g, 65 kcal");
 });

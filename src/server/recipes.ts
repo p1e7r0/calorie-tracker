@@ -1,7 +1,7 @@
 import "server-only";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { database } from "@/db";
-import { favoriteRecipe, food, recipe, recipeIngredient } from "@/db/schema";
+import { diaryEntry, favoriteRecipe, food, recipe, recipeIngredient } from "@/db/schema";
 import { extrasFromRow, scaleExtras, sumExtras } from "@/lib/nutrition/extra-nutrients";
 import { computeRecipeNutrition } from "@/lib/nutrition/recipe";
 import { allowedTypos, searchWords } from "@/lib/search";
@@ -44,14 +44,24 @@ type RecipeRow = {
 async function toLoggableRecipes(userId: string, rows: RecipeRow[]): Promise<LoggableRecipe[]> {
   if (rows.length === 0) return [];
   const recipeIds = rows.map((row) => row.id);
-  const [ingredients, favorites] = await Promise.all([
+  const [ingredients, favorites, lastQuantities] = await Promise.all([
     loadRecipeIngredients(recipeIds),
     database
       .select({ recipeId: favoriteRecipe.recipeId })
       .from(favoriteRecipe)
       .where(and(eq(favoriteRecipe.userId, userId), inArray(favoriteRecipe.recipeId, recipeIds))),
+    database
+      .selectDistinctOn([diaryEntry.recipeId], {
+        recipeId: diaryEntry.recipeId,
+        grams: diaryEntry.grams,
+        servings: diaryEntry.servings,
+      })
+      .from(diaryEntry)
+      .where(and(eq(diaryEntry.userId, userId), inArray(diaryEntry.recipeId, recipeIds)))
+      .orderBy(diaryEntry.recipeId, desc(diaryEntry.createdAt)),
   ]);
   const favoriteIds = new Set(favorites.map((favorite) => favorite.recipeId));
+  const lastQuantityByRecipe = new Map(lastQuantities.map((row) => [row.recipeId, row]));
 
   return rows.map((row) => {
     const nutrition = computeRecipeNutrition({
@@ -78,6 +88,8 @@ async function toLoggableRecipes(userId: string, rows: RecipeRow[]): Promise<Log
       servings: nutrition.servings,
       finalWeightG: nutrition.finalWeightG,
       hasCookedWeight: Boolean(row.cookedWeightG),
+      lastServings: lastQuantityByRecipe.get(row.id)?.servings ?? null,
+      lastGrams: lastQuantityByRecipe.get(row.id)?.grams ?? null,
       isFavorite: favoriteIds.has(row.id),
     };
   });
@@ -108,6 +120,17 @@ export async function listLoggableRecipes(userId: string, query?: string) {
       ...(words.length > 0 ? [sql`similarity(search_text(${recipe.name}), search_text(${words.join(" ")})) desc`] : []),
       recipe.name,
     );
+  return toLoggableRecipes(userId, rows);
+}
+
+export async function loggableRecipesByIds(userId: string, recipeIds: string[]) {
+  if (recipeIds.length === 0) return [];
+  const rows = await database
+    .select(recipeColumns)
+    .from(recipe)
+    .where(and(eq(recipe.ownerId, userId), isNull(recipe.archivedAt), inArray(recipe.id, recipeIds)));
+  const order = new Map(recipeIds.map((recipeId, index) => [recipeId, index]));
+  rows.sort((first, second) => (order.get(first.id) ?? 0) - (order.get(second.id) ?? 0));
   return toLoggableRecipes(userId, rows);
 }
 

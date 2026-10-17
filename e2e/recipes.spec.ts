@@ -33,6 +33,13 @@ test("creates a recipe with cooked weight and logs a weighed portion", async ({ 
   await dialog.getByRole("button", { name: "Grammi da cotto" }).click();
   await dialog.getByLabel("Quantità").fill("150");
   await expect(dialog.getByText(/^164\s*kcal$/)).toBeVisible();
+  await dialog.getByRole("button", { name: /^Aggiungi a / }).click();
+  await expect(page.getByText("1 voce aggiunta")).toBeVisible();
+
+  await page.getByRole("tab", { name: "Suggeriti" }).click();
+  await expect(page.getByText("Ultima volta 150 g, 164 kcal")).toBeVisible();
+  await page.getByRole("button", { name: "Aggiungi 150 g di Pollo e albicocche" }).click();
+  await expect(page.getByText("2 voci aggiunte")).toBeVisible();
 });
 
 test("shows a recipe read-only, scales the ingredients, edits and duplicates it", async ({ page }) => {
