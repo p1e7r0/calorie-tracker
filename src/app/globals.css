@@ -176,3 +176,13 @@
     padding-top: calc(max(env(safe-area-inset-top), var(--status-bar-fallback, 0px)) + 0.75rem);
   }
 }
+
+@theme {
+  --animate-pull-to-refresh: pull-to-refresh-spin 1s steps(12) infinite;
+
+  @keyframes pull-to-refresh-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}

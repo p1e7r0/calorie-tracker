@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
+import { PullToRefresh } from "@/components/app-shell/pull-to-refresh";
 import { ScreenBody } from "@/components/app-shell/screen";
 import { BodyProgress } from "@/components/progress/body-progress";
 import { NutritionProgress } from "@/components/progress/nutrition-progress";
@@ -46,19 +47,21 @@ async function Progress() {
         <TabsTrigger value="body">Corpo</TabsTrigger>
         <TabsTrigger value="nutrition">Alimentazione</TabsTrigger>
       </TabsList>
-      <ScreenBody>
-        <TabsContent value="body">
-          <BodyProgress measurements={measurements} today={today} />
-        </TabsContent>
-        <TabsContent value="nutrition">
-          <NutritionProgress
-            dailyTotals={dailyTotals}
-            targets={targets}
-            today={today}
-            weights={measurements.map((measurement) => ({ day: measurement.measuredOn, value: measurement.weightKg }))}
-          />
-        </TabsContent>
-      </ScreenBody>
+      <PullToRefresh>
+        <ScreenBody>
+          <TabsContent value="body">
+            <BodyProgress measurements={measurements} today={today} />
+          </TabsContent>
+          <TabsContent value="nutrition">
+            <NutritionProgress
+              dailyTotals={dailyTotals}
+              targets={targets}
+              today={today}
+              weights={measurements.map((measurement) => ({ day: measurement.measuredOn, value: measurement.weightKg }))}
+            />
+          </TabsContent>
+        </ScreenBody>
+      </PullToRefresh>
     </Tabs>
   );
 }
