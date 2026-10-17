@@ -16,7 +16,7 @@ export function useEntryActions() {
         return;
       }
       onRemoved?.();
-      toast(`${entry.label} eliminato`, {
+      toast(`Eliminato: «${entry.label}»`, {
         action: {
           label: "Annulla",
           onClick: async () => {
@@ -36,7 +36,7 @@ export function useEntryActions() {
         return;
       }
       onDuplicated?.();
-      toast.success(`${entry.label} duplicato`, {
+      toast.success(`Duplicato: «${entry.label}»`, {
         action: {
           label: "Annulla",
           onClick: async () => {

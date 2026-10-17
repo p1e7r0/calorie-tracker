@@ -35,7 +35,8 @@ export function SaveMealDrawer({
         toast.error(result.error);
         return;
       }
-      toast.success(`«${name.trim()}» salvato con ${result.data.itemCount} voci`);
+      const { itemCount } = result.data;
+      toast.success(`«${name.trim()}» salvato con ${itemCount === 1 ? "1 voce" : `${itemCount} voci`}`);
       onOpenChange(false);
     });
   }

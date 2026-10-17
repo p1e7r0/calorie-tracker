@@ -24,7 +24,7 @@ export default function AddPage({ searchParams }: PageProps<"/add">) {
 
 async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
   const user = await getCurrentUser();
-  const { date, meal, food, recipe } = await searchParams;
+  const { date, meal, food, recipe, savedMeal } = await searchParams;
   const today = todayIsoDate();
   const day = isIsoDate(date) ? date : today;
   const initialMeal = isMealType(meal) ? meal : suggestMeal(currentHour());
@@ -51,6 +51,7 @@ async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
       recipes={recipes}
       savedMeals={savedMeals}
       initialItem={initialItem}
+      initialSavedMealId={isIdentifier(savedMeal) ? savedMeal : null}
       backHref={day === today ? "/" : `/?date=${day}`}
       aiEnabled={isAiEnabled}
     />

@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { type MealSuggestion, suggestMealItems } from "@/app/actions/ai";
 import { addDiaryEntry } from "@/app/actions/diary";
+import { toastWithUndo } from "@/components/diary/toast-with-undo";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -38,11 +39,13 @@ export function DescribeMealDrawer({
   meal,
   onOpenChange,
   onLogged,
+  onUndone,
 }: {
   day: string;
   meal: MealType;
   onOpenChange: (open: boolean) => void;
   onLogged: (count: number) => void;
+  onUndone?: (count: number) => void;
 }) {
   const [text, setText] = useState("");
   const [items, setItems] = useState<ReviewedItem[] | null>(null);
@@ -80,7 +83,7 @@ export function DescribeMealDrawer({
 
   function addAll() {
     startTransition(async () => {
-      let added = 0;
+      const entryIds: string[] = [];
       for (const item of includedItems) {
         const grams = parseDecimal(item.grams);
         const result =
@@ -99,13 +102,15 @@ export function DescribeMealDrawer({
           toast.error(`${item.description}: ${result.error}`);
           continue;
         }
-        added += 1;
+        entryIds.push(result.data.id);
       }
-      if (added > 0) {
-        toast.success(
-          `${added === 1 ? "1 voce aggiunta" : `${added} voci aggiunte`} a ${mealLabels[meal].toLowerCase()}`,
+      if (entryIds.length > 0) {
+        toastWithUndo(
+          `${entryIds.length === 1 ? "1 voce aggiunta" : `${entryIds.length} voci aggiunte`} a ${mealLabels[meal].toLowerCase()}`,
+          entryIds,
+          () => onUndone?.(entryIds.length),
         );
-        onLogged(added);
+        onLogged(entryIds.length);
       }
     });
   }

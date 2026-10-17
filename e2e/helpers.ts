@@ -1,5 +1,11 @@
 import { expect, type Page } from "@playwright/test";
 
+export function isoDay(offset: number) {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+}
+
 export function uniqueEmail() {
   return `test-${Date.now()}-${Math.floor(Math.random() * 10_000)}@example.com`;
 }

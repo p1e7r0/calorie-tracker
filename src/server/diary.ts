@@ -1,7 +1,7 @@
 import "server-only";
-import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, lte } from "drizzle-orm";
 import { database } from "@/db";
-import { diaryEntry, profile } from "@/db/schema";
+import { diaryEntry, food, foodPortion, profile } from "@/db/schema";
 import { mealTypes, type MealType } from "@/lib/nutrition/meals";
 import { extrasFromRow, sumExtras } from "@/lib/nutrition/extra-nutrients";
 import { type Nutrients, sumNutrients } from "@/lib/nutrition/nutrients";
@@ -16,6 +16,8 @@ export type DiaryEntryView = {
   grams: number | null;
   servings: number | null;
   portionLabel: string | null;
+  unit: "g" | "ml";
+  portions: { label: string; grams: number }[];
   nutrients: Nutrients;
 };
 
@@ -46,6 +48,19 @@ export async function getDiaryDay(userId: string, day: string) {
     .from(diaryEntry)
     .where(and(eq(diaryEntry.userId, userId), eq(diaryEntry.day, day)))
     .orderBy(asc(diaryEntry.createdAt));
+  const foodIds = [...new Set(rows.flatMap((row) => (row.kind === "food" && row.foodId ? [row.foodId] : [])))];
+  const [foodUnits, portions] =
+    foodIds.length === 0
+      ? [[], []]
+      : await Promise.all([
+          database.select({ id: food.id, unit: food.unit }).from(food).where(inArray(food.id, foodIds)),
+          database
+            .select({ foodId: foodPortion.foodId, label: foodPortion.label, grams: foodPortion.grams })
+            .from(foodPortion)
+            .where(inArray(foodPortion.foodId, foodIds))
+            .orderBy(foodPortion.position),
+        ]);
+  const unitByFood = new Map(foodUnits.map((row) => [row.id, row.unit]));
 
   const entries: DiaryEntryView[] = rows.map((row) => ({
     id: row.id,
@@ -57,6 +72,10 @@ export async function getDiaryDay(userId: string, day: string) {
     grams: row.grams,
     servings: row.servings,
     portionLabel: row.portionLabel,
+    unit: (row.foodId && unitByFood.get(row.foodId)) || "g",
+    portions: portions
+      .filter((portion) => portion.foodId === row.foodId)
+      .map((portion) => ({ label: portion.label, grams: portion.grams })),
     nutrients: { kcal: row.kcal, protein: row.protein, carbs: row.carbs, fat: row.fat },
   }));
 

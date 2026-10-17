@@ -31,4 +31,42 @@ test("saves a meal from the diary and logs it again in one tap", async ({ page }
   await page.getByRole("button", { name: "Fatto" }).click();
   const dinner = page.getByRole("region", { name: "Cena" });
   await expect(dinner.getByText("179 kcal")).toBeVisible();
+
+  await page.goto("/food?tab=meals");
+  await page.getByRole("link", { name: /Colazione proteica/ }).click();
+  await page.getByRole("link", { name: "Aggiungi al diario" }).click();
+  const drawer = page.getByRole("dialog");
+  await drawer.getByRole("button", { name: "Spuntini", exact: true }).click();
+  await drawer.getByRole("button", { name: "Aggiungi tutto a spuntini" }).click();
+  await expect(page.getByText("2 voci aggiunte")).toBeVisible();
+  await page.locator("[data-sonner-toast]").filter({ hasText: "Aggiunto a spuntini: «Colazione proteica»" }).getByRole("button", { name: "Annulla" }).click();
+  await expect(page.getByText("2 voci aggiunte")).toBeHidden();
+});
+
+test("asks for confirmation before deleting a saved meal", async ({ page }) => {
+  await registerUser(page);
+  await page.goto("/add?meal=lunch");
+  await page.getByRole("searchbox").fill("albicocca cruda");
+  await page.getByRole("button", { name: /Albicocca, cruda/ }).first().click();
+  await page.getByLabel("Quantità").fill("150");
+  await page.getByRole("button", { name: "Aggiungi a pranzo" }).click();
+  await page.getByRole("button", { name: "Fatto" }).click();
+  const lunch = page.getByRole("region", { name: "Pranzo" });
+  await lunch.getByRole("button", { name: "Altre azioni per pranzo" }).click();
+  await page.getByRole("menuitem", { name: "Salva come pasto" }).click();
+  await page.getByLabel("Nome del pasto").fill("Frutta");
+  await page.getByRole("button", { name: "Salva pasto" }).click();
+  await expect(page.getByText("«Frutta» salvato con 1 voce")).toBeVisible();
+
+  await page.goto("/food?tab=meals");
+  await page.getByRole("link", { name: /Frutta/ }).click();
+  await page.getByRole("button", { name: "Elimina pasto" }).click();
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog.getByText("Eliminare «Frutta»?")).toBeVisible();
+  await dialog.getByRole("button", { name: "Annulla" }).click();
+  await expect(page.getByLabel("Nome")).toHaveValue("Frutta");
+  await page.getByRole("button", { name: "Elimina pasto" }).click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Elimina" }).click();
+  await expect(page).toHaveURL(/\/food\?tab=meals/);
+  await expect(page.getByRole("link", { name: /Frutta/ })).toHaveCount(0);
 });
