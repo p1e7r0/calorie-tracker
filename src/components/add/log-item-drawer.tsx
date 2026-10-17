@@ -70,6 +70,24 @@ function FoodQuantity({
   const { isPending, log } = useLogEntry(onLogged, onUndone);
   const grams = parseDecimal(quantity);
   const preview = scaleNutrients(food.per100, grams ?? 0);
+  const canLog = !isPending && grams !== null && grams > 0;
+
+  function submit() {
+    if (!canLog) return;
+    log(
+      {
+        day,
+        meal,
+        item: {
+          type: "food",
+          foodId: food.id,
+          grams,
+          portionLabel: portionLabel ? `${portionLabel} (${formatGrams(grams)} ${food.unit})` : null,
+        },
+      },
+      food.name,
+    );
+  }
 
   const shortcuts: QuantityShortcut[] = [
     ...(food.lastGrams ? [gramsShortcut("Ultima volta", food.lastGrams, food.unit)] : []),
@@ -88,7 +106,13 @@ function FoodQuantity({
           {formatKcal(food.per100.kcal)} kcal per 100 {food.unit}
         </DrawerDescription>
       </DrawerHeader>
-      <div className="flex flex-col gap-4 overflow-y-auto p-4">
+      <form
+        className="flex flex-col gap-4 overflow-y-auto p-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
         <QuantityField
           label="Quantità"
           unit={food.unit}
@@ -104,27 +128,10 @@ function FoodQuantity({
         <Preview kcal={preview.kcal}>
           <MacroLine nutrients={preview} />
         </Preview>
-      </div>
+        <button type="submit" hidden />
+      </form>
       <DrawerFooter className="pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <Button
-          size="lg"
-          disabled={isPending || !grams || grams <= 0}
-          onClick={() =>
-            log(
-              {
-                day,
-                meal,
-                item: {
-                  type: "food",
-                  foodId: food.id,
-                  grams: grams ?? 0,
-                  portionLabel: portionLabel ? `${portionLabel} (${formatGrams(grams ?? 0)} ${food.unit})` : null,
-                },
-              },
-              food.name,
-            )
-          }
-        >
+        <Button size="lg" disabled={!canLog} onClick={submit}>
           Aggiungi a {mealLabels[meal].toLowerCase()}
         </Button>
       </DrawerFooter>
@@ -155,6 +162,24 @@ function RecipeQuantity({
     mode === "servings"
       ? multiplyNutrients(recipe.perServing, amount ?? 0)
       : scaleNutrients(recipe.per100, amount ?? 0);
+  const canLog = !isPending && amount !== null && amount > 0;
+
+  function submit() {
+    if (!canLog) return;
+    log(
+      {
+        day,
+        meal,
+        item: {
+          type: "recipe",
+          recipeId: recipe.id,
+          grams: mode === "grams" ? amount : null,
+          servings: mode === "servings" ? amount : null,
+        },
+      },
+      recipe.name,
+    );
+  }
 
   const shortcuts: QuantityShortcut[] =
     mode === "servings"
@@ -175,7 +200,13 @@ function RecipeQuantity({
           {formatKcal(recipe.perServing.kcal)} kcal a porzione
         </DrawerDescription>
       </DrawerHeader>
-      <div className="flex flex-col gap-4 overflow-y-auto p-4">
+      <form
+        className="flex flex-col gap-4 overflow-y-auto p-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
         <ToggleGroup
           variant="outline"
           spacing={0}
@@ -209,27 +240,10 @@ function RecipeQuantity({
         <Preview kcal={preview.kcal}>
           <MacroLine nutrients={preview} />
         </Preview>
-      </div>
+        <button type="submit" hidden />
+      </form>
       <DrawerFooter className="pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <Button
-          size="lg"
-          disabled={isPending || !amount || amount <= 0}
-          onClick={() =>
-            log(
-              {
-                day,
-                meal,
-                item: {
-                  type: "recipe",
-                  recipeId: recipe.id,
-                  grams: mode === "grams" ? amount : null,
-                  servings: mode === "servings" ? amount : null,
-                },
-              },
-              recipe.name,
-            )
-          }
-        >
+        <Button size="lg" disabled={!canLog} onClick={submit}>
           Aggiungi a {mealLabels[meal].toLowerCase()}
         </Button>
       </DrawerFooter>

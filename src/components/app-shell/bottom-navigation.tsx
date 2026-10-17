@@ -2,7 +2,9 @@
 
 import { ChartLineIcon, CircleUserRoundIcon, PlusIcon, SunIcon, UtensilsIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { isIsoDate } from "@/lib/nutrition/days";
 import { cn } from "@/lib/utils";
 
 const destinations = [
@@ -29,18 +31,31 @@ export function BottomNavigation() {
         <NavigationLink destination={today} active={isActive(pathname, today.href)} />
         <NavigationLink destination={food} active={isActive(pathname, food.href)} />
         <div className="flex justify-center">
-          <Link
-            href="/add"
-            aria-label="Aggiungi cibo"
-            className="flex size-12 items-center justify-center rounded-full bg-energy text-energy-foreground shadow-sm transition-transform outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95"
-          >
-            <PlusIcon className="size-6" strokeWidth={2.5} />
-          </Link>
+          <Suspense fallback={<AddLink href="/add" />}>
+            <AddLinkForViewedDay pathname={pathname} />
+          </Suspense>
         </div>
         <NavigationLink destination={progress} active={isActive(pathname, progress.href)} />
         <NavigationLink destination={profile} active={isActive(pathname, profile.href)} />
       </div>
     </nav>
+  );
+}
+
+function AddLinkForViewedDay({ pathname }: { pathname: string }) {
+  const date = useSearchParams().get("date");
+  return <AddLink href={pathname === "/" && isIsoDate(date) ? `/add?date=${date}` : "/add"} />;
+}
+
+function AddLink({ href }: { href: string }) {
+  return (
+    <Link
+      href={href}
+      aria-label="Aggiungi cibo"
+      className="flex size-12 items-center justify-center rounded-full bg-energy text-energy-foreground shadow-sm transition-transform outline-none focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95"
+    >
+      <PlusIcon className="size-6" strokeWidth={2.5} />
+    </Link>
   );
 }
 

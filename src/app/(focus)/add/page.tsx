@@ -4,7 +4,7 @@ import { AddScreen } from "@/components/add/add-screen";
 import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
-import { currentHour, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
+import { currentHour, formatDayInSentence, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { isMealType, suggestMeal } from "@/lib/nutrition/meals";
 import { favoriteFoods, getLoggableFood, recentFoods } from "@/server/foods";
 import { isAiEnabled } from "@/server/ai";
@@ -43,6 +43,7 @@ async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
   return (
     <AddScreen
       day={day}
+      dayLabel={day === today ? null : formatDayInSentence(day, today)}
       initialMeal={initialMeal}
       recentFoods={recent}
       favoriteFoods={favorites}
@@ -62,7 +63,7 @@ function AddSkeleton() {
         <Skeleton className="h-9 w-full" />
       </div>
       <ScreenBody className="flex flex-col gap-3">
-        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-10 w-full" />
         <Skeleton className="h-11 w-full" />
         {Array.from({ length: 6 }, (_, index) => (
           <Skeleton key={index} className="h-12 w-full" />

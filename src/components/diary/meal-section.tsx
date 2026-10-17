@@ -75,7 +75,14 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
         ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger
-            render={<Button variant="ghost" size="icon" aria-label={`Altre azioni per ${label.toLowerCase()}`} />}
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="touch-target"
+                aria-label={`Altre azioni per ${label.toLowerCase()}`}
+              />
+            }
             disabled={isPending}
           >
             <EllipsisIcon />
@@ -96,7 +103,7 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
         <Link
           href={addHref}
           aria-label={`Aggiungi a ${label.toLowerCase()}`}
-          className={buttonVariants({ variant: "secondary", size: "icon" })}
+          className={buttonVariants({ variant: "secondary", size: "icon", className: "ml-1 touch-target" })}
         >
           <PlusIcon />
         </Link>

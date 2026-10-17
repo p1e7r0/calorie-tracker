@@ -159,6 +159,15 @@
   }
 }
 
+@utility touch-target {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: min(0px, calc((100% - 2.75rem) / 2));
+  }
+}
+
 @utility app-viewport {
   position: fixed;
   inset-inline: 0;

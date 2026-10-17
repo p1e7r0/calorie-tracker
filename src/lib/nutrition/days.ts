@@ -68,6 +68,13 @@ export function formatLongDay(isoDate: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
+export function formatDayInSentence(isoDate: string, today: string) {
+  const weekdayAndDate = formatLongDay(isoDate).toLowerCase();
+  const label = formatDayLabel(isoDate, today);
+  if (label === "Oggi" || label === "Ieri" || label === "Domani") return `${label.toLowerCase()}, ${weekdayAndDate}`;
+  return weekdayAndDate;
+}
+
 export function formatShortDay(isoDate: string) {
   return shortDayFormatter.format(new Date(`${isoDate}T12:00:00Z`));
 }

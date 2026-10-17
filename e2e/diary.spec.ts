@@ -130,3 +130,37 @@ test("shows fiber, sugars, saturated fat and salt for the day", async ({ page })
   await expect(summary.getByText("almeno 25 g")).toBeVisible();
   await expect(summary.locator("dd").filter({ hasText: "almeno 25 g" })).toContainText("4,2 g");
 });
+
+test("adds to the viewed day from the bottom bar, with Enter and a cleared search", async ({ page }) => {
+  await registerUser(page);
+  const date = new Date();
+  date.setDate(date.getDate() - 3);
+  const day = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join(
+    "-",
+  );
+  await page.goto(`/?date=${day}`);
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("link", { name: "Aggiungi cibo" }).click();
+  await expect(page).toHaveURL(`/add?date=${day}`);
+  await expect(page.getByText(/^Diario di /)).toBeVisible();
+
+  await page.getByRole("button", { name: "Pranzo", exact: true }).click();
+  const search = page.getByRole("searchbox", { name: "Cerca un alimento o una ricetta" });
+  await search.fill("banana cruda");
+  await page.getByRole("button", { name: /^Banana, cruda/ }).click();
+  await page.getByLabel("Quantità").fill("150");
+  await page.getByLabel("Quantità").press("Enter");
+  await expect(page.getByText("1 voce aggiunta")).toBeVisible();
+  await expect(search).toHaveValue("");
+  await expect(search).toBeFocused();
+
+  await page.getByRole("button", { name: "Fatto" }).click();
+  await expect(page).toHaveURL(`/?date=${day}`);
+  const lunch = page.getByRole("region", { name: "Pranzo" });
+  await expect(lunch.getByText("150 g")).toBeVisible();
+
+  await lunch.getByRole("button", { name: /Banana, cruda/ }).click();
+  await page.getByLabel("Quantità").fill("90");
+  await page.getByLabel("Quantità").press("Enter");
+  await expect(lunch.getByText("90 g")).toBeVisible();
+});

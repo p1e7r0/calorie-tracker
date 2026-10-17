@@ -72,11 +72,11 @@ export function DayNavigator({ day, today, loggedDays }: { day: string; today: s
           </p>
         </PopoverContent>
       </Popover>
-      <div className="flex shrink-0 items-center">
+      <div className="flex shrink-0 items-center gap-2">
         <Link
           href={dayHref(previousDay, today)}
           aria-label="Giorno precedente"
-          className={buttonVariants({ variant: "ghost", size: "icon" })}
+          className={buttonVariants({ variant: "ghost", size: "icon", className: "touch-target" })}
         >
           <ChevronLeftIcon />
         </Link>
@@ -84,12 +84,12 @@ export function DayNavigator({ day, today, loggedDays }: { day: string; today: s
           <Link
             href={dayHref(nextDay, today)}
             aria-label="Giorno successivo"
-            className={buttonVariants({ variant: "ghost", size: "icon" })}
+            className={buttonVariants({ variant: "ghost", size: "icon", className: "touch-target" })}
           >
             <ChevronRightIcon />
           </Link>
         ) : (
-          <Button variant="ghost" size="icon" aria-label="Giorno successivo" disabled>
+          <Button variant="ghost" size="icon" className="touch-target" aria-label="Giorno successivo" disabled>
             <ChevronRightIcon />
           </Button>
         )}

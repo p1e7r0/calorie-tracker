@@ -47,3 +47,4 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] `fix/weekly-budget-unlogged-days`: i giorni passati senza voci contano come in linea con l'obiettivo nel budget settimanale
 - [x] `fix/standalone-status-bar`: header lontani dalla sfocatura della status bar nella PWA iOS installata
 - [x] `fix/today-header-offset`: header di Oggi allineato a quello delle altre schede
+- [x] `fix/logging-flow-friction`: il «+» della barra in basso porta il giorno visualizzato e /add mostra «Diario di …» quando non è oggi; Invio registra la quantità (scheda quantità ed editor della voce); ricerca svuotata e rimessa a fuoco dopo un'aggiunta; aree di tocco di almeno 44 px (utility `touch-target`) e schede alte 40 px
