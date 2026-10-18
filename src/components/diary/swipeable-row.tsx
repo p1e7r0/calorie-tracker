@@ -78,7 +78,7 @@ export function SwipeableRow({
         </span>
         <span
           className={cn(
-            "flex h-full items-center gap-2 bg-destructive px-4 text-white transition-opacity",
+            "flex h-full items-center gap-2 bg-destructive-strong px-4 text-white transition-opacity",
             offset < 0 ? "opacity-100" : "opacity-0",
           )}
         >
