@@ -220,18 +220,19 @@ export function RecipeEditor({
             Una porzione pesa {formatDecimal(nutrition.finalWeightG / nutrition.servings)} g.
           </p>
         </section>
-
-        {errorMessage ? <FieldError>{errorMessage}</FieldError> : null}
       </ScreenBody>
 
-      <ScreenFooter className="flex items-center gap-3">
-        <p className="min-w-0 flex-1 text-sm leading-tight">
-          <span className="block font-heading text-lg font-semibold">{formatKcal(nutrition.perServing.kcal)} kcal</span>
-          <span className="text-muted-foreground">a porzione</span>
-        </p>
-        <Button size="lg" onClick={save} disabled={isPending}>
-          {recipeId ? "Salva ricetta" : "Crea ricetta"}
-        </Button>
+      <ScreenFooter>
+        {errorMessage ? <FieldError className="mb-2">{errorMessage}</FieldError> : null}
+        <div className="flex items-center gap-3">
+          <p className="min-w-0 flex-1 text-sm leading-tight">
+            <span className="block font-heading text-lg font-semibold">{formatKcal(nutrition.perServing.kcal)} kcal</span>
+            <span className="text-muted-foreground">a porzione</span>
+          </p>
+          <Button size="lg" onClick={save} disabled={isPending}>
+            {recipeId ? "Salva ricetta" : "Crea ricetta"}
+          </Button>
+        </div>
       </ScreenFooter>
 
       {pickerOpen ? (

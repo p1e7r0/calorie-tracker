@@ -320,12 +320,11 @@ export function ProfileForm({
               <p className="mt-2 text-sm text-muted-foreground">Compila i tuoi dati per calcolarlo.</p>
             )}
           </section>
-
-          {errorMessage ? <FieldError>{errorMessage}</FieldError> : null}
         </form>
         {children}
       </ScreenBody>
       <ScreenFooter coversSafeArea={false}>
+        {errorMessage ? <FieldError className="mb-2">{errorMessage}</FieldError> : null}
         <Button type="submit" form={formId} size="lg" className="w-full" disabled={isPending}>
           Salva obiettivo
         </Button>

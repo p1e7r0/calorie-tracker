@@ -58,6 +58,8 @@ test("submits the food form from the footer button and with Enter", async ({ pag
   await expect(create).toBeInViewport();
 
   const kcal = page.getByLabel("Kcal", { exact: true });
+  await kcal.press("Enter");
+  await expect(page.locator('[data-slot="screen-footer"]').getByRole("alert")).toHaveText("Inserisci le kcal o i macronutrienti per 100 g.");
   await kcal.fill("380");
   await kcal.press("Enter");
   await page.waitForURL(/\/food\/[0-9a-f-]{36}$/);

@@ -303,12 +303,11 @@ function FoodFormContent({
                 Aggiungi porzione
               </Button>
             </fieldset>
-
-            {errorMessage ? <FieldError>{errorMessage}</FieldError> : null}
           </FieldGroup>
         </form>
       </ScreenBody>
       <ScreenFooter>
+        {errorMessage ? <FieldError className="mb-2">{errorMessage}</FieldError> : null}
         <Button type="submit" form={formId} size="lg" className="w-full" disabled={isPending}>
           {submitLabel}
         </Button>
