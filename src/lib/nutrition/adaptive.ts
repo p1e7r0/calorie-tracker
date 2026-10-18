@@ -4,7 +4,7 @@ import { kcalPerKilogramOfBodyWeight } from "./goals";
 export const adaptiveWindowDays = 28;
 export const requiredLoggedDays = 14;
 export const requiredWeightSpanDays = 14;
-const incompleteDayKcal = 600;
+const partialDayKcal = 600;
 const plausibleMaintenance = { minimum: 1000, maximum: 6000 };
 
 type DatedValue = { day: string; value: number };
@@ -14,11 +14,13 @@ export type MaintenanceEstimate =
       status: "insufficient";
       loggedDays: number;
       weightSpanDays: number;
+      excludedIncompleteDays: number;
     }
   | {
       status: "implausible";
       loggedDays: number;
       weightSpanDays: number;
+      excludedIncompleteDays: number;
     }
   | {
       status: "ready";
@@ -27,6 +29,7 @@ export type MaintenanceEstimate =
       weeklyWeightChangeKg: number;
       loggedDays: number;
       weightSpanDays: number;
+      excludedIncompleteDays: number;
     };
 
 export function weightSlopePerDay(weights: readonly DatedValue[]) {
@@ -44,16 +47,22 @@ export function estimateMaintenance({
   dailyIntakes,
   weights,
   today,
+  incompleteDays = [],
 }: {
   dailyIntakes: readonly DatedValue[];
   weights: readonly DatedValue[];
   today: string;
+  incompleteDays?: readonly string[];
 }): MaintenanceEstimate {
   const fromDay = addDays(today, -adaptiveWindowDays);
   const toDay = addDays(today, -1);
   const inWindow = (point: DatedValue) => point.day >= fromDay && point.day <= toDay;
 
-  const intakes = dailyIntakes.filter(inWindow).filter((intake) => intake.value >= incompleteDayKcal);
+  const markedIncomplete = new Set(incompleteDays.filter((day) => day >= fromDay && day <= toDay));
+  const excludedIncompleteDays = markedIncomplete.size;
+  const intakes = dailyIntakes
+    .filter(inWindow)
+    .filter((intake) => intake.value >= partialDayKcal && !markedIncomplete.has(intake.day));
   const windowWeights = [...weights.filter((weight) => weight.day >= fromDay && weight.day <= today)].sort(
     (first, second) => first.day.localeCompare(second.day),
   );
@@ -62,7 +71,7 @@ export function estimateMaintenance({
   const loggedDays = intakes.length;
 
   if (loggedDays < requiredLoggedDays || weightSpanDays < requiredWeightSpanDays) {
-    return { status: "insufficient", loggedDays, weightSpanDays };
+    return { status: "insufficient", loggedDays, weightSpanDays, excludedIncompleteDays };
   }
 
   const averageIntakeKcal = intakes.reduce((sum, intake) => sum + intake.value, 0) / loggedDays;
@@ -70,7 +79,7 @@ export function estimateMaintenance({
   const maintenanceKcal = averageIntakeKcal - slope * kcalPerKilogramOfBodyWeight;
 
   if (maintenanceKcal < plausibleMaintenance.minimum || maintenanceKcal > plausibleMaintenance.maximum) {
-    return { status: "implausible", loggedDays, weightSpanDays };
+    return { status: "implausible", loggedDays, weightSpanDays, excludedIncompleteDays };
   }
 
   return {
@@ -80,5 +89,6 @@ export function estimateMaintenance({
     weeklyWeightChangeKg: Math.round(slope * 7 * 100) / 100,
     loggedDays,
     weightSpanDays,
+    excludedIncompleteDays,
   };
 }

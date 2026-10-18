@@ -19,6 +19,21 @@ describe("previousWeekSummary", () => {
     expect(summary).toEqual({ weekStart: "2026-10-05", loggedDays: 2, averageKcal: 1900, averageProteinG: 90 });
   });
 
+  it("leaves out the days marked as incomplete", () => {
+    const dailyTotals = [
+      { day: "2026-10-05", kcal: 2000, protein: 100 },
+      { day: "2026-10-06", kcal: 700, protein: 20 },
+      { day: "2026-10-07", kcal: 1800, protein: 80 },
+    ];
+    expect(previousWeekSummary(dailyTotals, wednesday, ["2026-10-06", "2026-10-13"])).toEqual({
+      weekStart: "2026-10-05",
+      loggedDays: 2,
+      averageKcal: 1900,
+      averageProteinG: 90,
+    });
+    expect(previousWeekSummary(dailyTotals, wednesday, ["2026-10-05", "2026-10-06", "2026-10-07"])).toBeNull();
+  });
+
   it("returns nothing when the previous week is empty", () => {
     expect(previousWeekSummary([{ day: "2026-10-13", kcal: 2000, protein: 90 }], wednesday)).toBeNull();
   });
@@ -53,5 +68,28 @@ describe("maintenanceHistory", () => {
     ]);
     expect(history[0].maintenanceKcal).toBeNull();
     expect(history.at(-1)?.maintenanceKcal).toBe(2550);
+  });
+
+  it("leaves the days marked as incomplete out of every estimate", () => {
+    const lowDays = Array.from({ length: 7 }, (_, index) => addDays(wednesday, -(index + 1)));
+    const dailyIntakes = Array.from({ length: 70 }, (_, index) => {
+      const day = addDays(wednesday, -(index + 1));
+      return { day, value: lowDays.includes(day) ? 1000 : 2000 };
+    });
+    const weights = Array.from({ length: 9 }, (_, index) => ({
+      day: addDays(wednesday, -7 * index),
+      value: 80 + index * 0.5,
+    }));
+    const withLowDays = maintenanceHistory({ dailyIntakes, weights, today: wednesday, weeks: 2 });
+    const withoutLowDays = maintenanceHistory({
+      dailyIntakes,
+      weights,
+      today: wednesday,
+      weeks: 2,
+      incompleteDays: lowDays,
+    });
+    expect(withLowDays.at(-1)?.maintenanceKcal).toBeLessThan(2550);
+    expect(withoutLowDays.at(-1)?.maintenanceKcal).toBe(2550);
+    expect(withoutLowDays[0].maintenanceKcal).toBe(withLowDays[0].maintenanceKcal);
   });
 });

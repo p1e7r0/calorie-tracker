@@ -1,11 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  type BarShapeProps,
+  CartesianGrid,
+  Line,
+  LineChart,
+  Rectangle,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { addDays, formatShortDay } from "@/lib/nutrition/days";
 import { formatDecimal, formatGrams, formatKcal } from "@/lib/nutrition/format";
+import { withoutIncompleteDays } from "@/lib/nutrition/incomplete-days";
 import { dailySeries } from "@/lib/nutrition/trends";
 import { averageByWeek, weekStart } from "@/lib/nutrition/weeks";
 import { cn } from "@/lib/utils";
@@ -28,12 +40,14 @@ const weekdayFormatter = new Intl.DateTimeFormat("it-IT", { weekday: "narrow", t
 
 export function NutritionProgress({
   dailyTotals,
+  incompleteDays,
   weights,
   maintenanceHistory,
   targets,
   today,
 }: {
   dailyTotals: DailyTotals[];
+  incompleteDays: string[];
   weights: { day: string; value: number }[];
   maintenanceHistory: { day: string; maintenanceKcal: number | null }[];
   targets: DailyTargetsView;
@@ -42,8 +56,19 @@ export function NutritionProgress({
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
   const totalsByDay = new Map(dailyTotals.map((totals) => [totals.day, totals]));
   const days = dailySeries(addDays(today, -(rangeDays - 1)), today);
-  const kcalData = days.map((day) => ({ day, kcal: totalsByDay.get(day)?.kcal ?? null }));
-  const completedTotals = dailyTotals.filter((totals) => totals.day !== today);
+  const incompleteDaySet = new Set(incompleteDays);
+  const kcalData = days.map((day) => ({
+    day,
+    kcal: totalsByDay.get(day)?.kcal ?? null,
+    incomplete: incompleteDaySet.has(day),
+  }));
+  const completedTotals = withoutIncompleteDays(
+    dailyTotals.filter((totals) => totals.day !== today),
+    incompleteDays,
+  );
+  const excludedInRange = days.filter(
+    (day) => day !== today && incompleteDaySet.has(day) && totalsByDay.has(day),
+  ).length;
   const completedTotalsByDay = new Map(completedTotals.map((totals) => [totals.day, totals]));
   const loggedDays = days.map((day) => completedTotalsByDay.get(day)).filter((totals) => totals !== undefined);
   const averageKcal = loggedDays.length
@@ -93,6 +118,9 @@ export function NutritionProgress({
             <p className="text-sm text-muted-foreground">
               {loggedDays.length} {loggedDays.length === 1 ? "giorno registrato" : "giorni registrati"} su {rangeDays - 1}, oggi
               escluso
+              {excludedInRange > 0
+                ? `. ${excludedInRange === 1 ? "Un giorno incompleto non conta" : `${excludedInRange} giorni incompleti non contano`} nelle medie`
+                : ""}
               {targets ? `. Obiettivo ${formatKcal(targets.kcal)} (linea tratteggiata)` : ""}
             </p>
           </div>
@@ -128,7 +156,7 @@ export function NutritionProgress({
             <ChartTooltip
               cursor={{ fillOpacity: 0.4 }}
               content={({ active, payload }) => {
-                const row = payload?.[0]?.payload as { day: string; kcal: number | null } | undefined;
+                const row = payload?.[0]?.payload as (typeof kcalData)[number] | undefined;
                 if (!active || !row) return null;
                 const totals = totalsByDay.get(row.day);
                 return (
@@ -140,6 +168,7 @@ export function NutritionProgress({
                         <p className="text-muted-foreground">
                           P {formatGrams(totals.protein)} g, C {formatGrams(totals.carbs)} g, G {formatGrams(totals.fat)} g
                         </p>
+                        {row.incomplete ? <p className="text-muted-foreground">Incompleto, escluso dalle medie</p> : null}
                       </>
                     ) : (
                       <p className="text-muted-foreground">Niente registrato</p>
@@ -157,7 +186,18 @@ export function NutritionProgress({
                 strokeWidth={1}
               />
             ) : null}
-            <Bar dataKey="kcal" fill="var(--color-kcal)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+            <Bar
+              dataKey="kcal"
+              fill="var(--color-kcal)"
+              radius={[4, 4, 0, 0]}
+              isAnimationActive={false}
+              shape={(props: BarShapeProps) => (
+                <Rectangle
+                  {...props}
+                  fillOpacity={(props.payload as (typeof kcalData)[number] | undefined)?.incomplete ? 0.35 : 1}
+                />
+              )}
+            />
           </BarChart>
         </ChartContainer>
       </section>

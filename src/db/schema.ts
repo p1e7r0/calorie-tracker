@@ -273,6 +273,18 @@ export const measurement = pgTable(
   (table) => [index("measurement_user_day_index").on(table.userId, table.measuredOn)],
 );
 
+export const incompleteDay = pgTable(
+  "incomplete_day",
+  {
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    day: date({ mode: "string" }).notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.day] })],
+);
+
 export const aiRequest = pgTable(
   "ai_request",
   {

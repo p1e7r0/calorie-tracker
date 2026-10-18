@@ -9,13 +9,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentUser } from "@/lib/auth/session";
 import { maintenanceHistory } from "@/lib/nutrition/check-in";
-import { todayIsoDate } from "@/lib/nutrition/days";
+import { addDays, todayIsoDate } from "@/lib/nutrition/days";
 import { getDailyTargets } from "@/server/diary";
+import { listIncompleteDays } from "@/server/incomplete-days";
 import { listMeasurements } from "@/server/measurements";
 import { getProfileWithLatestWeight } from "@/server/profile";
 import { getDailyTotals } from "@/server/statistics";
 
 export const metadata: Metadata = { title: "Progressi" };
+
+const loadedDays = 7 * 17;
 
 export default function ProgressPage() {
   return (
@@ -37,11 +40,12 @@ export default function ProgressPage() {
 async function Progress() {
   const user = await getCurrentUser();
   const today = todayIsoDate();
-  const [measurements, dailyTotals, targets, { profile }] = await Promise.all([
+  const [measurements, dailyTotals, targets, { profile }, incompleteDays] = await Promise.all([
     listMeasurements(user.id),
-    getDailyTotals(user.id, today, 7 * 17),
+    getDailyTotals(user.id, today, loadedDays),
     getDailyTargets(user.id),
     getProfileWithLatestWeight(user.id),
+    listIncompleteDays(user.id, addDays(today, -(loadedDays - 1)), today),
   ]);
   const weights = measurements.map((measurement) => ({ day: measurement.measuredOn, value: measurement.weightKg }));
   const history = maintenanceHistory({
@@ -49,6 +53,7 @@ async function Progress() {
     weights,
     today,
     weeks: 12,
+    incompleteDays,
   });
   const targetWeight = profile?.targetWeightKg
     ? { targetKg: profile.targetWeightKg, goal: profile.goal, plannedWeeklyRateKg: profile.weeklyRateKg }
@@ -68,6 +73,7 @@ async function Progress() {
           <TabsContent value="nutrition">
             <NutritionProgress
               dailyTotals={dailyTotals}
+              incompleteDays={incompleteDays}
               targets={targets}
               today={today}
               weights={weights}
