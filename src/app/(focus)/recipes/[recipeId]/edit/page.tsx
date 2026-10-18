@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { BackHeader } from "@/components/app-shell/back-header";
-import { ScreenBody } from "@/components/app-shell/screen";
+import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { toFormNumber } from "@/components/food/food-form-values";
 import { RecipeEditor } from "@/components/recipes/recipe-editor";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,9 +16,14 @@ export default function EditRecipePage({ params }: PageProps<"/recipes/[recipeId
   return (
     <Suspense
       fallback={
-        <ScreenBody className="pt-14">
-          <Skeleton className="h-64 w-full" />
-        </ScreenBody>
+        <>
+          <ScreenBody className="pt-14">
+            <Skeleton className="h-64 w-full" />
+          </ScreenBody>
+          <ScreenFooter>
+            <Skeleton className="h-11 w-full" />
+          </ScreenFooter>
+        </>
       }
     >
       <EditRecipe params={params} />
