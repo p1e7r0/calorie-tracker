@@ -12,6 +12,7 @@ import { maintenanceHistory } from "@/lib/nutrition/check-in";
 import { todayIsoDate } from "@/lib/nutrition/days";
 import { getDailyTargets } from "@/server/diary";
 import { listMeasurements } from "@/server/measurements";
+import { getProfileWithLatestWeight } from "@/server/profile";
 import { getDailyTotals } from "@/server/statistics";
 
 export const metadata: Metadata = { title: "Progressi" };
@@ -36,10 +37,11 @@ export default function ProgressPage() {
 async function Progress() {
   const user = await getCurrentUser();
   const today = todayIsoDate();
-  const [measurements, dailyTotals, targets] = await Promise.all([
+  const [measurements, dailyTotals, targets, { profile }] = await Promise.all([
     listMeasurements(user.id),
     getDailyTotals(user.id, today, 7 * 17),
     getDailyTargets(user.id),
+    getProfileWithLatestWeight(user.id),
   ]);
   const weights = measurements.map((measurement) => ({ day: measurement.measuredOn, value: measurement.weightKg }));
   const history = maintenanceHistory({
@@ -48,6 +50,9 @@ async function Progress() {
     today,
     weeks: 12,
   });
+  const targetWeight = profile?.targetWeightKg
+    ? { targetKg: profile.targetWeightKg, goal: profile.goal, plannedWeeklyRateKg: profile.weeklyRateKg }
+    : null;
 
   return (
     <Tabs defaultValue="body" className="min-h-0 flex-1 gap-0">
@@ -58,7 +63,7 @@ async function Progress() {
       <PullToRefresh>
         <ScreenBody>
           <TabsContent value="body">
-            <BodyProgress measurements={measurements} today={today} />
+            <BodyProgress measurements={measurements} today={today} targetWeight={targetWeight} />
           </TabsContent>
           <TabsContent value="nutrition">
             <NutritionProgress

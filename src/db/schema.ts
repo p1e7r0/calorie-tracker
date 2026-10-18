@@ -53,6 +53,7 @@ export const profile = pgTable("profile", {
   activityLevel: activityLevelEnum().notNull().default("light"),
   goal: goalTypeEnum().notNull().default("maintain"),
   weeklyRateKg: real().notNull().default(0.5),
+  targetWeightKg: real(),
   targetKcal: integer(),
   targetProteinG: integer(),
   targetCarbsG: integer(),

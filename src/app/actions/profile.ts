@@ -8,6 +8,7 @@ import { measurement, profile } from "@/db/schema";
 import { requireUserId } from "@/lib/auth/session";
 import { isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { ageOn, computeDailyTargets } from "@/lib/nutrition/goals";
+import { targetWeightBounds } from "@/lib/nutrition/target-weight";
 import { weekStart } from "@/lib/nutrition/weeks";
 import { getAdaptiveGoal } from "@/server/adaptive-goal";
 import { getProfileWithLatestWeight } from "@/server/profile";
@@ -21,6 +22,11 @@ const profileSchema = z.object({
   activityLevel: z.enum(["sedentary", "light", "moderate", "active", "very_active"]),
   goal: z.enum(["lose", "maintain", "gain"]),
   weeklyRateKg: z.number().min(0.1).max(1),
+  targetWeightKg: z
+    .number()
+    .min(targetWeightBounds.minimum, "Peso obiettivo non valido.")
+    .max(targetWeightBounds.maximum, "Peso obiettivo non valido.")
+    .nullish(),
   customTargets: z
     .object({
       kcal: z.number().int().min(800).max(6000),
@@ -70,6 +76,7 @@ export async function saveProfile(input: ProfileInput): Promise<ActionResult<{ k
       activityLevel: parsed.activityLevel,
       goal: parsed.goal,
       weeklyRateKg: parsed.weeklyRateKg,
+      targetWeightKg: parsed.goal === "maintain" ? null : (parsed.targetWeightKg ?? null),
       targetKcal: targets.kcal,
       targetProteinG: targets.proteinG,
       targetCarbsG: targets.carbsG,

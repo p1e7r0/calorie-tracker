@@ -9,7 +9,8 @@ import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { formatKcal, parseDecimal } from "@/lib/nutrition/format";
+import { formatDayWithArticle } from "@/lib/nutrition/days";
+import { formatDecimal, formatKcal, parseDecimal } from "@/lib/nutrition/format";
 import {
   type ActivityLevel,
   ageOn,
@@ -17,6 +18,7 @@ import {
   type GoalType,
   type Sex,
 } from "@/lib/nutrition/goals";
+import { projectTargetWeight, targetWeightBounds } from "@/lib/nutrition/target-weight";
 
 const activityOptions: { value: ActivityLevel; label: string }[] = [
   { value: "sedentary", label: "Sedentario: lavoro seduto, poco movimento" },
@@ -36,6 +38,7 @@ export type ProfileFormValues = {
   activityLevel: ActivityLevel;
   goal: GoalType;
   weeklyRateKg: number;
+  targetWeightKg: string;
   customized: boolean;
   kcal: string;
   proteinG: string;
@@ -67,6 +70,17 @@ export function ProfileForm({ initialValues, today }: { initialValues: ProfileFo
           weeklyRateKg: values.weeklyRateKg,
         })
       : null;
+  const targetWeightKg = values.targetWeightKg.trim() === "" ? null : parseDecimal(values.targetWeightKg);
+  const targetProjection =
+    values.goal !== "maintain" && weightKg && targetWeightKg
+      ? projectTargetWeight({
+          weights: [{ day: today, value: weightKg }],
+          today,
+          goal: values.goal,
+          plannedWeeklyRateKg: values.weeklyRateKg,
+          targetKg: targetWeightKg,
+        })
+      : null;
 
   function toggleCustomized(customized: boolean) {
     setValues((current) => ({
@@ -89,6 +103,16 @@ export function ProfileForm({ initialValues, today }: { initialValues: ProfileFo
       setErrorMessage("Compila sesso, data di nascita, altezza e peso.");
       return;
     }
+    const hasTargetWeight = values.goal !== "maintain" && values.targetWeightKg.trim() !== "";
+    if (
+      hasTargetWeight &&
+      (targetWeightKg === null ||
+        targetWeightKg < targetWeightBounds.minimum ||
+        targetWeightKg > targetWeightBounds.maximum)
+    ) {
+      setErrorMessage("Peso obiettivo non valido.");
+      return;
+    }
     const customTargets = values.customized
       ? {
           kcal: Math.round(parseDecimal(values.kcal) ?? 0),
@@ -106,6 +130,7 @@ export function ProfileForm({ initialValues, today }: { initialValues: ProfileFo
         activityLevel: values.activityLevel,
         goal: values.goal,
         weeklyRateKg: values.weeklyRateKg,
+        targetWeightKg: hasTargetWeight ? targetWeightKg : null,
         customTargets,
       });
       if (!result.ok) {
@@ -244,6 +269,21 @@ export function ProfileForm({ initialValues, today }: { initialValues: ProfileFo
         </Field>
       ) : null}
 
+      {values.goal !== "maintain" ? (
+        <Field>
+          <FieldLabel htmlFor="profile-target-weight">Peso obiettivo (kg)</FieldLabel>
+          <Input
+            id="profile-target-weight"
+            inputMode="decimal"
+            value={values.targetWeightKg}
+            onChange={(event) => update("targetWeightKg", event.target.value)}
+          />
+          <FieldDescription className="text-xs">
+            Facoltativo: in Progressi vedi quanto ti manca e quando potresti arrivarci.
+          </FieldDescription>
+        </Field>
+      ) : null}
+
       <section aria-label="Obiettivo giornaliero" className="rounded-2xl bg-card p-4 ring-1 ring-border">
         <div className="flex items-center justify-between gap-3">
           <div>
@@ -299,6 +339,19 @@ export function ProfileForm({ initialValues, today }: { initialValues: ProfileFo
         ) : (
           <p className="mt-2 text-sm text-muted-foreground">Compila i tuoi dati per calcolarlo.</p>
         )}
+        {targetProjection && targetWeightKg ? (
+          <p className="mt-2 border-t pt-2 text-sm">
+            <span className="text-muted-foreground">Peso obiettivo </span>
+            <span className="font-medium">{formatDecimal(targetWeightKg)} kg</span>
+            <span className="text-muted-foreground">
+              {targetProjection.status === "projected"
+                ? `, al ritmo scelto ci arrivi verso ${formatDayWithArticle(targetProjection.expectedDay, today)}`
+                : targetProjection.status === "reached"
+                  ? ", già raggiunto"
+                  : ""}
+            </span>
+          </p>
+        ) : null}
       </section>
 
       {errorMessage ? <FieldError>{errorMessage}</FieldError> : null}
