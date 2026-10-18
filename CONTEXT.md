@@ -75,7 +75,7 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - `measurement`, `profile` (un record per utente, target e promemoria), `ai_request` (limite AI), `push_subscription`.
 - Tabelle better-auth: `user`, `session`, `account`, `verification`.
 - Tabelle OAuth del connettore per Claude (better-auth `jwt` + `@better-auth/mcp`): `jwks`, `oauth_client`, `oauth_resource`, `oauth_client_resource`, `oauth_access_token`, `oauth_refresh_token`, `oauth_consent`, `oauth_client_assertion`.
-- Migrazioni `0000`-`0009`; quelle custom (0001, 0002, 0004) contengono estensioni, funzioni di ricerca e la FK differita.
+- Migrazioni `0000`-`0010`; quelle custom (0001, 0002, 0004) contengono estensioni, funzioni di ricerca e la FK differita.
 
 ## Glossario
 - **Catalogo globale**: alimenti condivisi (`owner_id NULL`), dal dataset svizzero legacy o importati da Open Food Facts; nessun utente li modifica.
@@ -104,7 +104,6 @@ Aggiornato al 2026-10-17. Per lo stato reale usa `git log` e `git status`.
 ## Punti aperti e idee
 - Da fornire dall'utente: `ANTHROPIC_API_KEY`; `RESEND_API_KEY` + `EMAIL_FROM` (con dominio mittente verificato); opzionalmente credenziali Google OAuth.
 - Da verificare su dispositivo reale: AI con chiave vera, email Resend reale, notifiche push su iPhone (richiede installazione nella schermata Home), gesti di swipe e pull-to-refresh su iOS (gli e2e emulano iPhone in Chromium, non WebKit), aree di tocco `touch-target` e riga «Diario di …» in /add (Invio per registrare la quantità funziona su Android e desktop; il tastierino decimale di iPhone non ha il tasto Invio), correzione della status bar iOS (prima dell'ultimo fix era sfocata solo Oggi; si attende conferma).
-- `docs/spec.md` ha decisioni superate: Q11 (ora l'utente fa push su GitHub), Q21 (AI e promemoria implementati), Q22 (reset password arrivato in T26).
 - Opzionali: eliminare i vecchi progetti Vercel `calorie-tracker-frontend` e `calorie-tracker-backend` (non toccati); ruotare le credenziali di MongoDB Atlas e rimuovere `LEGACY_MONGODB_URI` da `.env.local` (l'import legacy è concluso); collegare i preview deployment a Neon dev.
 - Promemoria a orario personalizzato: con Vercel Hobby i cron girano una volta al giorno; servirebbe il piano Pro (cron orario) o uno scheduler esterno.
 - Ricerca: aggiungere un indice trigram su `name || brand` e su `recipe.name` se il catalogo cresce.
