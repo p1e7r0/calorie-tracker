@@ -1,6 +1,6 @@
 "use client";
 
-import { BookmarkPlusIcon, CopyIcon, EllipsisIcon, PlusIcon } from "lucide-react";
+import { BookmarkPlusIcon, CalendarDaysIcon, CopyIcon, EllipsisIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useLayoutEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -12,29 +12,33 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { copiedEntriesLabel } from "@/lib/nutrition/copy-meal";
 import { addDays } from "@/lib/nutrition/days";
-import { formatDecimal, formatGrams, formatKcal } from "@/lib/nutrition/format";
+import { describeEntryQuantity } from "@/lib/nutrition/entry-quantity";
+import { formatKcal } from "@/lib/nutrition/format";
 import { mealLabels } from "@/lib/nutrition/meals";
 import type { DiaryEntryView, DiaryMeal } from "@/server/diary";
 import { SaveMealDrawer } from "@/components/saved-meals/save-meal-drawer";
-import { toastWithUndo } from "./toast-with-undo";
+import { CopyMealDrawer } from "./copy-meal-drawer";
 import { EntryEditor } from "./entry-editor";
 import { SwipeableRow } from "./swipeable-row";
+import { toastWithUndo } from "./toast-with-undo";
 import { useEntryActions } from "./use-entry-actions";
 
-function describeQuantity(entry: DiaryEntryView) {
-  if (entry.kind === "quick") return null;
-  if (entry.portionLabel) return entry.portionLabel;
-  if (entry.grams) return `${formatGrams(entry.grams)} ${entry.unit}`;
-  if (entry.servings) {
-    return entry.servings === 1 ? "1 porzione" : `${formatDecimal(entry.servings)} porzioni`;
-  }
-  return null;
-}
-
-export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
+export function MealSection({
+  meal,
+  day,
+  today,
+  loggedDays,
+}: {
+  meal: DiaryMeal;
+  day: string;
+  today: string;
+  loggedDays: string[];
+}) {
   const [editingEntry, setEditingEntry] = useState<DiaryEntryView | null>(null);
   const [saveMealOpen, setSaveMealOpen] = useState(false);
+  const [copyMealOpen, setCopyMealOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const entryActions = useEntryActions();
   const label = mealLabels[meal.meal];
@@ -43,6 +47,7 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
     return () => {
       setEditingEntry(null);
       setSaveMealOpen(false);
+      setCopyMealOpen(false);
     };
   }, []);
   const addHref = `/add?date=${day}&meal=${meal.meal}`;
@@ -60,8 +65,7 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
       } else if (result.data.entryIds.length === 0) {
         toast(`Ieri non c'era niente in ${label.toLowerCase()}.`);
       } else {
-        const count = result.data.entryIds.length;
-        toastWithUndo(count === 1 ? "1 voce copiata da ieri" : `${count} voci copiate da ieri`, result.data.entryIds);
+        toastWithUndo(`${copiedEntriesLabel(result.data.entryIds.length)} da ieri`, result.data.entryIds);
       }
     });
   }
@@ -94,6 +98,10 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
               <CopyIcon />
               Copia da ieri
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setCopyMealOpen(true)}>
+              <CalendarDaysIcon />
+              Copia da un altro giorno…
+            </DropdownMenuItem>
             {meal.entries.some((entry) => entry.kind !== "quick") ? (
               <DropdownMenuItem onClick={() => setSaveMealOpen(true)}>
                 <BookmarkPlusIcon />
@@ -114,7 +122,7 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
       {meal.entries.length > 0 ? (
         <ul className="-mx-2 mt-0.5">
           {meal.entries.map((entry) => {
-            const quantity = describeQuantity(entry);
+            const quantity = describeEntryQuantity(entry);
             return (
               <li key={entry.id}>
                 <SwipeableRow
@@ -145,6 +153,15 @@ export function MealSection({ meal, day }: { meal: DiaryMeal; day: string }) {
       )}
 
       {saveMealOpen ? <SaveMealDrawer day={day} meal={meal.meal} onOpenChange={setSaveMealOpen} /> : null}
+      {copyMealOpen ? (
+        <CopyMealDrawer
+          day={day}
+          meal={meal.meal}
+          today={today}
+          loggedDays={loggedDays}
+          onOpenChange={setCopyMealOpen}
+        />
+      ) : null}
       {editingEntry ? (
         <EntryEditor
           key={editingEntry.id}

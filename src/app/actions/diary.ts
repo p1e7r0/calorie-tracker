@@ -6,6 +6,7 @@ import { z } from "zod";
 import { database } from "@/db";
 import { diaryEntry } from "@/db/schema";
 import { requireUserId } from "@/lib/auth/session";
+import { isCopyOntoItself } from "@/lib/nutrition/copy-meal";
 import { isIsoDate } from "@/lib/nutrition/days";
 import { mealTypes } from "@/lib/nutrition/meals";
 import {
@@ -17,6 +18,7 @@ import {
 import { recipePortionNutrients } from "@/lib/nutrition/recipe";
 import { extrasFromRow, multiplyExtras, roundExtras, scaleExtras } from "@/lib/nutrition/extra-nutrients";
 import {
+  copyMealEntries,
   entryItemSchema,
   insertDiaryEntries,
   recipeNutritionFromLoggable,
@@ -245,32 +247,10 @@ const copyMealSchema = z.object({
 export async function copyMeal(input: z.input<typeof copyMealSchema>): Promise<ActionResult<{ entryIds: string[] }>> {
   try {
     const userId = await requireUserId();
-    const { fromDay, fromMeal, toDay, toMeal } = copyMealSchema.parse(input);
-    const source = await database
-      .select()
-      .from(diaryEntry)
-      .where(and(eq(diaryEntry.userId, userId), eq(diaryEntry.day, fromDay), eq(diaryEntry.meal, fromMeal)));
-    if (source.length === 0) return { ok: true, data: { entryIds: [] } };
-    const created = await database.insert(diaryEntry).values(
-      source.map((entry) => ({
-        userId,
-        day: toDay,
-        meal: toMeal,
-        kind: entry.kind,
-        foodId: entry.foodId,
-        recipeId: entry.recipeId,
-        label: entry.label,
-        grams: entry.grams,
-        servings: entry.servings,
-        portionLabel: entry.portionLabel,
-        kcal: entry.kcal,
-        protein: entry.protein,
-        carbs: entry.carbs,
-        fat: entry.fat,
-        ...extrasFromRow(entry),
-      })),
-    ).returning({ id: diaryEntry.id });
-    refresh();
+    const copy = copyMealSchema.parse(input);
+    if (isCopyOntoItself(copy)) throw new Error("Scegli un altro giorno o un altro pasto da cui copiare.");
+    const created = await copyMealEntries(userId, copy);
+    if (created.length > 0) refresh();
     return { ok: true, data: { entryIds: created.map((entry) => entry.id) } };
   } catch (error) {
     return failure(error);
