@@ -1,11 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Bar, BarChart, CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  type BarShapeProps,
+  CartesianGrid,
+  Line,
+  LineChart,
+  Rectangle,
+  ReferenceLine,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { addDays, formatShortDay } from "@/lib/nutrition/days";
 import { formatDecimal, formatGrams, formatKcal } from "@/lib/nutrition/format";
+import { kcalAboveTarget } from "@/lib/nutrition/goals";
 import { dailySeries } from "@/lib/nutrition/trends";
 import { averageByWeek, weekStart } from "@/lib/nutrition/weeks";
 import { cn } from "@/lib/utils";
@@ -42,7 +54,11 @@ export function NutritionProgress({
   const [rangeDays, setRangeDays] = useState<7 | 30>(7);
   const totalsByDay = new Map(dailyTotals.map((totals) => [totals.day, totals]));
   const days = dailySeries(addDays(today, -(rangeDays - 1)), today);
-  const kcalData = days.map((day) => ({ day, kcal: totalsByDay.get(day)?.kcal ?? null }));
+  const kcalData = days.map((day) => {
+    const kcal = totalsByDay.get(day)?.kcal ?? null;
+    return { day, kcal, aboveTargetKcal: kcalAboveTarget(kcal, targets?.kcal ?? null) };
+  });
+  const daysAboveTarget = kcalData.filter((row) => row.aboveTargetKcal > 0).length;
   const completedTotals = dailyTotals.filter((totals) => totals.day !== today);
   const completedTotalsByDay = new Map(completedTotals.map((totals) => [totals.day, totals]));
   const loggedDays = days.map((day) => completedTotalsByDay.get(day)).filter((totals) => totals !== undefined);
@@ -94,6 +110,9 @@ export function NutritionProgress({
               {loggedDays.length} {loggedDays.length === 1 ? "giorno registrato" : "giorni registrati"} su {rangeDays - 1}, oggi
               escluso
               {targets ? `. Obiettivo ${formatKcal(targets.kcal)} (linea tratteggiata)` : ""}
+              {daysAboveTarget > 0
+                ? `, in arancione ${daysAboveTarget === 1 ? "il giorno" : `i ${daysAboveTarget} giorni`} sopra`
+                : ""}
             </p>
           </div>
           <ToggleGroup
@@ -128,7 +147,7 @@ export function NutritionProgress({
             <ChartTooltip
               cursor={{ fillOpacity: 0.4 }}
               content={({ active, payload }) => {
-                const row = payload?.[0]?.payload as { day: string; kcal: number | null } | undefined;
+                const row = payload?.[0]?.payload as (typeof kcalData)[number] | undefined;
                 if (!active || !row) return null;
                 const totals = totalsByDay.get(row.day);
                 return (
@@ -137,6 +156,12 @@ export function NutritionProgress({
                     {totals ? (
                       <>
                         <p>{formatKcal(totals.kcal)} kcal</p>
+                        {row.aboveTargetKcal > 0 ? (
+                          <p className="flex items-center gap-1.5">
+                            <span className="size-2 rounded-full bg-over" aria-hidden="true" />
+                            {formatKcal(row.aboveTargetKcal)} kcal oltre l&apos;obiettivo
+                          </p>
+                        ) : null}
                         <p className="text-muted-foreground">
                           P {formatGrams(totals.protein)} g, C {formatGrams(totals.carbs)} g, G {formatGrams(totals.fat)} g
                         </p>
@@ -157,7 +182,18 @@ export function NutritionProgress({
                 strokeWidth={1}
               />
             ) : null}
-            <Bar dataKey="kcal" fill="var(--color-kcal)" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+            <Bar
+              dataKey="kcal"
+              fill="var(--color-kcal)"
+              radius={[4, 4, 0, 0]}
+              isAnimationActive={false}
+              shape={(props: BarShapeProps) => (
+                <Rectangle
+                  {...props}
+                  fill={(props.payload as (typeof kcalData)[number]).aboveTargetKcal > 0 ? "var(--over)" : "var(--color-kcal)"}
+                />
+              )}
+            />
           </BarChart>
         </ChartContainer>
       </section>

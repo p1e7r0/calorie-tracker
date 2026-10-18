@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ageOn, basalMetabolicRate, computeDailyTargets } from "./goals";
+import { ageOn, basalMetabolicRate, computeDailyTargets, kcalAboveTarget } from "./goals";
 
 describe("ageOn", () => {
   it("counts completed years", () => {
@@ -43,5 +43,22 @@ describe("computeDailyTargets", () => {
       weeklyRateKg: 1,
     });
     expect(targets.kcal).toBe(1200);
+  });
+});
+
+describe("kcalAboveTarget", () => {
+  it("returns the rounded excess over the target", () => {
+    expect(kcalAboveTarget(2350.4, 2000)).toBe(350);
+    expect(kcalAboveTarget(2000.4, 2000)).toBe(0);
+  });
+
+  it("returns zero on or below the target", () => {
+    expect(kcalAboveTarget(2000, 2000)).toBe(0);
+    expect(kcalAboveTarget(1500, 2000)).toBe(0);
+  });
+
+  it("returns zero without a value or a target", () => {
+    expect(kcalAboveTarget(null, 2000)).toBe(0);
+    expect(kcalAboveTarget(2500, null)).toBe(0);
   });
 });
