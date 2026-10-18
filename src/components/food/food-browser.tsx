@@ -82,13 +82,12 @@ export function FoodBrowser({
                 Nuovo alimento
               </Link>
               <section aria-label="Elenco degli alimenti">
-                <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]" role="tablist" aria-label="Mostra">
+                <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]" role="group" aria-label="Mostra">
                   {foodFilters.map((filter) => (
                     <button
                       key={filter.value}
                       type="button"
-                      role="tab"
-                      aria-selected={filter.value === foodFilter}
+                      aria-pressed={filter.value === foodFilter}
                       onClick={() => setFoodFilter(filter.value)}
                       className={cn(
                         "flex shrink-0 items-baseline gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",

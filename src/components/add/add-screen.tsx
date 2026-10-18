@@ -148,6 +148,7 @@ function AddScreenContent({
   return (
     <>
       <header className="-ml-2 flex h-14 shrink-0 items-center gap-1">
+        <h1 className="sr-only">Aggiungi al diario</h1>
         <Link href={backHref} aria-label="Torna al diario" className={buttonVariants({ variant: "ghost", size: "icon" })}>
           <ArrowLeftIcon />
         </Link>

@@ -55,13 +55,12 @@ export function BodyProgress({ measurements, today }: { measurements: Measuremen
   return (
     <div className="flex flex-col gap-4">
       {availableMetrics.length > 1 ? (
-        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]" role="tablist" aria-label="Misura">
+        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]" role="group" aria-label="Misura">
           {availableMetrics.map((candidate) => (
             <button
               key={candidate.key}
               type="button"
-              role="tab"
-              aria-selected={candidate.key === metricKey}
+              aria-pressed={candidate.key === metricKey}
               onClick={() => setMetricKey(candidate.key)}
               className={cn(
                 "shrink-0 rounded-full border px-3 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",

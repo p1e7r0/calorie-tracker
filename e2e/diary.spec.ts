@@ -1,6 +1,18 @@
 import { expect, test } from "@playwright/test";
 import { isoDay, registerUser } from "./helpers";
 
+test("names the viewed day in the page heading", async ({ page }) => {
+  await registerUser(page);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { level: 1, name: /^Diario di oggi, / })).toBeAttached();
+  await page.getByRole("link", { name: "Giorno precedente" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: /^Diario di ieri, / })).toBeAttached();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+
+  await page.goto("/add?meal=lunch");
+  await expect(page.getByRole("heading", { level: 1, name: "Aggiungi al diario" })).toBeAttached();
+});
+
 test("logs a food, edits it, deletes it and undoes the deletion", async ({ page }) => {
   await registerUser(page);
   await page.goto("/add?meal=lunch");

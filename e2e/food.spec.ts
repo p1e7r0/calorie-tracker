@@ -70,11 +70,13 @@ test("filters the catalog by most used, favorites and own foods", async ({ page 
   await expect(page.getByText("1 voce aggiunta")).toBeVisible();
 
   await page.goto("/food");
-  const filters = page.getByRole("tablist", { name: "Mostra" });
-  await expect(filters.getByRole("tab", { name: /Più usati/ })).toHaveAttribute("aria-selected", "true");
+  const filters = page.getByRole("group", { name: "Mostra" });
+  await expect(filters.getByRole("button", { name: /Più usati/ })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("link", { name: /^Mela, cruda/ })).toBeVisible();
-  await filters.getByRole("tab", { name: /Creati da te/ }).click();
+  await filters.getByRole("button", { name: /Creati da te/ }).click();
+  await expect(filters.getByRole("button", { name: /Creati da te/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(filters.getByRole("button", { name: /Più usati/ })).toHaveAttribute("aria-pressed", "false");
   await expect(page.getByRole("link", { name: /^Barretta test/ })).toBeVisible();
-  await filters.getByRole("tab", { name: /Preferiti/ }).click();
+  await filters.getByRole("button", { name: /Preferiti/ }).click();
   await expect(page.getByText("Tocca la stella su un alimento per vederlo qui.")).toBeVisible();
 });
