@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { buttonVariants } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatKcal } from "@/lib/nutrition/format";
@@ -70,11 +71,7 @@ export function FoodBrowser({
         </ScreenBody>
       ) : (
         <Tabs defaultValue={initialTab} className="min-h-0 flex-1 gap-0">
-          <TabsList className="mb-3 w-full shrink-0">
-            <TabsTrigger value="foods">Alimenti</TabsTrigger>
-            <TabsTrigger value="recipes">Ricette</TabsTrigger>
-            <TabsTrigger value="meals">Pasti salvati</TabsTrigger>
-          </TabsList>
+          <FoodTabsList />
           <ScreenBody>
             <TabsContent value="foods" className="flex flex-col gap-4">
               <Link href="/food/new" className={buttonVariants({ variant: "outline", size: "lg" })}>
@@ -138,28 +135,80 @@ export function FoodBrowser({
         </Tabs>
       )}
       <ScreenFooter coversSafeArea={false}>
-        <InputGroup className="h-11 bg-card">
-          <InputGroupAddon>
-            <SearchIcon />
-          </InputGroupAddon>
-          <InputGroupInput
-            type="search"
-            enterKeyHint="search"
-            placeholder="Cerca nel catalogo"
-            aria-label="Cerca nel catalogo"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          {query ? (
-            <InputGroupAddon align="inline-end">
-              <InputGroupButton size="icon-xs" aria-label="Cancella ricerca" onClick={() => setQuery("")}>
-                <XIcon />
-              </InputGroupButton>
-            </InputGroupAddon>
-          ) : null}
-        </InputGroup>
+        <CatalogSearchField query={query} onQueryChange={setQuery} />
       </ScreenFooter>
     </>
+  );
+}
+
+export function FoodBrowserSkeleton() {
+  return (
+    <>
+      <Tabs value="foods" className="min-h-0 flex-1 gap-0">
+        <div inert aria-hidden="true" className="contents">
+          <FoodTabsList />
+        </div>
+        <ScreenBody className="flex flex-col gap-4">
+          <Skeleton className="h-11 w-full rounded-lg" />
+          <section>
+            <div className="flex gap-1.5">
+              {["w-24", "w-24", "w-28"].map((width, index) => (
+                <Skeleton key={index} className={cn("h-8.5 rounded-full", width)} />
+              ))}
+            </div>
+            <div className="divide-y">
+              {Array.from({ length: 6 }, (_, index) => (
+                <div key={index} className="flex flex-col gap-1.5 py-3.5">
+                  <Skeleton className="h-4 w-3/5" />
+                  <Skeleton className="h-3.5 w-2/5" />
+                </div>
+              ))}
+            </div>
+          </section>
+        </ScreenBody>
+      </Tabs>
+      <ScreenFooter coversSafeArea={false}>
+        <div inert aria-hidden="true">
+          <CatalogSearchField query="" />
+        </div>
+      </ScreenFooter>
+    </>
+  );
+}
+
+function FoodTabsList() {
+  return (
+    <TabsList className="mb-3 w-full shrink-0">
+      <TabsTrigger value="foods">Alimenti</TabsTrigger>
+      <TabsTrigger value="recipes">Ricette</TabsTrigger>
+      <TabsTrigger value="meals">Pasti salvati</TabsTrigger>
+    </TabsList>
+  );
+}
+
+function CatalogSearchField({ query, onQueryChange }: { query: string; onQueryChange?: (query: string) => void }) {
+  return (
+    <InputGroup className="h-11 bg-card">
+      <InputGroupAddon>
+        <SearchIcon />
+      </InputGroupAddon>
+      <InputGroupInput
+        type="search"
+        enterKeyHint="search"
+        placeholder="Cerca nel catalogo"
+        aria-label="Cerca nel catalogo"
+        value={query}
+        readOnly={!onQueryChange}
+        onChange={(event) => onQueryChange?.(event.target.value)}
+      />
+      {query && onQueryChange ? (
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton size="icon-xs" aria-label="Cancella ricerca" onClick={() => onQueryChange("")}>
+            <XIcon />
+          </InputGroupButton>
+        </InputGroupAddon>
+      ) : null}
+    </InputGroup>
   );
 }
 
