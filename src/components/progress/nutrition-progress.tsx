@@ -58,7 +58,7 @@ export function NutritionProgress({
     const kcal = totalsByDay.get(day)?.kcal ?? null;
     return { day, kcal, aboveTargetKcal: kcalAboveTarget(kcal, targets?.kcal ?? null) };
   });
-  const daysAboveTarget = kcalData.filter((row) => row.aboveTargetKcal > 0).length;
+  const hasDaysAboveTarget = kcalData.some((row) => row.aboveTargetKcal > 0);
   const completedTotals = dailyTotals.filter((totals) => totals.day !== today);
   const completedTotalsByDay = new Map(completedTotals.map((totals) => [totals.day, totals]));
   const loggedDays = days.map((day) => completedTotalsByDay.get(day)).filter((totals) => totals !== undefined);
@@ -110,9 +110,7 @@ export function NutritionProgress({
               {loggedDays.length} {loggedDays.length === 1 ? "giorno registrato" : "giorni registrati"} su {rangeDays - 1}, oggi
               escluso
               {targets ? `. Obiettivo ${formatKcal(targets.kcal)} (linea tratteggiata)` : ""}
-              {daysAboveTarget > 0
-                ? `, in arancione ${daysAboveTarget === 1 ? "il giorno" : `i ${daysAboveTarget} giorni`} sopra`
-                : ""}
+              {hasDaysAboveTarget ? ", in arancione i giorni sopra l'obiettivo" : ""}
             </p>
           </div>
           <ToggleGroup

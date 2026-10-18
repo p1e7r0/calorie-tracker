@@ -28,7 +28,7 @@ test("colors the kcal bars of days above the target", async ({ page }) => {
   await page.goto("/progress");
   await page.getByRole("tab", { name: "Alimentazione" }).click();
   const kcalSection = page.getByRole("region", { name: "Kcal al giorno" });
-  await expect(kcalSection.getByText(/Obiettivo 2000 \(linea tratteggiata\), in arancione il giorno sopra/)).toBeVisible();
+  await expect(kcalSection.getByText(/Obiettivo 2000 \(linea tratteggiata\), in arancione i giorni sopra l'obiettivo/)).toBeVisible();
   const kcalBars = kcalSection.locator(".recharts-bar-rectangle path");
   await expect(kcalBars).toHaveCount(2);
   await expect(kcalSection.locator(".recharts-bar-rectangle path[fill='var(--over)']")).toHaveCount(1);
