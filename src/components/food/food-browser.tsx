@@ -1,8 +1,11 @@
 "use client";
 
-import { ChefHatIcon, ChevronRightIcon, PlusIcon, SearchIcon, StarIcon, XIcon } from "lucide-react";
+import { ChefHatIcon, ChevronRightIcon, PlusIcon, ScanBarcodeIcon, SearchIcon, StarIcon, XIcon } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { lookupBarcode } from "@/app/actions/open-food-facts";
 import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { buttonVariants } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
@@ -11,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatKcal } from "@/lib/nutrition/format";
 import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableRecipe } from "@/server/loggable";
+import { BarcodeScanner } from "./barcode-scanner";
 import { useFoodSearch } from "./use-food-search";
 
 export type SavedMealSummary = { id: string; name: string; itemCount: number; kcal: number };
@@ -30,8 +34,11 @@ export function FoodBrowser({
   savedMeals: SavedMealSummary[];
   initialTab: string;
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const search = useFoodSearch(query);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [isLookingUp, startLookup] = useTransition();
   const foodFilters = [
     { value: "used", label: "Più usati", items: mostUsedFoods, empty: "Qui compaiono gli alimenti che registri più spesso." },
     { value: "favorites", label: "Preferiti", items: favoriteFoods, empty: "Tocca la stella su un alimento per vederlo qui." },
@@ -41,6 +48,23 @@ export function FoodBrowser({
     mostUsedFoods.length > 0 ? "used" : favoriteFoods.length > 0 ? "favorites" : "own",
   );
   const activeFilter = foodFilters.find((filter) => filter.value === foodFilter)!;
+
+  function handleBarcode(barcode: string) {
+    startLookup(async () => {
+      const result = await lookupBarcode(barcode);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setScannerOpen(false);
+      if (result.data.item) {
+        router.push(`/food/${result.data.item.id}`);
+      } else {
+        toast("Prodotto non trovato. Inserisci i valori dall'etichetta.");
+        router.push(`/food/new?barcode=${result.data.barcode}`);
+      }
+    });
+  }
 
   return (
     <>
@@ -150,15 +174,22 @@ export function FoodBrowser({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
-          {query ? (
-            <InputGroupAddon align="inline-end">
+          <InputGroupAddon align="inline-end">
+            {query ? (
               <InputGroupButton size="icon-xs" aria-label="Cancella ricerca" onClick={() => setQuery("")}>
                 <XIcon />
               </InputGroupButton>
-            </InputGroupAddon>
-          ) : null}
+            ) : (
+              <InputGroupButton size="icon-sm" aria-label="Scansiona codice a barre" onClick={() => setScannerOpen(true)}>
+                <ScanBarcodeIcon />
+              </InputGroupButton>
+            )}
+          </InputGroupAddon>
         </InputGroup>
       </ScreenFooter>
+      {scannerOpen ? (
+        <BarcodeScanner isLookingUp={isLookingUp} onDetected={handleBarcode} onClose={() => setScannerOpen(false)} />
+      ) : null}
     </>
   );
 }

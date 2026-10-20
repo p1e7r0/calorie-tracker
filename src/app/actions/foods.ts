@@ -17,7 +17,7 @@ const foodSchema = z.object({
   barcode: z
     .string()
     .trim()
-    .regex(/^\d{6,14}$/)
+    .regex(/^\d{6,14}$/, "Il codice a barre deve avere da 6 a 14 cifre.")
     .nullish(),
   unit: z.enum(["g", "ml"]),
   kcal: z.number().min(0).max(1000),
