@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { mealTypes } from "@/lib/nutrition/meals";
 
 const nutrientValue = z.number().nullable();
 
@@ -35,6 +36,32 @@ export const mealDescriptionSchema = z.object({
 
 export type MealDescription = z.infer<typeof mealDescriptionSchema>;
 
+export const shortcutMealSchema = z.object({
+  daysAgo: z.number(),
+  meal: z.enum(mealTypes).nullable(),
+  savedMeals: z.array(z.string()),
+  recipes: z.array(z.object({ ref: z.string(), grams: z.number().nullable(), servings: z.number().nullable() })),
+  foods: mealDescriptionSchema.shape.items,
+});
+
+export type ShortcutMeal = z.infer<typeof shortcutMealSchema>;
+
+export const shortcutFoodChoiceSchema = z.object({
+  choices: z.array(
+    z.object({
+      item: z.number(),
+      food: z.string().nullable(),
+      grams: z.number(),
+      portionLabel: z.string().nullable(),
+      quick: z
+        .object({ label: z.string(), kcal: z.number(), protein: z.number(), carbs: z.number(), fat: z.number() })
+        .nullable(),
+    }),
+  ),
+});
+
+export type ShortcutFoodChoice = z.infer<typeof shortcutFoodChoiceSchema>;
+
 const plausible = { kcal: 950, macro: 100, salt: 100 };
 
 export function sanitizeNutritionLabel(label: NutritionLabel): NutritionLabel {
@@ -59,6 +86,24 @@ export function sanitizeNutritionLabel(label: NutritionLabel): NutritionLabel {
       label.portion && label.portion.grams > 0 && label.portion.grams <= 2000 && label.portion.label.trim()
         ? { label: label.portion.label.trim().slice(0, 60), grams: Math.round(label.portion.grams * 10) / 10 }
         : null,
+  };
+}
+
+const maximumDaysAgo = 7;
+
+export function sanitizeShortcutMeal(meal: ShortcutMeal): ShortcutMeal {
+  const isQuantity = (value: number | null, maximum: number): value is number =>
+    value !== null && Number.isFinite(value) && value > 0 && value <= maximum;
+  return {
+    daysAgo: Number.isFinite(meal.daysAgo) ? Math.max(0, Math.min(maximumDaysAgo, Math.round(meal.daysAgo))) : 0,
+    meal: meal.meal,
+    savedMeals: [...new Set(meal.savedMeals.map((ref) => ref.trim()))].slice(0, 5),
+    recipes: meal.recipes.slice(0, 10).map((recipe) => {
+      if (isQuantity(recipe.grams, 3000)) return { ref: recipe.ref.trim(), grams: Math.round(recipe.grams), servings: null };
+      const servings = isQuantity(recipe.servings, 20) ? Math.round(recipe.servings * 100) / 100 : 1;
+      return { ref: recipe.ref.trim(), grams: null, servings };
+    }),
+    foods: sanitizeMealDescription({ items: meal.foods }).items,
   };
 }
 

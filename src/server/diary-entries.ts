@@ -124,7 +124,13 @@ export async function recipePortionExtras(recipeId: string, portion: { grams: nu
   return multiplyExtras(recipeExtras.total, factor);
 }
 
-export async function insertDiaryEntries(userId: string, day: string, meal: MealType, items: readonly EntryItem[]) {
+export async function insertDiaryEntries(
+  userId: string,
+  day: string,
+  meal: MealType,
+  items: readonly EntryItem[],
+  source: (typeof diaryEntry.$inferInsert)["source"] = "app",
+) {
   const resolved = await Promise.all(items.map((item) => resolveEntryValues(userId, item)));
   if (resolved.length === 0) return [];
   return database
@@ -137,6 +143,7 @@ export async function insertDiaryEntries(userId: string, day: string, meal: Meal
         userId,
         day,
         meal,
+        source,
       })),
     )
     .returning();

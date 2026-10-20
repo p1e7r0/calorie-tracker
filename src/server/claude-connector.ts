@@ -137,6 +137,7 @@ export function createClaudeConnectorServer(userId: string) {
           targetDay,
           targetMeal,
           items.map((item) => entryItemSchema.parse(item)),
+          "connector",
         );
         return textResult({
           logged: created.map((row) =>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeMealDescription, sanitizeNutritionLabel } from "./ai-schemas";
+import { sanitizeMealDescription, sanitizeNutritionLabel, sanitizeShortcutMeal } from "./ai-schemas";
 
 describe("sanitizeNutritionLabel", () => {
   it("rounds values and drops impossible ones", () => {
@@ -52,5 +52,38 @@ describe("sanitizeMealDescription", () => {
     expect(meal.items).toEqual([
       { description: "pasta al pomodoro", query: "pasta cotta", grams: 180, estimatedKcal: 281 },
     ]);
+  });
+});
+
+describe("sanitizeShortcutMeal", () => {
+  it("clamps the day, normalizes recipe portions and drops impossible foods", () => {
+    const meal = sanitizeShortcutMeal({
+      daysAgo: 12.4,
+      meal: "dinner",
+      savedMeals: [" M1", "M1", "M2"],
+      recipes: [
+        { ref: "R1", grams: 250.4, servings: 2 },
+        { ref: "R2", grams: null, servings: 1.5 },
+        { ref: "R3", grams: -10, servings: null },
+      ],
+      foods: [
+        { description: "una mela", query: "mela cruda", grams: 150, estimatedKcal: 78 },
+        { description: "aria", query: "aria", grams: 0, estimatedKcal: 0 },
+      ],
+    });
+    expect(meal.daysAgo).toBe(7);
+    expect(meal.savedMeals).toEqual(["M1", "M2"]);
+    expect(meal.recipes).toEqual([
+      { ref: "R1", grams: 250, servings: null },
+      { ref: "R2", grams: null, servings: 1.5 },
+      { ref: "R3", grams: null, servings: 1 },
+    ]);
+    expect(meal.foods).toEqual([{ description: "una mela", query: "mela cruda", grams: 150, estimatedKcal: 78 }]);
+  });
+
+  it("treats a negative or invalid day as today", () => {
+    const empty = { meal: null, savedMeals: [], recipes: [], foods: [] };
+    expect(sanitizeShortcutMeal({ ...empty, daysAgo: -2 }).daysAgo).toBe(0);
+    expect(sanitizeShortcutMeal({ ...empty, daysAgo: Number.NaN }).daysAgo).toBe(0);
   });
 });

@@ -1,38 +1,14 @@
 "use client";
 
-import { CopyIcon, KeyRoundIcon, UnplugIcon } from "lucide-react";
+import { KeyRoundIcon, UnplugIcon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createClaudeCredentials, disconnectClaude } from "@/app/actions/claude-connector";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { CopyField } from "./copy-field";
 
 const dateFormatter = new Intl.DateTimeFormat("it-IT", { day: "numeric", month: "long", year: "numeric" });
-
-function CopyField({ label, value }: { label: string; value: string }) {
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success(`${label} copiato`);
-    } catch {
-      toast.error("Non riesco a copiare: seleziona il testo a mano.");
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-2 rounded-lg border bg-background py-1 pr-1 pl-3">
-        <code className="min-w-0 flex-1 truncate font-mono text-sm select-all">
-          {value}
-        </code>
-        <Button type="button" variant="ghost" size="icon-sm" aria-label={`Copia ${label}`} onClick={copy}>
-          <CopyIcon />
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 export function ClaudeConnectorSettings({
   serverUrl,

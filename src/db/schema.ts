@@ -33,7 +33,8 @@ export const activityLevelEnum = pgEnum("activity_level", [
 ]);
 export const goalTypeEnum = pgEnum("goal_type", ["lose", "maintain", "gain"]);
 export const diaryEntryKindEnum = pgEnum("diary_entry_kind", ["food", "recipe", "quick"]);
-export const aiRequestKindEnum = pgEnum("ai_request_kind", ["nutrition_label", "meal_description"]);
+export const diaryEntrySourceEnum = pgEnum("diary_entry_source", ["app", "connector", "shortcut"]);
+export const aiRequestKindEnum = pgEnum("ai_request_kind", ["nutrition_label", "meal_description", "shortcut_meal"]);
 
 const timestamps = {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -204,6 +205,7 @@ export const diaryEntry = pgTable(
     sugars: real(),
     saturatedFat: real(),
     salt: real(),
+    source: diaryEntrySourceEnum().notNull().default("app"),
     ...timestamps,
   },
   (table) => [
@@ -282,6 +284,23 @@ export const aiRequest = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("ai_request_user_created_index").on(table.userId, table.createdAt)],
+);
+
+export const apiToken = pgTable(
+  "api_token",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    tokenHash: text().notNull(),
+    lastUsedAt: timestamp({ withTimezone: true }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("api_token_hash_unique").on(table.tokenHash),
+    uniqueIndex("api_token_user_unique").on(table.userId),
+  ],
 );
 
 export const pushSubscription = pgTable(

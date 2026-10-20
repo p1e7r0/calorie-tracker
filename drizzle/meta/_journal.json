@@ -71,6 +71,13 @@
       "when": 1792151777929,
       "tag": "0009_claude_client_secret_post",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792477254601,
+      "tag": "0010_siri_shortcut",
+      "breakpoints": true
     }
   ]
 }
