@@ -48,7 +48,7 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - **Profilo**: scheda "Dati e obiettivo" (dati personali, obiettivo perdi/mantieni/aumenta, ritmo settimanale, target personalizzati, stima adattiva del fabbisogno su 28 giorni con "Usa … kcal come obiettivo") e scheda Impostazioni (account, promemoria push se configurati, tema, esportazione CSV di diario/misure/alimenti, eliminazione account).
 - **Autenticazione**: login, registrazione, password dimenticata e reset (visibili solo se l'email è configurata in produzione), Google se configurato; redirect con `?next=`.
 - **Promemoria push**: sera (se manca la cena o non c'è nulla) e pesata settimanale nel giorno scelto; service worker solo per le notifiche.
-- **Connettore per Claude** (`/api/mcp`): server MCP con OAuth 2.1; ogni utente crea Client ID e Client Secret dal profilo, li incolla su claude.ai e consente l'accesso su `/consent`; strumenti `search_foods`, `recent_foods`, `log_meal`, `get_day`, `delete_entry`; registrazione dinamica dei client disattivata, CIMD attivo.
+- **Connettore per Claude** (`/api/mcp`): server MCP con OAuth 2.1; ogni utente crea Client ID e Client Secret dal profilo, li incolla su claude.ai e consente l'accesso su `/consent`; strumenti `search_foods` e `recent_foods` (anche ricette e pasti salvati), `log_meal` (alimenti, ricette, pasti salvati, kcal veloci), `get_day`, `delete_entry`, `lookup_barcode` (catalogo o import da Open Food Facts), `create_food`, `create_recipe`, `log_weight`, `get_progress` (totali giornalieri, medie, budget settimanale, trend del peso, stima adattiva); registrazione dinamica dei client disattivata, CIMD attivo. Le istruzioni del server dicono a Claude di creare alimenti solo con valori forniti dall'utente (numeri, foto dell'etichetta, barcode) e di chiedere il peso da cotto delle ricette.
 - **AI**: lettura dell'etichetta nutrizionale da foto e pasto descritto a parole, con limite di 40 richieste al giorno per utente.
 
 ## Dati e infrastruttura
@@ -91,11 +91,12 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - **Macro**: P/C/G = proteine, carboidrati, grassi.
 
 ## Stato attuale
-Aggiornato al 2026-10-17. Per lo stato reale usa `git log` e `git status`.
+Aggiornato al 2026-10-21. Per lo stato reale usa `git log` e `git status`.
 - Tutti i task T01-T32 sono completati, mergiati in `main` e in produzione dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
 - Ultimo merge in `main`: `feature/claude-connector` (T32, connettore MCP per Claude), verificato in produzione con uno smoke test del flusso OAuth completo.
 - T33 (pull-to-refresh su Oggi e Progressi) committato direttamente su `main`, non ancora in produzione; nessuna migrazione.
 - T34 (nuovo alimento da codice a barre) sul branch `feature/barcode-new-food`, non ancora in produzione; nessuna migrazione.
+- T35 (connettore per Claude: alimenti, ricette, barcode, pasti salvati, peso, progressi) sul branch `feature/claude-connector-catalog`, creato da `feature/barcode-new-food` (contiene anche T34); non ancora in produzione; nessuna migrazione.
 - Migrazioni fino a `0009_claude_client_secret_post` applicate sia a dev sia a main.
 - Connettore per Claude: verificato con claude.ai reale (Claude Desktop, credenziali da Profilo › Impostazioni › Claude); il client usa `client_secret_post` perché claude.ai (SDK MCP Python) invia il segreto nel corpo della richiesta; con `client_secret_basic` lo scambio del token rispondeva 400 `invalid_client`.
 - Funzioni AI nascoste in produzione finché manca `ANTHROPIC_API_KEY`; link "Password dimenticata" nascosto finché mancano `RESEND_API_KEY` ed `EMAIL_FROM`; login Google assente senza credenziali OAuth.
@@ -106,6 +107,8 @@ Aggiornato al 2026-10-17. Per lo stato reale usa `git log` e `git status`.
 - `docs/spec.md` ha decisioni superate: Q11 (ora l'utente fa push su GitHub), Q21 (AI e promemoria implementati), Q22 (reset password arrivato in T26).
 - Opzionali: eliminare i vecchi progetti Vercel `calorie-tracker-frontend` e `calorie-tracker-backend` (non toccati); ruotare le credenziali di MongoDB Atlas e rimuovere `LEGACY_MONGODB_URI` da `.env.local` (l'import legacy è concluso); collegare i preview deployment a Neon dev.
 - Promemoria a orario personalizzato: con Vercel Hobby i cron girano una volta al giorno; servirebbe il piano Pro (cron orario) o uno scheduler esterno.
+- Connettore per Claude: provare i nuovi strumenti con claude.ai reale (creazione da foto dell'etichetta, ricetta con peso da cotto); non ci sono ancora `update_food`, `update_recipe`, `get_recipe` e `copy_meal` (gli errori di creazione si correggono dall'app); gli alimenti creati da Claude hanno fonte `user` e non si distinguono da quelli inseriti a mano.
+- Toast «salvato con 1 voci» nel salvataggio di un pasto: manca il singolare.
 - Ricerca: aggiungere un indice trigram su `name || brand` e su `recipe.name` se il catalogo cresce.
 - Fuori scope finora: acqua, attività fisica, integrazione con app Salute, digiuno, modalità offline.
 
@@ -116,9 +119,10 @@ Aggiornato al 2026-10-17. Per lo stato reale usa `git log` e `git status`.
 - **2026-10-16, dopo T31**: giorni passati non registrati contati come in linea nel budget settimanale; padding della status bar nella PWA iOS standalone; header di Oggi allineato agli altri.
 - **2026-10-17, T33**: pull-to-refresh in stile Mail su Oggi e Progressi (le uniche schermate con dati che cambiano anche da fuori, ad esempio dal connettore Claude); Cibo, Profilo, schermate focus e autenticazione esclusi.
 - **2026-10-20, T34**: lo scanner barcode non è più solo in Aggiungi (dove registra nel diario): anche su Cibo e nel form dell'alimento, per creare un alimento dal codice senza registrarlo; il codice a barre ora è visibile e modificabile nel form, con validazione in italiano.
+- **2026-10-21, T35**: il connettore per Claude crea alimenti e ricette, trova prodotti per codice a barre, registra pasti salvati e pesate e legge i progressi; la logica di scrittura di alimenti e ricette è passata dalle action a `src/server/food-writes.ts` e `src/server/recipe-writes.ts`; nuovi controlli di coerenza (`src/lib/nutrition/food-checks.ts`: macro oltre 100 g su 100 g, zuccheri oltre i carboidrati, saturi oltre i grassi) validi anche per il form; le kcal lontane da 4/4/9 sono solo un avviso per Claude (alcol e polioli); `search_foods` ora distingue peso da cotto e peso da crudo delle ricette.
 
 ## Riferimenti
 - `docs/spec.md`: stack, tabella decisioni Q1-Q24, regole di dominio (nutrienti per 100 g, ricette con peso da cotto, snapshot nel diario, Mifflin-St Jeor, macro predefinite), infrastruttura.
-- `docs/tasks.md`: T01-T34 e i fix successivi.
+- `docs/tasks.md`: T01-T35 e i fix successivi.
 - `README.md`: setup locale, variabili, comandi database, migrazione legacy, deploy.
 - `CLAUDE.md`: istruzioni operative per gli agenti.

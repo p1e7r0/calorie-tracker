@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { type APIRequestContext, type Browser, expect, type Page, test } from "@playwright/test";
 import { registerUser } from "./helpers";
 
 const redirectUri = "https://claude.ai/api/mcp/auth_callback";
@@ -36,8 +36,7 @@ function toolPayload(result: { content: { text: string }[]; isError?: boolean })
   return JSON.parse(result.content[0].text);
 }
 
-test("Claude logs a meal through the MCP connector", async ({ page, browser, request }) => {
-  test.setTimeout(120_000);
+async function connectClaude(page: Page, browser: Browser, request: APIRequestContext) {
   const { email, password } = await registerUser(page);
 
   await page.goto("/profile");
@@ -76,6 +75,8 @@ test("Claude logs a meal through the MCP connector", async ({ page, browser, req
   await claudePage.getByRole("button", { name: "Accedi" }).click();
   await expect(claudePage).toHaveURL(/\/consent\?/);
   await expect(claudePage.getByRole("heading", { name: "Collega Claude" })).toBeVisible();
+  await expect(claudePage.getByText("Creare alimenti e ricette")).toBeVisible();
+  await claudePage.waitForLoadState("networkidle");
   const callback = claudePage.waitForRequest(/^https:\/\/claude\.ai\/api\/mcp\/auth_callback/);
   await claudePage.getByRole("button", { name: "Consenti" }).click();
   const callbackUrl = new URL((await callback).url());
@@ -107,6 +108,12 @@ test("Claude logs a meal through the MCP connector", async ({ page, browser, req
     1,
   );
   expect(initialized.serverInfo.name).toBe("bilancia");
+  return { clientId, clientSecret, tokens };
+}
+
+test("Claude logs a meal through the MCP connector", async ({ page, browser, request }) => {
+  test.setTimeout(120_000);
+  const { clientId, clientSecret, tokens } = await connectClaude(page, browser, request);
 
   const tools = await callMcp(request, tokens.access_token, "tools/list", {}, 2);
   expect(tools.tools.map((tool: { name: string }) => tool.name)).toEqual(
@@ -168,4 +175,150 @@ test("Claude logs a meal through the MCP connector", async ({ page, browser, req
     },
   });
   expect((await revoked.json()).error).toBe("invalid_client");
+});
+
+test("Claude creates foods and recipes, logs weight and reads progress", async ({ page, browser, request }) => {
+  test.setTimeout(180_000);
+  const { tokens } = await connectClaude(page, browser, request);
+  let requestId = 10;
+  const callTool = (name: string, toolArguments: object) =>
+    callMcp(request, tokens.access_token, "tools/call", { name, arguments: toolArguments }, requestId++);
+  const suffix = Date.now();
+  const barcode = `29${suffix}`.slice(0, 13);
+
+  const tools = await callMcp(request, tokens.access_token, "tools/list", {}, 2);
+  expect(tools.tools.map((tool: { name: string }) => tool.name)).toEqual(
+    expect.arrayContaining(["create_food", "create_recipe", "lookup_barcode", "log_weight", "get_progress"]),
+  );
+
+  const oats = toolPayload(
+    await callTool("create_food", {
+      name: `Fiocchi d'avena ${suffix}`,
+      brand: "Mulino",
+      barcode,
+      kcal: 372,
+      protein: 13.5,
+      carbs: 58.7,
+      sugars: 1,
+      fat: 7,
+      fiber: 10,
+      portions: [{ label: "1 tazza", grams: 40 }],
+    }),
+  );
+  expect(oats).toMatchObject({ created: true, warnings: [], food: { unit: "g", own: true, per100: { kcal: 372 } } });
+  expect(oats.food.portions).toEqual([{ label: "1 tazza", grams: 40 }]);
+
+  const sameBarcode = toolPayload(
+    await callTool("create_food", { name: "Avena doppia", barcode, kcal: 300, protein: 10, carbs: 50, fat: 5 }),
+  );
+  expect(sameBarcode).toMatchObject({ created: false, food: { foodId: oats.food.foodId } });
+  const scanned = toolPayload(await callTool("lookup_barcode", { barcode }));
+  expect(scanned).toMatchObject({ found: true, source: "catalog", food: { foodId: oats.food.foodId } });
+
+  const incoherent = await callTool("create_food", {
+    name: "Biscotti incoerenti",
+    kcal: 450,
+    protein: 6,
+    carbs: 60,
+    sugars: 70,
+    fat: 20,
+  });
+  expect(incoherent.isError).toBe(true);
+  expect(incoherent.content[0].text).toContain("Gli zuccheri non possono superare i carboidrati.");
+
+  const wine = toolPayload(
+    await callTool("create_food", { name: `Vino rosso ${suffix}`, unit: "ml", kcal: 85, protein: 0.1, carbs: 2.6, fat: 0 }),
+  );
+  expect(wine.created).toBe(true);
+  expect(wine.warnings).toHaveLength(1);
+
+  const milk = toolPayload(
+    await callTool("create_food", {
+      name: `Latte parzialmente scremato ${suffix}`,
+      unit: "ml",
+      kcal: 46,
+      protein: 3.3,
+      carbs: 4.9,
+      fat: 1.6,
+    }),
+  );
+
+  const porridge = toolPayload(
+    await callTool("create_recipe", {
+      name: `Porridge ${suffix}`,
+      servings: 2,
+      cookedWeightG: 600,
+      ingredients: [
+        { foodId: oats.food.foodId, grams: 80 },
+        { foodId: milk.food.foodId, grams: 400 },
+      ],
+    }),
+  );
+  expect(porridge).toMatchObject({
+    warnings: [],
+    recipe: { servings: 2, cookedWeightG: 600, rawWeightG: null, perServing: { kcal: 241 } },
+  });
+
+  const rawOnly = toolPayload(
+    await callTool("create_recipe", {
+      name: `Avena e latte ${suffix}`,
+      servings: 1,
+      ingredients: [
+        { foodId: oats.food.foodId, grams: 40 },
+        { foodId: milk.food.foodId, grams: 200 },
+      ],
+    }),
+  );
+  expect(rawOnly.recipe).toMatchObject({ cookedWeightG: null, rawWeightG: 240 });
+  expect(rawOnly.warnings).toHaveLength(1);
+
+  const found = toolPayload(await callTool("search_foods", { query: `porridge ${suffix}` }));
+  expect(found.recipes.map((recipe: { recipeId: string }) => recipe.recipeId)).toContain(porridge.recipe.recipeId);
+
+  const breakfast = toolPayload(
+    await callTool("log_meal", {
+      meal: "breakfast",
+      items: [{ type: "recipe", recipeId: porridge.recipe.recipeId, servings: 1 }],
+    }),
+  );
+  expect(breakfast.logged).toEqual([expect.objectContaining({ label: `Porridge ${suffix}`, kcal: 241 })]);
+
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const breakfastSection = page.getByRole("region", { name: "Colazione" });
+  await breakfastSection.getByRole("button", { name: "Altre azioni per colazione" }).click();
+  await page.getByRole("menuitem", { name: "Salva come pasto" }).click();
+  await page.getByLabel("Nome del pasto").fill("Colazione solita");
+  await page.getByRole("button", { name: "Salva pasto" }).click();
+  await expect(page.getByText("«Colazione solita» salvato con 1 voci")).toBeVisible();
+
+  const usual = toolPayload(await callTool("search_foods", { query: "solita colazione" }));
+  expect(usual.savedMeals).toEqual([
+    expect.objectContaining({ name: "Colazione solita", meal: "breakfast", kcal: 241 }),
+  ]);
+  const recent = toolPayload(await callTool("recent_foods", {}));
+  expect(recent.savedMeals).toHaveLength(1);
+  const again = toolPayload(
+    await callTool("log_meal", { items: [{ type: "savedMeal", savedMealId: usual.savedMeals[0].savedMealId }] }),
+  );
+  expect(again.meal).toBe("breakfast");
+  expect(again.summary.meals[0].entries).toHaveLength(2);
+
+  const weight = toolPayload(await callTool("log_weight", { weightKg: 81.5 }));
+  expect(weight).toMatchObject({ logged: true, weightKg: 81.5, trend: { latest: { kg: 81.5 } } });
+  const repeated = toolPayload(await callTool("log_weight", { weightKg: 81.5 }));
+  expect(repeated.logged).toBe(false);
+  const future = await callTool("log_weight", { weightKg: 81, day: "2999-01-01" });
+  expect(future.isError).toBe(true);
+
+  const progress = toolPayload(await callTool("get_progress", { days: 7 }));
+  expect(progress.days).toEqual([expect.objectContaining({ kcal: 482 })]);
+  expect(progress.average).toBeNull();
+  expect(progress.weight.inPeriod).toHaveLength(1);
+  expect(progress.maintenance.status).toBe("insufficient");
+
+  await page.goto("/food");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("searchbox", { name: "Cerca nel catalogo" }).fill(`Fiocchi d'avena ${suffix}`);
+  await expect(page.getByRole("link", { name: new RegExp(`^Fiocchi d'avena ${suffix}`) })).toBeVisible();
 });

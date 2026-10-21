@@ -42,6 +42,7 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T32 Connettore per Claude: server MCP con OAuth (credenziali dal profilo, consenso, strumenti per cercare alimenti e registrare i pasti)
 - [x] T33 Pull-to-refresh in stile Mail di iOS su Oggi e Progressi (`router.refresh()`, nessun reload)
 - [x] T34 Nuovo alimento da codice a barre: scanner anche su Cibo e nel form (campo «Codice a barre» visibile e modificabile)
+- [x] T35 Connettore per Claude: creare alimenti e ricette, codice a barre, pasti salvati, pesata e progressi; controlli di coerenza dei valori nutrizionali anche nel form
 
 ## Fix successivi
 

@@ -6,34 +6,11 @@ import { z } from "zod";
 import { database } from "@/db";
 import { favoriteFood, favoriteRecipe, food, foodPortion, recipe } from "@/db/schema";
 import { requireUserId } from "@/lib/auth/session";
+import { type FoodInput, foodInputSchema, insertFood, toFoodValues } from "@/server/food-writes";
 import { getVisibleFood } from "@/server/foods";
 import type { ActionResult } from "./diary";
 
-const optionalNutrient = z.number().min(0).max(1000).nullish();
-
-const foodSchema = z.object({
-  name: z.string().trim().min(1, "Dai un nome all'alimento.").max(120),
-  brand: z.string().trim().max(80).nullish(),
-  barcode: z
-    .string()
-    .trim()
-    .regex(/^\d{6,14}$/, "Il codice a barre deve avere da 6 a 14 cifre.")
-    .nullish(),
-  unit: z.enum(["g", "ml"]),
-  kcal: z.number().min(0).max(1000),
-  protein: z.number().min(0).max(100),
-  carbs: z.number().min(0).max(100),
-  sugars: optionalNutrient,
-  fat: z.number().min(0).max(100),
-  saturatedFat: optionalNutrient,
-  fiber: optionalNutrient,
-  salt: optionalNutrient,
-  portions: z
-    .array(z.object({ label: z.string().trim().min(1).max(40), grams: z.number().positive().max(5000) }))
-    .max(10),
-});
-
-export type FoodInput = z.input<typeof foodSchema>;
+export type { FoodInput };
 
 function failure(error: unknown): { ok: false; error: string } {
   if (error instanceof z.ZodError) {
@@ -43,39 +20,10 @@ function failure(error: unknown): { ok: false; error: string } {
   return { ok: false, error: "Qualcosa non ha funzionato. Riprova." };
 }
 
-function toFoodValues(input: z.infer<typeof foodSchema>) {
-  return {
-    name: input.name,
-    brand: input.brand || null,
-    barcode: input.barcode || null,
-    unit: input.unit,
-    kcal: input.kcal,
-    protein: input.protein,
-    carbs: input.carbs,
-    sugars: input.sugars ?? null,
-    fat: input.fat,
-    saturatedFat: input.saturatedFat ?? null,
-    fiber: input.fiber ?? null,
-    salt: input.salt ?? null,
-  };
-}
-
 export async function createFood(input: FoodInput): Promise<ActionResult<{ id: string }>> {
   try {
     const userId = await requireUserId();
-    const parsed = foodSchema.parse(input);
-    const id = await database.transaction(async (transaction) => {
-      const [created] = await transaction
-        .insert(food)
-        .values({ ...toFoodValues(parsed), ownerId: userId, source: "user" })
-        .returning({ id: food.id });
-      if (parsed.portions.length > 0) {
-        await transaction
-          .insert(foodPortion)
-          .values(parsed.portions.map((portion, position) => ({ ...portion, position, foodId: created.id })));
-      }
-      return created.id;
-    });
+    const id = await insertFood(userId, input);
     refresh();
     return { ok: true, data: { id } };
   } catch (error) {
@@ -86,7 +34,7 @@ export async function createFood(input: FoodInput): Promise<ActionResult<{ id: s
 export async function updateFood(foodId: string, input: FoodInput): Promise<ActionResult<{ id: string }>> {
   try {
     const userId = await requireUserId();
-    const parsed = foodSchema.parse(input);
+    const parsed = foodInputSchema.parse(input);
     const existing = await getVisibleFood(userId, z.uuid().parse(foodId));
     if (!existing) throw new Error("Alimento non trovato.");
 

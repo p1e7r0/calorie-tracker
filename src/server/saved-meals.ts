@@ -4,6 +4,7 @@ import { database } from "@/db";
 import { food, savedMeal, savedMealItem } from "@/db/schema";
 import type { MealType } from "@/lib/nutrition/meals";
 import { multiplyNutrients, type Nutrients, scaleNutrients, sumNutrients } from "@/lib/nutrition/nutrients";
+import type { EntryItem } from "./diary-entries";
 import { listLoggableRecipes } from "./recipes";
 
 export type SavedMealItemView = {
@@ -120,4 +121,16 @@ export async function listSavedMealViews(userId: string) {
 export async function getSavedMeal(userId: string, savedMealId: string) {
   const [meal] = await loadSavedMeals(userId, [savedMealId]);
   return meal ?? null;
+}
+
+export function savedMealEntryItems(saved: SavedMealView): EntryItem[] {
+  return saved.items.map((item) =>
+    item.type === "food"
+      ? { type: "food", foodId: item.referenceId, grams: item.grams ?? 100 }
+      : { type: "recipe", recipeId: item.referenceId, grams: item.grams, servings: item.servings },
+  );
+}
+
+export async function markSavedMealUsed(savedMealId: string) {
+  await database.update(savedMeal).set({ updatedAt: new Date() }).where(eq(savedMeal.id, savedMealId));
 }
