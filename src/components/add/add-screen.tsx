@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableItem, LoggableRecipe } from "@/server/loggable";
 import { LogItemDrawer } from "./log-item-drawer";
 import { useLogEntry } from "./use-log-entry";
-import { BarcodeScanner } from "./barcode-scanner";
+import { BarcodeScanner } from "@/components/food/barcode-scanner";
 import { OpenFoodFactsResults } from "./open-food-facts-results";
 import { DescribeMealDrawer } from "./describe-meal-drawer";
 import { QuickKcalDrawer } from "./quick-kcal-drawer";

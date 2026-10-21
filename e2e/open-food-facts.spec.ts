@@ -16,6 +16,19 @@ test.describe("Open Food Facts", () => {
     await expect(dialog.getByRole("button", { name: /^1 porzione/ })).toBeVisible();
   });
 
+  test("scanning an unknown barcode from the catalog opens the new food form", async ({ page }) => {
+    await registerUser(page);
+    await page.goto("/food");
+    await page.waitForLoadState("networkidle");
+    const barcode = `200${Date.now()}`.slice(0, 13);
+    await page.getByRole("button", { name: "Scansiona codice a barre" }).click();
+    await page.getByRole("textbox", { name: "Codice a barre" }).fill(barcode);
+    await page.getByRole("button", { name: "Cerca", exact: true }).click();
+
+    await expect(page).toHaveURL(/\/food\/new\?barcode=/, { timeout: 20_000 });
+    await expect(page.getByLabel("Codice a barre", { exact: true })).toHaveValue(barcode);
+  });
+
   test("searches Open Food Facts on demand when the catalog has enough results", async ({ page }) => {
     await registerUser(page);
     await page.goto("/add?meal=snack");

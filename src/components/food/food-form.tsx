@@ -1,18 +1,22 @@
 "use client";
 
-import { ChevronDownIcon, PlusIcon, XIcon } from "lucide-react";
+import { ChevronDownIcon, PlusIcon, ScanBarcodeIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { createFood, type FoodInput, updateFood } from "@/app/actions/foods";
+import { lookupBarcode } from "@/app/actions/open-food-facts";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatKcal, parseDecimal } from "@/lib/nutrition/format";
 import { kcalFromMacros } from "@/lib/nutrition/nutrients";
+import { normalizeBarcode } from "@/lib/open-food-facts";
 import { cn } from "@/lib/utils";
 import type { NutritionLabel } from "@/lib/ai-schemas";
+import { BarcodeScanner } from "./barcode-scanner";
 import { type FoodFormValues, type NutrientField, toFormNumber } from "./food-form-values";
 import { LabelPhotoButton } from "./label-photo-button";
 
@@ -58,6 +62,38 @@ function FoodFormContent({
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [isLookingUp, startLookup] = useTransition();
+
+  function goToFood(id: string) {
+    if (redirectTo) {
+      const separator = redirectTo.includes("?") ? "&" : "?";
+      router.replace(`${redirectTo}${separator}food=${id}`);
+    } else {
+      router.replace(`/food/${id}`);
+    }
+  }
+
+  function handleBarcode(barcode: string) {
+    if (foodId) {
+      update("barcode", barcode);
+      setScannerOpen(false);
+      return;
+    }
+    startLookup(async () => {
+      const result = await lookupBarcode(barcode);
+      update("barcode", barcode);
+      setScannerOpen(false);
+      if (!result.ok) {
+        toast.error(result.error);
+      } else if (result.data.item) {
+        toast(`«${result.data.item.name}» è già nel catalogo.`);
+        goToFood(result.data.item.id);
+      } else {
+        toast("Prodotto non trovato. Inserisci i valori dall'etichetta.");
+      }
+    });
+  }
 
   function applyLabel(label: NutritionLabel) {
     setValues((current) => ({
@@ -106,10 +142,15 @@ function FoodFormContent({
       setErrorMessage("Inserisci le kcal o i macronutrienti per 100 g.");
       return;
     }
+    const barcode = values.barcode.trim() ? normalizeBarcode(values.barcode) : null;
+    if (values.barcode.trim() && !barcode) {
+      setErrorMessage("Il codice a barre deve avere da 6 a 14 cifre.");
+      return;
+    }
     const input: FoodInput = {
       name: values.name,
       brand: values.brand || null,
-      barcode: values.barcode || null,
+      barcode,
       unit: values.unit,
       kcal,
       protein,
@@ -130,109 +171,102 @@ function FoodFormContent({
         return;
       }
       toast.success(foodId ? "Alimento salvato" : "Alimento creato");
-      if (redirectTo) {
-        const separator = redirectTo.includes("?") ? "&" : "?";
-        router.replace(`${redirectTo}${separator}food=${result.data.id}`);
-      } else {
-        router.replace(`/food/${result.data.id}`);
-      }
+      goToFood(result.data.id);
     });
   }
 
   return (
-    <form
-      className="pb-8"
-      onSubmit={(event) => {
-        event.preventDefault();
-        submit();
-      }}
-    >
-      <FieldGroup className="gap-4">
-        {aiEnabled && !isGlobalCopy ? <LabelPhotoButton onRead={applyLabel} /> : null}
-        {isGlobalCopy ? (
-          <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-            Questo alimento fa parte del catalogo comune. Le modifiche creano una tua copia personale, che userai al
-            posto dell&apos;originale.
-          </p>
-        ) : null}
-        <Field>
-          <FieldLabel htmlFor="food-name">Nome</FieldLabel>
-          <Input
-            id="food-name"
-            value={values.name}
-            autoFocus={!values.name}
-            onChange={(event) => update("name", event.target.value)}
-            placeholder="Yogurt greco 0%"
-          />
-        </Field>
-        <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+    <>
+      <form
+        className="pb-8"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
+        <FieldGroup className="gap-4">
+          {aiEnabled && !isGlobalCopy ? <LabelPhotoButton onRead={applyLabel} /> : null}
+          {isGlobalCopy ? (
+            <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+              Questo alimento fa parte del catalogo comune. Le modifiche creano una tua copia personale, che userai al
+              posto dell&apos;originale.
+            </p>
+          ) : null}
           <Field>
-            <FieldLabel htmlFor="food-brand">Marca</FieldLabel>
+            <FieldLabel htmlFor="food-name">Nome</FieldLabel>
             <Input
-              id="food-brand"
-              value={values.brand}
-              onChange={(event) => update("brand", event.target.value)}
-              placeholder="Facoltativa"
+              id="food-name"
+              value={values.name}
+              autoFocus={!values.name}
+              onChange={(event) => update("name", event.target.value)}
+              placeholder="Yogurt greco 0%"
             />
           </Field>
-          <ToggleGroup
-            variant="outline"
-            spacing={0}
-            value={[values.unit]}
-            onValueChange={(selected) => {
-              const [unit] = selected;
-              if (unit === "g" || unit === "ml") update("unit", unit);
-            }}
-            aria-label="Unità"
-          >
-            <ToggleGroupItem value="g" className="h-10 px-4">
-              g
-            </ToggleGroupItem>
-            <ToggleGroupItem value="ml" className="h-10 px-4">
-              ml
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-
-        <fieldset className="flex flex-col gap-3">
-          <legend className="mb-3 text-sm font-medium">Valori per 100 {values.unit}</legend>
-          <Field>
-            <FieldLabel htmlFor="food-kcal">Kcal</FieldLabel>
-            <Input
-              id="food-kcal"
-              inputMode="decimal"
-              className="h-12 text-xl font-semibold"
-              value={values.kcal}
-              placeholder={estimatedKcal > 0 ? formatKcal(estimatedKcal) : ""}
-              onChange={(event) => update("kcal", event.target.value)}
-            />
-            {typedKcal === null && estimatedKcal > 0 ? (
-              <FieldDescription>Se la lasci vuota uso {formatKcal(estimatedKcal)} kcal, calcolate dai macro.</FieldDescription>
-            ) : null}
-          </Field>
-          <div className="grid grid-cols-3 gap-2">
-            {mainNutrients.map((nutrient) => (
-              <NutrientInput
-                key={nutrient.field}
-                id={`food-${nutrient.field}`}
-                label={nutrient.label}
-                value={values[nutrient.field]}
-                onChange={(value) => update(nutrient.field, value)}
+          <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+            <Field>
+              <FieldLabel htmlFor="food-brand">Marca</FieldLabel>
+              <Input
+                id="food-brand"
+                value={values.brand}
+                onChange={(event) => update("brand", event.target.value)}
+                placeholder="Facoltativa"
               />
-            ))}
+            </Field>
+            <ToggleGroup
+              variant="outline"
+              spacing={0}
+              value={[values.unit]}
+              onValueChange={(selected) => {
+                const [unit] = selected;
+                if (unit === "g" || unit === "ml") update("unit", unit);
+              }}
+              aria-label="Unità"
+            >
+              <ToggleGroupItem value="g" className="h-10 px-4">
+                g
+              </ToggleGroupItem>
+              <ToggleGroupItem value="ml" className="h-10 px-4">
+                ml
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowOtherNutrients((current) => !current)}
-            className="flex w-fit items-center gap-1 text-sm font-medium text-muted-foreground"
-            aria-expanded={showOtherNutrients}
-          >
-            Zuccheri, saturi, fibre e sale
-            <ChevronDownIcon className={cn("size-4 transition-transform", showOtherNutrients && "rotate-180")} />
-          </button>
-          {showOtherNutrients ? (
-            <div className="grid grid-cols-2 gap-2">
-              {otherNutrients.map((nutrient) => (
+          <Field>
+            <FieldLabel htmlFor="food-barcode">Codice a barre</FieldLabel>
+            <InputGroup className="h-10">
+              <InputGroupInput
+                id="food-barcode"
+                inputMode="numeric"
+                autoComplete="off"
+                value={values.barcode}
+                onChange={(event) => update("barcode", event.target.value)}
+                placeholder="Facoltativo"
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton size="icon-sm" aria-label="Scansiona codice a barre" onClick={() => setScannerOpen(true)}>
+                  <ScanBarcodeIcon />
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+          </Field>
+
+          <fieldset className="flex flex-col gap-3">
+            <legend className="mb-3 text-sm font-medium">Valori per 100 {values.unit}</legend>
+            <Field>
+              <FieldLabel htmlFor="food-kcal">Kcal</FieldLabel>
+              <Input
+                id="food-kcal"
+                inputMode="decimal"
+                className="h-12 text-xl font-semibold"
+                value={values.kcal}
+                placeholder={estimatedKcal > 0 ? formatKcal(estimatedKcal) : ""}
+                onChange={(event) => update("kcal", event.target.value)}
+              />
+              {typedKcal === null && estimatedKcal > 0 ? (
+                <FieldDescription>Se la lasci vuota uso {formatKcal(estimatedKcal)} kcal, calcolate dai macro.</FieldDescription>
+              ) : null}
+            </Field>
+            <div className="grid grid-cols-3 gap-2">
+              {mainNutrients.map((nutrient) => (
                 <NutrientInput
                   key={nutrient.field}
                   id={`food-${nutrient.field}`}
@@ -242,70 +276,95 @@ function FoodFormContent({
                 />
               ))}
             </div>
-          ) : null}
-        </fieldset>
+            <button
+              type="button"
+              onClick={() => setShowOtherNutrients((current) => !current)}
+              className="flex w-fit items-center gap-1 text-sm font-medium text-muted-foreground"
+              aria-expanded={showOtherNutrients}
+            >
+              Zuccheri, saturi, fibre e sale
+              <ChevronDownIcon className={cn("size-4 transition-transform", showOtherNutrients && "rotate-180")} />
+            </button>
+            {showOtherNutrients ? (
+              <div className="grid grid-cols-2 gap-2">
+                {otherNutrients.map((nutrient) => (
+                  <NutrientInput
+                    key={nutrient.field}
+                    id={`food-${nutrient.field}`}
+                    label={nutrient.label}
+                    value={values[nutrient.field]}
+                    onChange={(value) => update(nutrient.field, value)}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </fieldset>
 
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1 text-sm font-medium">Porzioni</legend>
-          <p className="text-sm text-muted-foreground">Per esempio «1 vasetto = 125 g». Le ritrovi quando aggiungi l&apos;alimento.</p>
-          {values.portions.map((portion, index) => (
-            <div key={index} className="grid grid-cols-[1fr_6rem_auto] gap-2">
-              <Input
-                aria-label="Nome della porzione"
-                placeholder="1 vasetto"
-                value={portion.label}
-                onChange={(event) =>
-                  update(
-                    "portions",
-                    values.portions.map((current, currentIndex) =>
-                      currentIndex === index ? { ...current, label: event.target.value } : current,
-                    ),
-                  )
-                }
-              />
-              <Input
-                aria-label={`Grammi della porzione ${index + 1}`}
-                inputMode="decimal"
-                placeholder={values.unit}
-                value={portion.grams}
-                onChange={(event) =>
-                  update(
-                    "portions",
-                    values.portions.map((current, currentIndex) =>
-                      currentIndex === index ? { ...current, grams: event.target.value } : current,
-                    ),
-                  )
-                }
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-10"
-                aria-label="Rimuovi porzione"
-                onClick={() => update("portions", values.portions.filter((_, currentIndex) => currentIndex !== index))}
-              >
-                <XIcon />
-              </Button>
-            </div>
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            className="w-fit"
-            onClick={() => update("portions", [...values.portions, { label: "", grams: "" }])}
-          >
-            <PlusIcon />
-            Aggiungi porzione
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-sm font-medium">Porzioni</legend>
+            <p className="text-sm text-muted-foreground">Per esempio «1 vasetto = 125 g». Le ritrovi quando aggiungi l&apos;alimento.</p>
+            {values.portions.map((portion, index) => (
+              <div key={index} className="grid grid-cols-[1fr_6rem_auto] gap-2">
+                <Input
+                  aria-label="Nome della porzione"
+                  placeholder="1 vasetto"
+                  value={portion.label}
+                  onChange={(event) =>
+                    update(
+                      "portions",
+                      values.portions.map((current, currentIndex) =>
+                        currentIndex === index ? { ...current, label: event.target.value } : current,
+                      ),
+                    )
+                  }
+                />
+                <Input
+                  aria-label={`Grammi della porzione ${index + 1}`}
+                  inputMode="decimal"
+                  placeholder={values.unit}
+                  value={portion.grams}
+                  onChange={(event) =>
+                    update(
+                      "portions",
+                      values.portions.map((current, currentIndex) =>
+                        currentIndex === index ? { ...current, grams: event.target.value } : current,
+                      ),
+                    )
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-10"
+                  aria-label="Rimuovi porzione"
+                  onClick={() => update("portions", values.portions.filter((_, currentIndex) => currentIndex !== index))}
+                >
+                  <XIcon />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-fit"
+              onClick={() => update("portions", [...values.portions, { label: "", grams: "" }])}
+            >
+              <PlusIcon />
+              Aggiungi porzione
+            </Button>
+          </fieldset>
+
+          {errorMessage ? <FieldError>{errorMessage}</FieldError> : null}
+          <Button type="submit" size="lg" disabled={isPending}>
+            {submitLabel}
           </Button>
-        </fieldset>
-
-        {errorMessage ? <FieldError>{errorMessage}</FieldError> : null}
-        <Button type="submit" size="lg" disabled={isPending}>
-          {submitLabel}
-        </Button>
-      </FieldGroup>
-    </form>
+        </FieldGroup>
+      </form>
+      {scannerOpen ? (
+        <BarcodeScanner isLookingUp={isLookingUp} onDetected={handleBarcode} onClose={() => setScannerOpen(false)} />
+      ) : null}
+    </>
   );
 }
 
