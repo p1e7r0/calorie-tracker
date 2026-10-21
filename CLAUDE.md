@@ -136,13 +136,16 @@ I flag sono costanti booleane calcolate all'avvio, non funzioni.
   - Chromium headless non supporta la Push API: verificare il push lato server;
   - lo spec `ai` si salta se `ANTHROPIC_API_KEY` è impostata;
   - i test che si aspettano "nessun risultato locale" devono usare query non ancora importate da Open Food Facts nel catalogo globale.
+- Sessioni cloud (container effimero): `.env.local` può puntare a un Postgres 16 locale invece che a Neon dev; se è spento, `pg_ctlcluster 16 main start`, poi `pnpm db:migrate`. Quel database non ha il catalogo svizzero, quindi gli e2e che cercano alimenti globali («Banana, cruda», «Albicocca, cruda»…) falliscono senza colpa del codice. Il Chromium di Playwright preinstallato può non coincidere con la versione attesa: usare una config locale non committata con `launchOptions: { executablePath: "/opt/pw-browsers/chromium" }`.
 - Verifica di un task: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, e2e pertinenti, controllo visivo nel browser (anche tema scuro e larghezza mobile).
 
 ## Git
 - Un branch per task: `feature/<kebab>`, `fix/<kebab>`, `chore/<kebab>`; merge in `main` con `git merge --no-ff` (messaggio di default "Merge branch '<nome>'").
 - Messaggi di commit in inglese, imperativo, sentence case, senza prefisso; corpo a ~80 colonne che spiega il perché. È il formato di questo progetto: prevale su quello della skill `commit-message`.
 - **Mai** trailer `Co-Authored-By` (nemmeno nei merge) né attribuzioni AI nei commit o nelle PR: l'utente lo vieta.
-- Remote `origin` su GitHub (repository **pubblico**: niente segreti, email o identificativi di infrastruttura nei file committati). L'utente fa push/sync da VS Code: non fare `git push`; i branch di task restano locali. Il push non fa deploy.
+- Remote `origin` su GitHub (repository **pubblico**: niente segreti, email o identificativi di infrastruttura nei file committati). Il push non fa deploy.
+- In locale l'utente fa push/sync da VS Code: non fare `git push`, i branch di task restano locali.
+- Nelle sessioni cloud (Claude Code sul web, container effimero) fai push del branch di task a fine lavoro con `git push -u origin <branch>`, altrimenti il lavoro si perde; mai push su `main` senza conferma.
 - `AGENTS.md` contiene solo il blocco gestito da `next dev` (tra i marker `BEGIN/END:nextjs-agent-rules`): non modificarlo a mano. Se `next dev` lo riscrive, committa la modifica invece di annullarla. Le istruzioni di progetto vanno in questo file.
 
 ## Fine task

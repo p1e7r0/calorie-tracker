@@ -8,10 +8,8 @@ import { diaryEntry, savedMeal, savedMealItem } from "@/db/schema";
 import { requireUserId } from "@/lib/auth/session";
 import { isIsoDate } from "@/lib/nutrition/days";
 import { mealTypes } from "@/lib/nutrition/meals";
-import { roundExtras } from "@/lib/nutrition/extra-nutrients";
-import { roundNutrients } from "@/lib/nutrition/nutrients";
-import { resolveEntryValues } from "@/server/diary-entries";
-import { getSavedMeal } from "@/server/saved-meals";
+import { insertDiaryEntries } from "@/server/diary-entries";
+import { getSavedMeal, markSavedMealUsed, savedMealEntryItems } from "@/server/saved-meals";
 import type { ActionResult } from "./diary";
 
 const isoDate = z.string().refine(isIsoDate, "Data non valida");
@@ -81,32 +79,10 @@ export async function logSavedMeal(
     if (!saved) throw new Error("Pasto salvato non trovato.");
     if (saved.items.length === 0) throw new Error("Questo pasto salvato è vuoto.");
 
-    const values = await Promise.all(
-      saved.items.map((item) =>
-        resolveEntryValues(
-          userId,
-          item.type === "food"
-            ? { type: "food", foodId: item.referenceId, grams: item.grams ?? 100 }
-            : { type: "recipe", recipeId: item.referenceId, grams: item.grams, servings: item.servings },
-        ),
-      ),
-    );
-    const created = await database
-      .insert(diaryEntry)
-      .values(
-        values.map(({ nutrients, extras, ...entry }) => ({
-          ...entry,
-          ...roundNutrients(nutrients),
-          ...roundExtras(extras),
-          userId,
-          day,
-          meal: mealType,
-        })),
-      )
-      .returning({ id: diaryEntry.id });
-    await database.update(savedMeal).set({ updatedAt: new Date() }).where(eq(savedMeal.id, saved.id));
+    const logged = await insertDiaryEntries(userId, day, mealType, savedMealEntryItems(saved));
+    await markSavedMealUsed(saved.id);
     refresh();
-    return { ok: true, data: { entryIds: created.map((entry) => entry.id) } };
+    return { ok: true, data: { entryIds: logged.map((entry) => entry.id) } };
   } catch (error) {
     return failure(error);
   }

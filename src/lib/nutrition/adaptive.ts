@@ -4,7 +4,7 @@ import { kcalPerKilogramOfBodyWeight } from "./goals";
 export const adaptiveWindowDays = 28;
 export const requiredLoggedDays = 14;
 export const requiredWeightSpanDays = 14;
-const incompleteDayKcal = 600;
+export const incompleteDayKcal = 600;
 const plausibleMaintenance = { minimum: 1000, maximum: 6000 };
 
 type DatedValue = { day: string; value: number };

@@ -8,9 +8,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth/client";
 
 const permissions = [
-  "Cercare tra i tuoi alimenti e le tue ricette",
-  "Leggere il diario e i tuoi obiettivi",
+  "Cercare tra i tuoi alimenti, le tue ricette e i pasti salvati",
+  "Leggere il diario, i progressi e i tuoi obiettivi",
   "Aggiungere ed eliminare voci nel diario",
+  "Creare alimenti e ricette",
+  "Registrare il peso",
 ];
 
 export function ConsentForm({ clientName }: { clientName: string }) {

@@ -1,26 +1,21 @@
 "use server";
 
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { database } from "@/db";
-import { food, recipe, recipeIngredient } from "@/db/schema";
+import { recipe, recipeIngredient } from "@/db/schema";
 import { requireUserId } from "@/lib/auth/session";
-import { visibleFoodCondition } from "@/server/foods";
+import {
+  assertIngredientsVisible,
+  insertRecipe,
+  type RecipeInput,
+  recipeInputSchema,
+  toRecipeValues,
+} from "@/server/recipe-writes";
 import type { ActionResult } from "./diary";
 
-const recipeSchema = z.object({
-  name: z.string().trim().min(1, "Dai un nome alla ricetta.").max(120),
-  servings: z.number().int().min(1).max(100),
-  cookedWeightG: z.number().positive().max(50_000).nullish(),
-  notes: z.string().trim().max(2000).nullish(),
-  ingredients: z
-    .array(z.object({ foodId: z.uuid(), grams: z.number().positive().max(20_000) }))
-    .min(1, "Aggiungi almeno un ingrediente.")
-    .max(60),
-});
-
-export type RecipeInput = z.input<typeof recipeSchema>;
+export type { RecipeInput };
 
 function failure(error: unknown): { ok: false; error: string } {
   if (error instanceof z.ZodError) return { ok: false, error: error.issues[0]?.message ?? "Controlla i valori." };
@@ -28,39 +23,10 @@ function failure(error: unknown): { ok: false; error: string } {
   return { ok: false, error: "Qualcosa non ha funzionato. Riprova." };
 }
 
-async function assertIngredientsVisible(userId: string, foodIds: string[]) {
-  const uniqueIds = [...new Set(foodIds)];
-  const visible = await database
-    .select({ id: food.id })
-    .from(food)
-    .where(and(visibleFoodCondition(userId), inArray(food.id, uniqueIds)));
-  if (visible.length !== uniqueIds.length) throw new Error("Uno degli ingredienti non è più disponibile.");
-}
-
-function toRecipeValues(input: z.infer<typeof recipeSchema>) {
-  return {
-    name: input.name,
-    servings: input.servings,
-    cookedWeightG: input.cookedWeightG ?? null,
-    notes: input.notes || null,
-  };
-}
-
 export async function createRecipe(input: RecipeInput): Promise<ActionResult<{ id: string }>> {
   try {
     const userId = await requireUserId();
-    const parsed = recipeSchema.parse(input);
-    await assertIngredientsVisible(userId, parsed.ingredients.map((ingredient) => ingredient.foodId));
-    const id = await database.transaction(async (transaction) => {
-      const [created] = await transaction
-        .insert(recipe)
-        .values({ ...toRecipeValues(parsed), ownerId: userId })
-        .returning({ id: recipe.id });
-      await transaction
-        .insert(recipeIngredient)
-        .values(parsed.ingredients.map((ingredient, position) => ({ ...ingredient, position, recipeId: created.id })));
-      return created.id;
-    });
+    const id = await insertRecipe(userId, input);
     refresh();
     return { ok: true, data: { id } };
   } catch (error) {
@@ -71,7 +37,7 @@ export async function createRecipe(input: RecipeInput): Promise<ActionResult<{ i
 export async function updateRecipe(recipeId: string, input: RecipeInput): Promise<ActionResult<{ id: string }>> {
   try {
     const userId = await requireUserId();
-    const parsed = recipeSchema.parse(input);
+    const parsed = recipeInputSchema.parse(input);
     const id = z.uuid().parse(recipeId);
     await assertIngredientsVisible(userId, parsed.ingredients.map((ingredient) => ingredient.foodId));
     await database.transaction(async (transaction) => {
