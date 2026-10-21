@@ -173,8 +173,8 @@ I flag sono costanti booleane calcolate all'avvio, non funzioni.
 - iOS Safari: `input[type=date]` ha `appearance: none` e `min-width: 0` per non uscire dalla colonna; il pulsante nativo di cancellazione di `type=search` è nascosto.
 - Recharts `ReferenceLine` richiede `ifOverflow="extendDomain"` per restare visibile.
 - `devIndicators: false` perché l'indicatore copriva i pulsanti.
-- Budget settimanale: i giorni passati senza voci contano come "in linea con l'obiettivo".
-- Stima adattiva: esclude l'introito di oggi ma include la pesata di oggi; ignora i giorni sotto 600 kcal.
+- Budget settimanale: i giorni passati senza voci e quelli segnati come incompleti contano come "in linea con l'obiettivo".
+- Stima adattiva: esclude l'introito di oggi ma include la pesata di oggi; ignora i giorni sotto 600 kcal (`partialDayKcal`) e quelli segnati come incompleti (tabella `incomplete_day`).
 - Cron su Vercel Hobby: una esecuzione al giorno, orari fissi in UTC.
 
 ## Ricerca
