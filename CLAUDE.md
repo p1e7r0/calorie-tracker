@@ -26,7 +26,7 @@ Versioni esatte in `package.json`.
 - `pnpm db:migrate:production`: applica a Neon **main** (`NODE_ENV=production`, carica `.env.production.local`)
 - `pnpm db:studio`
 - `pnpm migrate:legacy --owner-email <email> [--dry-run]` oppure `pnpm migrate:legacy --global-only`; `pnpm migrate:legacy:production --owner-email <email>`. Non mettere `--` prima delle opzioni: pnpm 10 lo passa allo script e `parseArgs` (strict, senza argomenti posizionali) fallisce.
-- Deploy: `npx vercel@64.3.1 deploy --prod --yes` (Vercel CLI non installato globalmente)
+- Deploy: automatico a ogni push di `main` su GitHub; a mano, solo come riserva, `npx vercel@64.3.1 deploy --prod --yes` (Vercel CLI non installato globalmente)
 - Opzionale: `docker compose up -d database` (Postgres 17 locale su porta **5433**, non più usato di default)
 
 ## Struttura del repository
@@ -143,9 +143,9 @@ I flag sono costanti booleane calcolate all'avvio, non funzioni.
 - Un branch per task: `feature/<kebab>`, `fix/<kebab>`, `chore/<kebab>`; merge in `main` con `git merge --no-ff` (messaggio di default "Merge branch '<nome>'").
 - Messaggi di commit in inglese, imperativo, sentence case, senza prefisso; corpo a ~80 colonne che spiega il perché. È il formato di questo progetto: prevale su quello della skill `commit-message`.
 - **Mai** trailer `Co-Authored-By` (nemmeno nei merge) né attribuzioni AI nei commit o nelle PR: l'utente lo vieta.
-- Remote `origin` su GitHub (repository **pubblico**: niente segreti, email o identificativi di infrastruttura nei file committati). Il push non fa deploy.
+- Remote `origin` su GitHub (repository **pubblico**: niente segreti, email o identificativi di infrastruttura nei file committati). Il push di `main` fa il deploy in produzione (integrazione Git di Vercel).
 - In locale l'utente fa push/sync da VS Code: non fare `git push`, i branch di task restano locali.
-- Nelle sessioni cloud (Claude Code sul web, container effimero) fai push del branch di task a fine lavoro con `git push -u origin <branch>`, altrimenti il lavoro si perde; mai push su `main` senza conferma.
+- Nelle sessioni cloud (Claude Code sul web, container effimero) fai push del branch di task a fine lavoro con `git push -u origin <branch>`, altrimenti il lavoro si perde; mai push su `main` senza conferma (farebbe il deploy in produzione).
 - `AGENTS.md` contiene solo il blocco gestito da `next dev` (tra i marker `BEGIN/END:nextjs-agent-rules`): non modificarlo a mano. Se `next dev` lo riscrive, committa la modifica invece di annullarla. Le istruzioni di progetto vanno in questo file.
 
 ## Fine task
@@ -153,13 +153,14 @@ I flag sono costanti booleane calcolate all'avvio, non funzioni.
 
 ## Deploy
 - Dettagli del progetto (URL, regione, cron, variabili impostate) in `CONTEXT.md` › "Dati e infrastruttura". Scope sempre personale `p1e7r0s-projects`, mai il team Rentobuy.
+- Il progetto Vercel è collegato al repository GitHub: ogni push di `main` fa il deploy in produzione. In locale il push lo fa l'utente da VS Code, quindi deploy = push di `main`.
 - Deploy in produzione solo dopo conferma dell'utente (decisione Q3); se in dubbio, chiedi.
-- Procedura: merge in `main` → se ci sono migrazioni `pnpm db:migrate:production` → `npx vercel@64.3.1 deploy --prod --yes` → smoke test su https://bilancia-cyan.vercel.app.
-- Il CLI carica la cartella locale, non un commit: fare deploy solo da `main` con `git status` pulito, dopo il merge.
+- Procedura: merge in `main` → se ci sono migrazioni `pnpm db:migrate:production` **prima** del push (il deploy parte subito e il codice nuovo non deve girare su uno schema vecchio) → push di `main` → a deploy finito (`npx vercel@64.3.1 ls bilancia --scope p1e7r0s-projects`) smoke test su https://bilancia-cyan.vercel.app.
+- Deploy dal CLI solo come riserva: carica la cartella locale, non un commit, quindi solo da `main` con `git status` pulito, dopo il merge.
 - Se manca `.vercel/project.json` (è in `.gitignore`): `npx vercel@64.3.1 link --scope p1e7r0s-projects --project bilancia`.
 - Non eseguire `vercel env pull` su `.env.local`: sovrascriverebbe la configurazione del branch dev con quella di produzione.
 - Smoke test in produzione con utenti `smoke-test-*@example.com` che si cancellano alla fine (Profilo › Impostazioni › Elimina l'account). In produzione c'è un solo utente reale: non toccare i suoi dati.
-- Nuove variabili: impostarle su Vercel per nome (`npx vercel env add <NOME> production`); i preview deployment non hanno variabili.
+- Nuove variabili: impostarle su Vercel per nome (`npx vercel env add <NOME> production`); i preview deployment (push di altri branch) non hanno variabili.
 - `.vercelignore` esclude i file `.env*` (tranne `.env.example`).
 
 ## Problemi noti e soluzioni

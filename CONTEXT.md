@@ -57,7 +57,7 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - **File env** (mai stamparne i valori): `.env.local` → Neon dev; `.env.production.local` → Neon main (solo URL database); produzione → variabili su Vercel.
 - **Vercel**: progetto `bilancia`, scope personale `p1e7r0s-projects` (Hobby, non il team Rentobuy), funzioni in `fra1` vicino a Neon (il primo deploy era finito in `iad1`).
   - produzione: https://bilancia-cyan.vercel.app (alias `bilancia-p1e7r0s-projects.vercel.app`);
-  - deploy solo da CLI, non collegato a GitHub; i preview deployment non hanno variabili;
+  - collegato al repository GitHub dal 2026-10-21: ogni push di `main` fa il deploy in produzione; la CLI resta come riserva; i preview deployment (push di altri branch) non hanno variabili;
   - variabili impostate: `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `BETTER_AUTH_SECRET` (diverso dal locale), `BETTER_AUTH_URL`, `BETTER_AUTH_TRUSTED_ORIGINS`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`;
   - non ancora impostate: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`;
   - cron: `/api/cron/evening-reminder` alle 19:00 UTC, `/api/cron/weigh-in-reminder` alle 06:00 UTC (21/8 ora legale, 20/7 ora solare).
@@ -97,7 +97,7 @@ Aggiornato al 2026-10-21. Per lo stato reale usa `git log` e `git status`.
 - T33 (pull-to-refresh su Oggi e Progressi) in produzione dal 2026-10-17.
 - `fix/logging-flow-friction`, `feature/meal-suggestions` e `feature/weekly-check-in` (migliorie dall'analisi del 2026-10-17) in produzione dal 2026-10-17, verificati con uno smoke test (ricerca e aggiunta con Invio, suggerimenti con l'ultima quantità, grafico del fabbisogno, impostazioni dei promemoria).
 - `feature/quick-undo-and-editing` in produzione dal 2026-10-17, verificato con uno smoke test (annullamento di Kcal veloci e del pasto salvato, ±10 g nell'editor della voce, «Aggiungi al diario» dal dettaglio del pasto salvato, conferma prima di eliminarlo).
-- T34 (nuovo alimento da codice a barre) e T35 (connettore per Claude: alimenti, ricette, barcode, pasti salvati, peso, progressi) sono in `main` ma non ancora in produzione; nessuna migrazione.
+- T34 (nuovo alimento da codice a barre) e T35 (connettore per Claude: alimenti, ricette, barcode, pasti salvati, peso, progressi) sono in `main` ma non ancora in produzione: andranno online al prossimo push di `main`; nessuna migrazione.
 - Migrazioni fino a `0010_weekly_check_in` applicate sia a dev sia a main.
 - Connettore per Claude: verificato con claude.ai reale (Claude Desktop, credenziali da Profilo › Impostazioni › Claude); il client usa `client_secret_post` perché claude.ai (SDK MCP Python) invia il segreto nel corpo della richiesta; con `client_secret_basic` lo scambio del token rispondeva 400 `invalid_client`.
 - Funzioni AI nascoste in produzione finché manca `ANTHROPIC_API_KEY`; link "Password dimenticata" nascosto finché mancano `RESEND_API_KEY` ed `EMAIL_FROM`; login Google assente senza credenziali OAuth.
@@ -125,6 +125,7 @@ Aggiornato al 2026-10-21. Per lo stato reale usa `git log` e `git status`.
 - **2026-10-17, annullamento e modifica rapida**: «Annulla» in tutti i toast che aggiungono voci (`deleteDiaryEntries` elimina in blocco le voci create; `copyMeal` e `logSavedMeal` restituiscono gli id; helper `toastWithUndo`); l'editor della voce ha ±10 g, le porzioni dell'alimento (`DiaryEntryView` porta unità e porzioni) e le scorciatoie ½-2 per le ricette, e salva l'etichetta della porzione; il dettaglio del pasto salvato ha le azioni in `ScreenFooter`, «Aggiungi al diario» (`/add?savedMeal=…`, con scelta del pasto nel drawer) e la conferma prima di eliminare; toast con accordo neutro.
 - **2026-10-20, T34**: lo scanner barcode non è più solo in Aggiungi (dove registra nel diario): anche su Cibo e nel form dell'alimento, per creare un alimento dal codice senza registrarlo; il codice a barre ora è visibile e modificabile nel form, con validazione in italiano.
 - **2026-10-21, T35**: il connettore per Claude crea alimenti e ricette, trova prodotti per codice a barre, registra pasti salvati e pesate e legge i progressi; la logica di scrittura di alimenti e ricette è passata dalle action a `src/server/food-writes.ts` e `src/server/recipe-writes.ts`; nuovi controlli di coerenza (`src/lib/nutrition/food-checks.ts`: macro oltre 100 g su 100 g, zuccheri oltre i carboidrati, saturi oltre i grassi) validi anche per il form; le kcal lontane da 4/4/9 sono solo un avviso per Claude (alcol e polioli); `search_foods` ora distingue peso da cotto e peso da crudo delle ricette.
+- **2026-10-21, deploy da GitHub**: il progetto Vercel è collegato al repository; il push di `main` fa il deploy in produzione, le migrazioni vanno applicate a main prima del push.
 
 ## Riferimenti
 - `docs/spec.md`: stack, tabella decisioni Q1-Q24, regole di dominio (nutrienti per 100 g, ricette con peso da cotto, snapshot nel diario, Mifflin-St Jeor, macro predefinite), infrastruttura.
