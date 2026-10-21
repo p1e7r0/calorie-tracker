@@ -180,6 +180,7 @@ export function describeProgress({
   dailyTotals,
   targets,
   weights,
+  incompleteDays,
   maintenance,
   suggestedTargetKcal,
 }: {
@@ -188,12 +189,16 @@ export function describeProgress({
   dailyTotals: readonly DayTotals[];
   targets: DailyTargets;
   weights: readonly DatedValue[];
+  incompleteDays: readonly string[];
   maintenance: MaintenanceEstimate;
   suggestedTargetKcal: number | null;
 }) {
   const fromDay = addDays(today, -(days - 1));
+  const markedIncomplete = new Set(incompleteDays);
   const inPeriod = dailyTotals.filter((totals) => totals.day >= fromDay && totals.day <= today);
-  const completeDays = inPeriod.filter((totals) => totals.day < today && totals.kcal >= partialDayKcal);
+  const completeDays = inPeriod.filter(
+    (totals) => totals.day < today && totals.kcal >= partialDayKcal && !markedIncomplete.has(totals.day),
+  );
   const completeTotals = sumNutrients(completeDays);
   const average =
     completeDays.length > 0
@@ -204,14 +209,20 @@ export function describeProgress({
           fat: completeTotals.fat / completeDays.length,
         })
       : null;
-  const week = targets ? weeklyBudget({ day: today, targetKcal: targets.kcal, dailyKcal: dailyTotals }) : null;
+  const week = targets
+    ? weeklyBudget({ day: today, targetKcal: targets.kcal, dailyKcal: dailyTotals, incompleteDays })
+    : null;
 
   return {
     fromDay,
     toDay: today,
-    days: inPeriod.map((totals) => ({ day: totals.day, ...roundNutrients(totals) })),
+    days: inPeriod.map((totals) => ({
+      day: totals.day,
+      ...roundNutrients(totals),
+      incomplete: markedIncomplete.has(totals.day),
+    })),
     average: average && { ...average, overDays: completeDays.length },
-    note: `Average over the logged days before today with at least ${partialDayKcal} kcal; days without entries are missing from the list.`,
+    note: `Average over the logged days before today with at least ${partialDayKcal} kcal, leaving out the days the user marked as incomplete (incomplete: true); days without entries are missing from the list.`,
     targets: targets
       ? { kcal: targets.kcal, protein: targets.proteinG, carbs: targets.carbsG, fat: targets.fatG }
       : null,
@@ -222,7 +233,7 @@ export function describeProgress({
       remainingKcal: Math.round(week.remainingKcal),
       daysLeft: week.daysLeft,
       suggestedTodayKcal: week.suggestedTodayKcal,
-      note: "Past days of the week without entries count as on target.",
+      note: "Past days of the week without entries or marked as incomplete count as on target.",
     },
     weight: {
       trend: describeWeightTrend(weights),
