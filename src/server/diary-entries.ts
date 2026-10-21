@@ -151,17 +151,21 @@ export async function insertDiaryEntries(
     .returning();
 }
 
-export async function copyMealEntries(userId: string, { fromDay, fromMeal, toDay, toMeal }: MealCopy) {
-  const source = await database
+export async function copyMealEntries(
+  userId: string,
+  { fromDay, fromMeal, toDay, toMeal }: MealCopy,
+  source: (typeof diaryEntry.$inferInsert)["source"] = "app",
+) {
+  const sourceEntries = await database
     .select()
     .from(diaryEntry)
     .where(and(eq(diaryEntry.userId, userId), eq(diaryEntry.day, fromDay), eq(diaryEntry.meal, fromMeal)))
     .orderBy(asc(diaryEntry.createdAt));
-  if (source.length === 0) return [];
+  if (sourceEntries.length === 0) return [];
   return database
     .insert(diaryEntry)
     .values(
-      source.map((entry) => ({
+      sourceEntries.map((entry) => ({
         userId,
         day: toDay,
         meal: toMeal,
@@ -177,6 +181,7 @@ export async function copyMealEntries(userId: string, { fromDay, fromMeal, toDay
         carbs: entry.carbs,
         fat: entry.fat,
         ...extrasFromRow(entry),
+        source,
       })),
     )
     .returning();
