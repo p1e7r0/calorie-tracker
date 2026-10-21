@@ -66,3 +66,4 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] `feature/target-weight`: peso obiettivo facoltativo con data prevista in Profilo e Progressi (migrazione 0011)
 - [x] `feature/incomplete-day`: giorno segnato come incompleto, escluso da medie, stima adattiva e check-in (migrazione 0012)
 - [x] `fix/open-food-facts-not-found`: un codice a barre sconosciuto apre «Nuovo alimento» invece di «Open Food Facts non risponde» (l'API ora risponde 404 ai prodotti mancanti); test e2e allineati ai merge del 2026-10-21
+- [x] `chore/deploy-october-merges`: deploy in produzione dei merge del 2026-10-21 (migrazioni 0011-0013 su main, smoke test)
