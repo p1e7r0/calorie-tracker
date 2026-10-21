@@ -205,7 +205,7 @@ test("adds to the viewed day from the bottom bar, with Enter and a cleared searc
   await page.waitForLoadState("networkidle");
   await page.getByRole("link", { name: "Aggiungi cibo" }).click();
   await expect(page).toHaveURL(`/add?date=${day}`);
-  await expect(page.getByText(/^Diario di /)).toBeVisible();
+  await expect(page.locator("p", { hasText: /^Diario di / })).toBeVisible();
 
   await page.getByRole("button", { name: "Pranzo", exact: true }).click();
   const search = page.getByRole("searchbox", { name: "Cerca un alimento o una ricetta" });

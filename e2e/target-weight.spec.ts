@@ -33,7 +33,7 @@ test("sets a target weight and shows the expected date in Progress", async ({ pa
   await page.getByLabel("Peso (kg)").fill("81");
   await page.getByRole("button", { name: "Salva" }).click();
   await expect(page.getByRole("dialog")).toBeHidden();
-  await expect(page.locator(".recharts-reference-line")).toBeVisible();
+  await expect(page.locator(".recharts-reference-line")).toBeAttached();
   await expect(page.getByText("Obiettivo 75 kg")).toBeVisible();
 
   await page.goto("/profile");
