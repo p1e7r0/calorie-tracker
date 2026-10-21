@@ -93,10 +93,8 @@ L'utente ha scelto sempre l'opzione raccomandata.
 ## Stato attuale
 Aggiornato al 2026-10-21. Per lo stato reale usa `git log` e `git status`.
 - Tutti i task T01-T32 sono completati, mergiati in `main` e in produzione dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
-- Ultimo merge in `main`: `feature/claude-connector` (T32, connettore MCP per Claude), verificato in produzione con uno smoke test del flusso OAuth completo.
-- T33 (pull-to-refresh su Oggi e Progressi) committato direttamente su `main`, non ancora in produzione; nessuna migrazione.
-- T34 (nuovo alimento da codice a barre) sul branch `feature/barcode-new-food`, non ancora in produzione; nessuna migrazione.
-- T35 (connettore per Claude: alimenti, ricette, barcode, pasti salvati, peso, progressi) sul branch `feature/claude-connector-catalog`, creato da `feature/barcode-new-food` (contiene anche T34); non ancora in produzione; nessuna migrazione.
+- Ultimo merge in `main`: `feature/claude-connector-catalog` (T35); prima `feature/barcode-new-food` (T34, PR #1). L'ultimo verificato in produzione è `feature/claude-connector` (T32), con uno smoke test del flusso OAuth completo.
+- T33 (pull-to-refresh), T34 (nuovo alimento da codice a barre) e T35 (connettore per Claude: alimenti, ricette, barcode, pasti salvati, peso, progressi) sono in `main` ma non ancora in produzione; nessuna migrazione.
 - Migrazioni fino a `0009_claude_client_secret_post` applicate sia a dev sia a main.
 - Connettore per Claude: verificato con claude.ai reale (Claude Desktop, credenziali da Profilo › Impostazioni › Claude); il client usa `client_secret_post` perché claude.ai (SDK MCP Python) invia il segreto nel corpo della richiesta; con `client_secret_basic` lo scambio del token rispondeva 400 `invalid_client`.
 - Funzioni AI nascoste in produzione finché manca `ANTHROPIC_API_KEY`; link "Password dimenticata" nascosto finché mancano `RESEND_API_KEY` ed `EMAIL_FROM`; login Google assente senza credenziali OAuth.
