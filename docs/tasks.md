@@ -57,4 +57,12 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] `feature/quick-undo-and-editing`: «Annulla» dopo Kcal veloci, pasto salvato, «Copia da ieri» e «Descrivi»; ±10 g, porzioni dell'alimento e scorciatoie per le porzioni di ricetta nell'editor della voce; «Aggiungi al diario» e conferma all'eliminazione nel dettaglio del pasto salvato; toast con accordo neutro («Aggiunto a pranzo: «Mela»»)
 - [x] `chore/spec-decisions`: decisioni superate di `docs/spec.md` aggiornate (deploy per blocco, stima adattiva e check-in, statistiche, connettore per Claude, Open Food Facts automatico, ricerca con parole corte)
 - [x] `chore/vercel-git-deploy`: progetto Vercel collegato a GitHub, il push di `main` fa il deploy in produzione; procedura di deploy aggiornata
+- [x] `feature/over-target-bars`: barre del grafico kcal in arancione nei giorni sopra l'obiettivo
+- [x] `fix/color-contrast`: contrasto di «oltre l'obiettivo» sul testo piccolo e dello swipe «Elimina» in tema scuro, con test dei rapporti
+- [x] `fix/accessibility-landmarks`: `h1` su Oggi e in Aggiungi, chip dei filtri come pulsanti con `aria-pressed`
+- [x] `fix/skeleton-shapes`: skeleton di Cibo e Progressi con schede, campo di ricerca e blocchi alti come la pagina vera
+- [x] `feature/form-actions-in-footer`: «Salva» di alimento e profilo nel footer, con l'errore sopra il pulsante
+- [x] `feature/copy-from-any-day`: copia di un pasto da un giorno e pasto qualsiasi, con calendario e anteprima
+- [x] `feature/target-weight`: peso obiettivo facoltativo con data prevista in Profilo e Progressi (migrazione 0011)
+- [x] `feature/incomplete-day`: giorno segnato come incompleto, escluso da medie, stima adattiva e check-in (migrazione 0012)
 - [x] `fix/open-food-facts-not-found`: un codice a barre sconosciuto apre «Nuovo alimento» invece di «Open Food Facts non risponde» (l'API ora risponde 404 ai prodotti mancanti); test e2e allineati ai merge del 2026-10-21
