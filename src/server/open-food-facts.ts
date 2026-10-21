@@ -12,12 +12,13 @@ import { visibleFoodCondition } from "./foods";
 const userAgent = "Bilancia/0.1 (https://github.com/p1e7r0/calorie-tracker)";
 const fields = "code,product_name,product_name_it,brands,nutriments,serving_quantity";
 
-async function fetchJson(url: string) {
+async function fetchJson(url: string, { notFoundIsEmpty = false } = {}) {
   const response = await fetch(url, {
     headers: { "User-Agent": userAgent, Accept: "application/json" },
     signal: AbortSignal.timeout(8000),
     cache: "no-store",
   });
+  if (notFoundIsEmpty && response.status === 404) return null;
   if (!response.ok) throw new Error(`Open Food Facts responded with ${response.status}`);
   return response.json() as Promise<unknown>;
 }
@@ -35,10 +36,10 @@ export async function searchOpenFoodFacts(query: string): Promise<OpenFoodFactsC
 }
 
 export async function fetchOpenFoodFactsProduct(code: string) {
-  const body = (await fetchJson(
-    `https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=${fields}`,
-  )) as { status?: number; product?: RawOpenFoodFactsProduct };
-  if (body.status !== 1 || !body.product) return null;
+  const body = (await fetchJson(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=${fields}`, {
+    notFoundIsEmpty: true,
+  })) as { status?: number; product?: RawOpenFoodFactsProduct } | null;
+  if (body?.status !== 1 || !body.product) return null;
   return normalizeOpenFoodFactsProduct({ ...body.product, code });
 }
 

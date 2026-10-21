@@ -290,7 +290,7 @@ test("Claude creates foods and recipes, logs weight and reads progress", async (
   await page.getByRole("menuitem", { name: "Salva come pasto" }).click();
   await page.getByLabel("Nome del pasto").fill("Colazione solita");
   await page.getByRole("button", { name: "Salva pasto" }).click();
-  await expect(page.getByText("«Colazione solita» salvato con 1 voci")).toBeVisible();
+  await expect(page.getByText("«Colazione solita» salvato con 1 voce")).toBeVisible();
 
   const usual = toolPayload(await callTool("search_foods", { query: "solita colazione" }));
   expect(usual.savedMeals).toEqual([
