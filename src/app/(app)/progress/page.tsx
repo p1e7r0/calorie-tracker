@@ -21,13 +21,7 @@ export default function ProgressPage() {
   return (
     <>
       <PageHeader title="Progressi" />
-      <Suspense
-        fallback={
-          <ScreenBody>
-            <Skeleton className="h-96 w-full" />
-          </ScreenBody>
-        }
-      >
+      <Suspense fallback={<ProgressSkeleton />}>
         <Progress />
       </Suspense>
     </>
@@ -56,10 +50,7 @@ async function Progress() {
 
   return (
     <Tabs defaultValue="body" className="min-h-0 flex-1 gap-0">
-      <TabsList className="mb-3 w-full shrink-0">
-        <TabsTrigger value="body">Corpo</TabsTrigger>
-        <TabsTrigger value="nutrition">Alimentazione</TabsTrigger>
-      </TabsList>
+      <ProgressTabsList />
       <PullToRefresh>
         <ScreenBody>
           <TabsContent value="body">
@@ -76,6 +67,51 @@ async function Progress() {
           </TabsContent>
         </ScreenBody>
       </PullToRefresh>
+    </Tabs>
+  );
+}
+
+function ProgressTabsList() {
+  return (
+    <TabsList className="mb-3 w-full shrink-0">
+      <TabsTrigger value="body">Corpo</TabsTrigger>
+      <TabsTrigger value="nutrition">Alimentazione</TabsTrigger>
+    </TabsList>
+  );
+}
+
+function ProgressSkeleton() {
+  return (
+    <Tabs value="body" className="min-h-0 flex-1 gap-0">
+      <div inert aria-hidden="true" className="contents">
+        <ProgressTabsList />
+      </div>
+      <ScreenBody className="flex flex-col gap-4">
+        <div className="flex items-end justify-between gap-3">
+          <div className="flex flex-col gap-1.5">
+            <Skeleton className="h-4 w-12" />
+            <Skeleton className="h-9 w-28" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+          <Skeleton className="h-9 w-24" />
+        </div>
+        <Skeleton className="aspect-[16/10] w-full rounded-xl" />
+        <Skeleton className="h-7 w-full" />
+        <section>
+          <Skeleton className="my-0.5 h-6 w-20" />
+          <div className="mt-1 divide-y">
+            {Array.from({ length: 4 }, (_, index) => (
+              <div key={index} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="flex flex-col gap-1.5 py-1">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3.5 w-32" />
+                </div>
+                <Skeleton className="h-4 w-14" />
+              </div>
+            ))}
+          </div>
+        </section>
+      </ScreenBody>
     </Tabs>
   );
 }

@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
-import { ScreenBody } from "@/components/app-shell/screen";
-import { FoodBrowser } from "@/components/food/food-browser";
-import { Skeleton } from "@/components/ui/skeleton";
+import { FoodBrowser, FoodBrowserSkeleton } from "@/components/food/food-browser";
 import { getCurrentUser } from "@/lib/auth/session";
 import { favoriteFoods, listOwnFoods, mostUsedFoods } from "@/server/foods";
 import { listLoggableRecipes } from "@/server/recipes";
@@ -15,13 +13,7 @@ export default function FoodPage({ searchParams }: PageProps<"/food">) {
   return (
     <>
       <PageHeader title="Cibo" />
-      <Suspense
-        fallback={
-          <ScreenBody>
-            <Skeleton className="h-64 w-full" />
-          </ScreenBody>
-        }
-      >
+      <Suspense fallback={<FoodBrowserSkeleton />}>
         <Catalog searchParams={searchParams} />
       </Suspense>
     </>
