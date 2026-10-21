@@ -111,6 +111,11 @@ export function targetsFromMaintenance({
   };
 }
 
+export function kcalAboveTarget(kcal: number | null, targetKcal: number | null) {
+  if (kcal === null || targetKcal === null) return 0;
+  return Math.max(Math.round(kcal) - Math.round(targetKcal), 0);
+}
+
 function roundTo(value: number, step: number) {
   return Math.round(value / step) * step;
 }
