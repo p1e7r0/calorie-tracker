@@ -2,7 +2,7 @@ import { DownloadIcon } from "lucide-react";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
-import { ScreenBody } from "@/components/app-shell/screen";
+import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { toFormNumber } from "@/components/food/food-form-values";
 import { AccountSummary } from "@/components/profile/account-summary";
 import { AdaptiveGoalCard } from "@/components/profile/adaptive-goal-card";
@@ -39,16 +39,25 @@ export default function ProfilePage({ searchParams }: PageProps<"/profile">) {
           <TabsTrigger value="goal">Dati e obiettivo</TabsTrigger>
           <TabsTrigger value="settings">Impostazioni</TabsTrigger>
         </TabsList>
-        <ScreenBody>
-          <TabsContent value="goal">
-            <Suspense fallback={<Skeleton className="h-96 w-full" />}>
-              <Goals searchParams={searchParams} />
-            </Suspense>
-            <Suspense fallback={<Skeleton className="mt-6 h-40 w-full" />}>
-              <AdaptiveGoal />
-            </Suspense>
-          </TabsContent>
-          <TabsContent value="settings" className="flex flex-col gap-6">
+        <TabsContent value="goal" className="flex min-h-0 flex-col">
+          <Suspense
+            fallback={
+              <>
+                <ScreenBody>
+                  <Skeleton className="h-96 w-full" />
+                  <Skeleton className="mt-6 h-40 w-full" />
+                </ScreenBody>
+                <ScreenFooter coversSafeArea={false}>
+                  <Skeleton className="h-11 w-full" />
+                </ScreenFooter>
+              </>
+            }
+          >
+            <Goals searchParams={searchParams} />
+          </Suspense>
+        </TabsContent>
+        <TabsContent value="settings" className="flex min-h-0 flex-col">
+          <ScreenBody className="flex flex-col gap-6">
             <section aria-labelledby="account-heading" className="flex flex-col gap-2">
               <h2 id="account-heading" className="text-sm font-medium text-muted-foreground">
                 Account
@@ -106,8 +115,8 @@ export default function ProfilePage({ searchParams }: PageProps<"/profile">) {
               </h2>
               <DeleteAccountButton />
             </section>
-          </TabsContent>
-        </ScreenBody>
+          </ScreenBody>
+        </TabsContent>
       </Tabs>
     </>
   );
@@ -118,31 +127,29 @@ async function Goals({ searchParams }: Pick<PageProps<"/profile">, "searchParams
   const { setup } = await searchParams;
   const { profile, latestWeight } = await getProfileWithLatestWeight(user.id);
   return (
-    <>
-      {setup && !profile ? (
-        <p className="mb-4 rounded-lg bg-energy/15 px-3 py-2 text-sm">
-          Inserisci i tuoi dati: calcolo io quante kcal ti servono ogni giorno.
-        </p>
-      ) : null}
-      <ProfileForm
-        today={todayIsoDate()}
-        initialValues={{
-          sex: profile?.sex ?? null,
-          birthDate: profile?.birthDate ?? "",
-          heightCm: toFormNumber(profile?.heightCm),
-          weightKg: toFormNumber(latestWeight?.weightKg),
-          activityLevel: profile?.activityLevel ?? "light",
-          goal: profile?.goal ?? "maintain",
-          weeklyRateKg: profile?.weeklyRateKg ?? 0.5,
+    <ProfileForm
+      today={todayIsoDate()}
+      showSetupNotice={Boolean(setup) && !profile}
+      initialValues={{
+        sex: profile?.sex ?? null,
+        birthDate: profile?.birthDate ?? "",
+        heightCm: toFormNumber(profile?.heightCm),
+        weightKg: toFormNumber(latestWeight?.weightKg),
+        activityLevel: profile?.activityLevel ?? "light",
+        goal: profile?.goal ?? "maintain",
+        weeklyRateKg: profile?.weeklyRateKg ?? 0.5,
           targetWeightKg: toFormNumber(profile?.targetWeightKg),
-          customized: profile?.targetsCustomized ?? false,
-          kcal: profile?.targetsCustomized ? toFormNumber(profile.targetKcal) : "",
-          proteinG: profile?.targetsCustomized ? toFormNumber(profile.targetProteinG) : "",
-          carbsG: profile?.targetsCustomized ? toFormNumber(profile.targetCarbsG) : "",
-          fatG: profile?.targetsCustomized ? toFormNumber(profile.targetFatG) : "",
-        }}
-      />
-    </>
+        customized: profile?.targetsCustomized ?? false,
+        kcal: profile?.targetsCustomized ? toFormNumber(profile.targetKcal) : "",
+        proteinG: profile?.targetsCustomized ? toFormNumber(profile.targetProteinG) : "",
+        carbsG: profile?.targetsCustomized ? toFormNumber(profile.targetCarbsG) : "",
+        fatG: profile?.targetsCustomized ? toFormNumber(profile.targetFatG) : "",
+      }}
+    >
+      <Suspense fallback={<Skeleton className="mt-6 h-40 w-full" />}>
+        <AdaptiveGoal />
+      </Suspense>
+    </ProfileForm>
   );
 }
 

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { BackHeader } from "@/components/app-shell/back-header";
-import { ScreenBody } from "@/components/app-shell/screen";
+import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { FoodForm } from "@/components/food/food-form";
+import { Skeleton } from "@/components/ui/skeleton";
 import { isAiEnabled } from "@/server/ai";
 import { emptyFoodFormValues } from "@/components/food/food-form-values";
 import { safeInternalPath } from "@/lib/safe-path";
@@ -11,7 +12,18 @@ export const metadata: Metadata = { title: "Nuovo alimento" };
 
 export default function NewFoodPage({ searchParams }: PageProps<"/food/new">) {
   return (
-    <Suspense>
+    <Suspense
+      fallback={
+        <>
+          <ScreenBody className="pt-14">
+            <Skeleton className="h-96 w-full" />
+          </ScreenBody>
+          <ScreenFooter>
+            <Skeleton className="h-11 w-full" />
+          </ScreenFooter>
+        </>
+      }
+    >
       <NewFood searchParams={searchParams} />
     </Suspense>
   );
@@ -23,18 +35,16 @@ async function NewFood({ searchParams }: Pick<PageProps<"/food/new">, "searchPar
   return (
     <>
       <BackHeader title="Nuovo alimento" backHref={redirectTo ?? "/food"} />
-      <ScreenBody>
-        <FoodForm
-          aiEnabled={isAiEnabled}
-          submitLabel={redirectTo?.startsWith("/add") ? "Crea e aggiungi" : "Crea alimento"}
-          redirectTo={redirectTo}
-          initialValues={{
-            ...emptyFoodFormValues,
-            name: typeof name === "string" ? name : "",
-            barcode: typeof barcode === "string" ? barcode : "",
-          }}
-        />
-      </ScreenBody>
+      <FoodForm
+        aiEnabled={isAiEnabled}
+        submitLabel={redirectTo?.startsWith("/add") ? "Crea e aggiungi" : "Crea alimento"}
+        redirectTo={redirectTo}
+        initialValues={{
+          ...emptyFoodFormValues,
+          name: typeof name === "string" ? name : "",
+          barcode: typeof barcode === "string" ? barcode : "",
+        }}
+      />
     </>
   );
 }

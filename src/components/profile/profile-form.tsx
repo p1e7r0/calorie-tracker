@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { type ReactNode, useId, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { saveProfile } from "@/app/actions/profile";
+import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { MacroLine } from "@/components/diary/macro-line";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
@@ -46,7 +47,18 @@ export type ProfileFormValues = {
   fatG: string;
 };
 
-export function ProfileForm({ initialValues, today }: { initialValues: ProfileFormValues; today: string }) {
+export function ProfileForm({
+  initialValues,
+  today,
+  showSetupNotice = false,
+  children,
+}: {
+  initialValues: ProfileFormValues;
+  today: string;
+  showSetupNotice?: boolean;
+  children?: ReactNode;
+}) {
+  const formId = useId();
   const [values, setValues] = useState(initialValues);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -142,222 +154,234 @@ export function ProfileForm({ initialValues, today }: { initialValues: ProfileFo
   }
 
   return (
-    <form
-      className="flex flex-col gap-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        submit();
-      }}
-    >
-      <Field>
-        <FieldLabel id="profile-sex-label">Sesso</FieldLabel>
-        <ToggleGroup
-          variant="outline"
-          spacing={0}
-          value={values.sex ? [values.sex] : []}
-          onValueChange={(selected) => {
-            const [sex] = selected;
-            if (sex === "male" || sex === "female") update("sex", sex);
-          }}
-          aria-labelledby="profile-sex-label"
-          className="w-full"
-        >
-          <ToggleGroupItem value="female" className="flex-1">
-            Donna
-          </ToggleGroupItem>
-          <ToggleGroupItem value="male" className="flex-1">
-            Uomo
-          </ToggleGroupItem>
-        </ToggleGroup>
-        <FieldDescription className="text-xs">Serve solo per la formula del metabolismo basale.</FieldDescription>
-      </Field>
-
-      <div className="grid grid-cols-3 gap-2">
-        <Field className="col-span-3">
-          <FieldLabel htmlFor="profile-birth-date">Data di nascita</FieldLabel>
-          <Input
-            id="profile-birth-date"
-            type="date"
-            max={today}
-            value={values.birthDate}
-            onChange={(event) => update("birthDate", event.target.value)}
-          />
-        </Field>
-        <Field className="col-span-3 grid grid-cols-2 gap-2">
-          <div className="flex flex-col gap-2">
-            <FieldLabel htmlFor="profile-height">Altezza (cm)</FieldLabel>
-            <Input
-              id="profile-height"
-              inputMode="decimal"
-              value={values.heightCm}
-              onChange={(event) => update("heightCm", event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <FieldLabel htmlFor="profile-weight">Peso attuale (kg)</FieldLabel>
-            <Input
-              id="profile-weight"
-              inputMode="decimal"
-              value={values.weightKg}
-              onChange={(event) => update("weightKg", event.target.value)}
-            />
-          </div>
-        </Field>
-      </div>
-
-      <Field>
-        <FieldLabel htmlFor="profile-activity">Attività</FieldLabel>
-        <select
-          id="profile-activity"
-          value={values.activityLevel}
-          onChange={(event) => update("activityLevel", event.target.value as ActivityLevel)}
-          className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
-        >
-          {activityOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </Field>
-
-      <Field>
-        <FieldLabel id="profile-goal-label">Obiettivo</FieldLabel>
-        <ToggleGroup
-          variant="outline"
-          spacing={0}
-          value={[values.goal]}
-          onValueChange={(selected) => {
-            const [goal] = selected;
-            if (goal === "lose" || goal === "maintain" || goal === "gain") update("goal", goal);
-          }}
-          aria-labelledby="profile-goal-label"
-          className="w-full"
-        >
-          <ToggleGroupItem value="lose" className="flex-1">
-            Dimagrire
-          </ToggleGroupItem>
-          <ToggleGroupItem value="maintain" className="flex-1">
-            Mantenere
-          </ToggleGroupItem>
-          <ToggleGroupItem value="gain" className="flex-1">
-            Aumentare
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </Field>
-
-      {values.goal !== "maintain" ? (
-        <Field>
-          <FieldLabel id="profile-rate-label">Ritmo a settimana</FieldLabel>
-          <ToggleGroup
-            variant="outline"
-            spacing={0}
-            value={[String(values.weeklyRateKg)]}
-            onValueChange={(selected) => {
-              const [rate] = selected;
-              if (rate) update("weeklyRateKg", Number(rate));
-            }}
-            aria-labelledby="profile-rate-label"
-            className="w-full"
-          >
-            {rateOptions.map((rate) => (
-              <ToggleGroupItem key={rate} value={String(rate)} className="flex-1">
-                {String(rate).replace(".", ",")} kg
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-        </Field>
-      ) : null}
-
-      {values.goal !== "maintain" ? (
-        <Field>
-          <FieldLabel htmlFor="profile-target-weight">Peso obiettivo (kg)</FieldLabel>
-          <Input
-            id="profile-target-weight"
-            inputMode="decimal"
-            value={values.targetWeightKg}
-            onChange={(event) => update("targetWeightKg", event.target.value)}
-          />
-          <FieldDescription className="text-xs">
-            Facoltativo: in Progressi vedi quanto ti manca e quando potresti arrivarci.
-          </FieldDescription>
-        </Field>
-      ) : null}
-
-      <section aria-label="Obiettivo giornaliero" className="rounded-2xl bg-card p-4 ring-1 ring-border">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-sm text-muted-foreground">Obiettivo giornaliero</p>
-            <p className="font-heading text-3xl font-semibold tracking-tight">
-              {values.customized
-                ? formatKcal(parseDecimal(values.kcal) ?? 0)
-                : computed
-                  ? formatKcal(computed.kcal)
-                  : "–"}{" "}
-              <span className="text-sm font-medium text-muted-foreground">kcal</span>
-            </p>
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Switch checked={values.customized} onCheckedChange={toggleCustomized} />
-            Personalizza
-          </label>
-        </div>
-        {values.customized ? (
-          <div className="mt-3 grid grid-cols-4 gap-2">
-            {(
-              [
-                ["kcal", "Kcal"],
-                ["proteinG", "Proteine g"],
-                ["carbsG", "Carbo g"],
-                ["fatG", "Grassi g"],
-              ] as const
-            ).map(([field, label]) => (
-              <Field key={field} className="gap-1.5">
-                <FieldLabel htmlFor={`profile-${field}`} className="text-xs text-muted-foreground">
-                  {label}
-                </FieldLabel>
-                <Input
-                  id={`profile-${field}`}
-                  inputMode="numeric"
-                  value={values[field]}
-                  onChange={(event) => update(field, event.target.value)}
-                />
-              </Field>
-            ))}
-          </div>
-        ) : computed ? (
-          <>
-            <MacroLine
-              className="mt-2"
-              nutrients={{ kcal: computed.kcal, protein: computed.proteinG, carbs: computed.carbsG, fat: computed.fatG }}
-            />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Metabolismo basale {formatKcal(computed.basalMetabolicRate)} kcal, mantenimento{" "}
-              {formatKcal(computed.maintenanceKcal)} kcal (formula Mifflin-St Jeor).
-            </p>
-          </>
-        ) : (
-          <p className="mt-2 text-sm text-muted-foreground">Compila i tuoi dati per calcolarlo.</p>
-        )}
-        {targetProjection && targetWeightKg ? (
-          <p className="mt-2 border-t pt-2 text-sm">
-            <span className="text-muted-foreground">Peso obiettivo </span>
-            <span className="font-medium">{formatDecimal(targetWeightKg)} kg</span>
-            <span className="text-muted-foreground">
-              {targetProjection.status === "projected"
-                ? `, al ritmo scelto ci arrivi verso ${formatDayWithArticle(targetProjection.expectedDay, today)}`
-                : targetProjection.status === "reached"
-                  ? ", già raggiunto"
-                  : ""}
-            </span>
+    <>
+      <ScreenBody>
+        {showSetupNotice ? (
+          <p className="mb-4 rounded-lg bg-energy/15 px-3 py-2 text-sm">
+            Inserisci i tuoi dati: calcolo io quante kcal ti servono ogni giorno.
           </p>
         ) : null}
-      </section>
+        <form
+          id={formId}
+          className="flex flex-col gap-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submit();
+          }}
+        >
+          <Field>
+            <FieldLabel id="profile-sex-label">Sesso</FieldLabel>
+            <ToggleGroup
+              variant="outline"
+              spacing={0}
+              value={values.sex ? [values.sex] : []}
+              onValueChange={(selected) => {
+                const [sex] = selected;
+                if (sex === "male" || sex === "female") update("sex", sex);
+              }}
+              aria-labelledby="profile-sex-label"
+              className="w-full"
+            >
+              <ToggleGroupItem value="female" className="flex-1">
+                Donna
+              </ToggleGroupItem>
+              <ToggleGroupItem value="male" className="flex-1">
+                Uomo
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <FieldDescription className="text-xs">Serve solo per la formula del metabolismo basale.</FieldDescription>
+          </Field>
 
-      {errorMessage ? <FieldError>{errorMessage}</FieldError> : null}
-      <Button type="submit" size="lg" disabled={isPending}>
-        Salva obiettivo
-      </Button>
-    </form>
+          <div className="grid grid-cols-3 gap-2">
+            <Field className="col-span-3">
+              <FieldLabel htmlFor="profile-birth-date">Data di nascita</FieldLabel>
+              <Input
+                id="profile-birth-date"
+                type="date"
+                max={today}
+                value={values.birthDate}
+                onChange={(event) => update("birthDate", event.target.value)}
+              />
+            </Field>
+            <Field className="col-span-3 grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-2">
+                <FieldLabel htmlFor="profile-height">Altezza (cm)</FieldLabel>
+                <Input
+                  id="profile-height"
+                  inputMode="decimal"
+                  value={values.heightCm}
+                  onChange={(event) => update("heightCm", event.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <FieldLabel htmlFor="profile-weight">Peso attuale (kg)</FieldLabel>
+                <Input
+                  id="profile-weight"
+                  inputMode="decimal"
+                  value={values.weightKg}
+                  onChange={(event) => update("weightKg", event.target.value)}
+                />
+              </div>
+            </Field>
+          </div>
+
+          <Field>
+            <FieldLabel htmlFor="profile-activity">Attività</FieldLabel>
+            <select
+              id="profile-activity"
+              value={values.activityLevel}
+              onChange={(event) => update("activityLevel", event.target.value as ActivityLevel)}
+              className="h-10 w-full rounded-lg border border-input bg-transparent px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+            >
+              {activityOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field>
+            <FieldLabel id="profile-goal-label">Obiettivo</FieldLabel>
+            <ToggleGroup
+              variant="outline"
+              spacing={0}
+              value={[values.goal]}
+              onValueChange={(selected) => {
+                const [goal] = selected;
+                if (goal === "lose" || goal === "maintain" || goal === "gain") update("goal", goal);
+              }}
+              aria-labelledby="profile-goal-label"
+              className="w-full"
+            >
+              <ToggleGroupItem value="lose" className="flex-1">
+                Dimagrire
+              </ToggleGroupItem>
+              <ToggleGroupItem value="maintain" className="flex-1">
+                Mantenere
+              </ToggleGroupItem>
+              <ToggleGroupItem value="gain" className="flex-1">
+                Aumentare
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </Field>
+
+          {values.goal !== "maintain" ? (
+            <Field>
+              <FieldLabel id="profile-rate-label">Ritmo a settimana</FieldLabel>
+              <ToggleGroup
+                variant="outline"
+                spacing={0}
+                value={[String(values.weeklyRateKg)]}
+                onValueChange={(selected) => {
+                  const [rate] = selected;
+                  if (rate) update("weeklyRateKg", Number(rate));
+                }}
+                aria-labelledby="profile-rate-label"
+                className="w-full"
+              >
+                {rateOptions.map((rate) => (
+                  <ToggleGroupItem key={rate} value={String(rate)} className="flex-1">
+                    {String(rate).replace(".", ",")} kg
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </Field>
+          ) : null}
+
+          {values.goal !== "maintain" ? (
+            <Field>
+              <FieldLabel htmlFor="profile-target-weight">Peso obiettivo (kg)</FieldLabel>
+              <Input
+                id="profile-target-weight"
+                inputMode="decimal"
+                value={values.targetWeightKg}
+                onChange={(event) => update("targetWeightKg", event.target.value)}
+              />
+              <FieldDescription className="text-xs">
+                Facoltativo: in Progressi vedi quanto ti manca e quando potresti arrivarci.
+              </FieldDescription>
+            </Field>
+          ) : null}
+
+          <section aria-label="Obiettivo giornaliero" className="rounded-2xl bg-card p-4 ring-1 ring-border">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-muted-foreground">Obiettivo giornaliero</p>
+                <p className="font-heading text-3xl font-semibold tracking-tight">
+                  {values.customized
+                    ? formatKcal(parseDecimal(values.kcal) ?? 0)
+                    : computed
+                      ? formatKcal(computed.kcal)
+                      : "–"}{" "}
+                  <span className="text-sm font-medium text-muted-foreground">kcal</span>
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch checked={values.customized} onCheckedChange={toggleCustomized} />
+                Personalizza
+              </label>
+            </div>
+            {values.customized ? (
+              <div className="mt-3 grid grid-cols-4 gap-2">
+                {(
+                  [
+                    ["kcal", "Kcal"],
+                    ["proteinG", "Proteine g"],
+                    ["carbsG", "Carbo g"],
+                    ["fatG", "Grassi g"],
+                  ] as const
+                ).map(([field, label]) => (
+                  <Field key={field} className="gap-1.5">
+                    <FieldLabel htmlFor={`profile-${field}`} className="text-xs text-muted-foreground">
+                      {label}
+                    </FieldLabel>
+                    <Input
+                      id={`profile-${field}`}
+                      inputMode="numeric"
+                      value={values[field]}
+                      onChange={(event) => update(field, event.target.value)}
+                    />
+                  </Field>
+                ))}
+              </div>
+            ) : computed ? (
+              <>
+                <MacroLine
+                  className="mt-2"
+                  nutrients={{ kcal: computed.kcal, protein: computed.proteinG, carbs: computed.carbsG, fat: computed.fatG }}
+                />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Metabolismo basale {formatKcal(computed.basalMetabolicRate)} kcal, mantenimento{" "}
+                  {formatKcal(computed.maintenanceKcal)} kcal (formula Mifflin-St Jeor).
+                </p>
+              </>
+            ) : (
+              <p className="mt-2 text-sm text-muted-foreground">Compila i tuoi dati per calcolarlo.</p>
+            )}
+            {targetProjection && targetWeightKg ? (
+              <p className="mt-2 border-t pt-2 text-sm">
+                <span className="text-muted-foreground">Peso obiettivo </span>
+                <span className="font-medium">{formatDecimal(targetWeightKg)} kg</span>
+                <span className="text-muted-foreground">
+                  {targetProjection.status === "projected"
+                    ? `, al ritmo scelto ci arrivi verso ${formatDayWithArticle(targetProjection.expectedDay, today)}`
+                    : targetProjection.status === "reached"
+                      ? ", già raggiunto"
+                      : ""}
+                </span>
+              </p>
+            ) : null}
+          </section>
+        </form>
+        {children}
+      </ScreenBody>
+      <ScreenFooter coversSafeArea={false}>
+        {errorMessage ? <FieldError className="mb-2">{errorMessage}</FieldError> : null}
+        <Button type="submit" form={formId} size="lg" className="w-full" disabled={isPending}>
+          Salva obiettivo
+        </Button>
+      </ScreenFooter>
+    </>
   );
 }
