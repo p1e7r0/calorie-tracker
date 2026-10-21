@@ -7,7 +7,7 @@ import { DayNavigator } from "@/components/diary/day-navigator";
 import { MealSection } from "@/components/diary/meal-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
-import { addDays, daysBetween, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
+import { addDays, daysBetween, formatDayInSentence, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { weeklyBudget } from "@/lib/nutrition/weekly-budget";
 import { weekStart } from "@/lib/nutrition/weeks";
 import { getWeeklyCheckIn } from "@/server/adaptive-goal";
@@ -39,6 +39,7 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   return (
     <>
       <header className="flex shrink-0 items-start pt-2 pb-2">
+        <h1 className="sr-only">Diario di {formatDayInSentence(day, today)}</h1>
         <DayNavigator day={day} today={today} loggedDays={loggedDays} />
       </header>
       <PullToRefresh>

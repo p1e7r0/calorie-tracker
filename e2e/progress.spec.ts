@@ -64,6 +64,9 @@ test("records body measurements and shows the trend", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toBeHidden();
 
-  await page.getByRole("tab", { name: "Grasso" }).click();
+  const metrics = page.getByRole("group", { name: "Misura" });
+  await expect(metrics.getByRole("button", { name: "Peso", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await metrics.getByRole("button", { name: "Grasso", exact: true }).click();
+  await expect(metrics.getByRole("button", { name: "Grasso", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("25,4%", { exact: true })).toBeVisible();
 });

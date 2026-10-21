@@ -89,6 +89,7 @@ export function QuantityField({
               <button
                 key={`${shortcut.label}-${shortcut.value}`}
                 type="button"
+                aria-pressed={isSelected}
                 onClick={() => onValueChange(formatDecimal(shortcut.value).replace(/\./g, ""), shortcut)}
                 className={cn(
                   "flex shrink-0 items-baseline gap-1 rounded-full border px-3 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
