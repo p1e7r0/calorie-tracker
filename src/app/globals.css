@@ -13,6 +13,7 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-strong: var(--destructive-strong);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -37,6 +38,7 @@
   --color-fat: var(--fat);
   --color-chart-energy: var(--chart-energy);
   --color-over: var(--over);
+  --color-over-text: var(--over-text);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -62,6 +64,7 @@
   --accent: #e9ede6;
   --accent-foreground: #15201b;
   --destructive: #c8352f;
+  --destructive-strong: #c8352f;
   --border: #dde3da;
   --input: #d3dacf;
   --ring: #7f9a3a;
@@ -71,7 +74,8 @@
   --carbs: #c27f12;
   --fat: #3a76c8;
   --chart-energy: #5f9a1f;
-  --over: #e0662e;
+  --over: #dc6029;
+  --over-text: #b54714;
   --chart-1: #5f9a1f;
   --chart-2: #3a76c8;
   --chart-3: #c9456a;
@@ -96,6 +100,7 @@
   --accent: #223029;
   --accent-foreground: #e8eee9;
   --destructive: #f0645c;
+  --destructive-strong: #b8302b;
   --border: #26332d;
   --input: #2e3c35;
   --ring: #a9d95b;
@@ -106,6 +111,7 @@
   --fat: #5a92de;
   --chart-energy: #76a636;
   --over: #f08a55;
+  --over-text: #f08a55;
   --chart-1: #76a636;
   --chart-2: #5a92de;
   --chart-3: #db6079;

@@ -55,7 +55,7 @@ export function DailySummary({
           <p
             className={cn(
               "font-heading text-5xl leading-none font-semibold tracking-tight",
-              isOver && "text-over",
+              isOver && "text-over-text",
             )}
           >
             {formatKcal(Math.abs(remaining))}
@@ -122,7 +122,7 @@ function WeeklyBudgetRow({ weekly }: { weekly: WeeklyBudget }) {
       <div className="flex items-baseline justify-between gap-3 text-sm">
         <p>
           <span className="text-muted-foreground">Settimana </span>
-          <span className={cn("font-medium", isOver && "text-over")}>
+          <span className={cn("font-medium", isOver && "text-over-text")}>
             {isOver
               ? `${formatKcal(-weekly.remainingKcal)} kcal oltre`
               : `${formatKcal(weekly.remainingKcal)} kcal rimaste`}
