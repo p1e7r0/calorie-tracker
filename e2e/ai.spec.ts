@@ -11,4 +11,8 @@ test("hides the AI helpers when no Anthropic key is configured", async ({ page }
   await page.goto("/food/new");
   await expect(page.getByLabel("Nome")).toBeVisible();
   await expect(page.getByRole("button", { name: "Compila da una foto dell'etichetta" })).toHaveCount(0);
+  await page.goto("/profile");
+  await page.getByRole("tab", { name: "Impostazioni" }).click();
+  await expect(page.getByRole("heading", { name: "Claude" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Siri" })).toHaveCount(0);
 });

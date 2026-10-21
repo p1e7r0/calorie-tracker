@@ -8,6 +8,7 @@ import { jwt } from "better-auth/plugins";
 import { database } from "@/db";
 import * as schema from "@/db/schema";
 import { sendEmail } from "@/lib/email";
+import { deleteApiTokens } from "@/server/api-tokens";
 import { mcpResourceUrl } from "./mcp-resource";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
@@ -28,6 +29,9 @@ export const auth = betterAuth({
     autoSignIn: true,
     resetPasswordTokenExpiresIn: 60 * 60,
     revokeSessionsOnPasswordReset: true,
+    onPasswordReset: async ({ user }) => {
+      await deleteApiTokens(user.id);
+    },
     sendResetPassword: async ({ user, url }) => {
       await sendEmail({
         to: user.email,

@@ -50,6 +50,7 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - **Promemoria push**: sera (se manca la cena o non c'è nulla), pesata settimanale nel giorno scelto e, il lunedì alle 06:00 UTC, riepilogo della settimana a chi ha almeno un promemoria attivo (stesso cron della pesata; se la pesata cade di lunedì il messaggio è unico e apre Progressi); service worker solo per le notifiche.
 - **Connettore per Claude** (`/api/mcp`): server MCP con OAuth 2.1; ogni utente crea Client ID e Client Secret dal profilo, li incolla su claude.ai e consente l'accesso su `/consent`; strumenti `search_foods` e `recent_foods` (anche ricette e pasti salvati), `log_meal` (alimenti, ricette, pasti salvati, kcal veloci), `get_day`, `delete_entry`, `lookup_barcode` (catalogo o import da Open Food Facts), `create_food`, `create_recipe`, `log_weight`, `get_progress` (totali giornalieri, medie, budget settimanale, trend del peso, stima adattiva); registrazione dinamica dei client disattivata, CIMD attivo. Le istruzioni del server dicono a Claude di creare alimenti solo con valori forniti dall'utente (numeri, foto dell'etichetta, barcode) e di chiedere il peso da cotto delle ricette.
 - **AI**: lettura dell'etichetta nutrizionale da foto e pasto descritto a parole, con limite di 40 richieste al giorno per utente.
+- **Siri** (`/api/shortcuts/meal`, visibile solo con l'AI attiva): token personale da Profilo › Impostazioni › Siri; un Comando rapido detta il testo, lo manda in POST con `Authorization: Bearer` e pronuncia il campo `message` della risposta; `DELETE` sullo stesso URL annulla l'ultima registrazione da Siri (entro 24 ore). Ogni pasto usa 2 richieste AI (1 se non servono alimenti del catalogo).
 
 ## Dati e infrastruttura
 - **Neon**: progetto `calorie-tracker` nell'organizzazione personale dell'utente, regione `aws-eu-central-1`, Postgres 18; branch `main` = produzione, branch `dev` = sviluppo ed e2e (id di progetto, branch ed endpoint con `npx neonctl projects list`, `npx neonctl branches list` e `npx neonctl endpoints list`; il repository è pubblico, quindi non scriverli qui);
@@ -72,7 +73,8 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - `favorite_food`, `favorite_recipe`.
 - `diary_entry` (snapshot dei nutrienti, tipi `food` / `recipe` / `quick`).
 - `saved_meal` + `saved_meal_item` (esattamente un alimento o una ricetta per riga).
-- `measurement`, `profile` (un record per utente, target e promemoria), `ai_request` (limite AI), `push_subscription`.
+- `measurement`, `profile` (un record per utente, target e promemoria), `ai_request` (limite AI), `push_subscription`, `api_token` (token Siri: hash, uno per utente).
+- `diary_entry.source`: `app`, `connector` (Claude) o `shortcut` (Siri).
 - Tabelle better-auth: `user`, `session`, `account`, `verification`.
 - Tabelle OAuth del connettore per Claude (better-auth `jwt` + `@better-auth/mcp`): `jwks`, `oauth_client`, `oauth_resource`, `oauth_client_resource`, `oauth_access_token`, `oauth_refresh_token`, `oauth_consent`, `oauth_client_assertion`.
 - Migrazioni `0000`-`0010`; quelle custom (0001, 0002, 0004) contengono estensioni, funzioni di ricerca e la FK differita.
@@ -93,18 +95,19 @@ L'utente ha scelto sempre l'opzione raccomandata.
 ## Stato attuale
 Aggiornato al 2026-10-21. Per lo stato reale usa `git log` e `git status`.
 - Tutti i task T01-T32 sono completati, mergiati in `main` e in produzione dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
-- Ultimo merge in `main`: `origin/main` con `feature/claude-connector-catalog` (T35) e `feature/barcode-new-food` (T34, PR #1), sviluppati in parallelo alle migliorie del 2026-10-17. L'ultimo verificato in produzione è `feature/quick-undo-and-editing`.
+- Ultimo merge in `main`: PR #2 `feature/siri-shortcut` (T36), dopo i branch del 2026-10-18 e `origin/main` con T34 e T35. L'ultimo verificato in produzione è `feature/quick-undo-and-editing`.
 - T33 (pull-to-refresh su Oggi e Progressi) in produzione dal 2026-10-17.
 - `fix/logging-flow-friction`, `feature/meal-suggestions` e `feature/weekly-check-in` (migliorie dall'analisi del 2026-10-17) in produzione dal 2026-10-17, verificati con uno smoke test (ricerca e aggiunta con Invio, suggerimenti con l'ultima quantità, grafico del fabbisogno, impostazioni dei promemoria).
 - `feature/quick-undo-and-editing` in produzione dal 2026-10-17, verificato con uno smoke test (annullamento di Kcal veloci e del pasto salvato, ±10 g nell'editor della voce, «Aggiungi al diario» dal dettaglio del pasto salvato, conferma prima di eliminarlo).
-- T34 (nuovo alimento da codice a barre) e T35 (connettore per Claude: alimenti, ricette, barcode, pasti salvati, peso, progressi) sono in `main` ma non ancora in produzione: andranno online al prossimo push di `main`; nessuna migrazione.
-- Migrazioni fino a `0010_weekly_check_in` applicate sia a dev sia a main.
+- In `main` ma non ancora in produzione (andranno online al prossimo push di `main`): T34 (nuovo alimento da codice a barre), T35 (connettore per Claude: alimenti, ricette, barcode, pasti salvati, peso, progressi), T36 (Siri) e i branch del 2026-10-18 (barre oltre l'obiettivo, contrasto, accessibilità, copia da un giorno qualsiasi, peso obiettivo, azioni dei form nel footer, skeleton, giorno incompleto).
+- Migrazioni fino a `0010_weekly_check_in` applicate a main; fino a `0013_siri_shortcut` applicate a dev. `0011_target_weight`, `0012_incomplete_day` e `0013_siri_shortcut` (nata come `0010_siri_shortcut` sul branch e rinumerata nel merge) vanno applicate a main prima del push.
+- Siri (T36): pipeline provata con un finto server Anthropic (`ANTHROPIC_BASE_URL`), mai con Haiku reale né con un iPhone.
 - Connettore per Claude: verificato con claude.ai reale (Claude Desktop, credenziali da Profilo › Impostazioni › Claude); il client usa `client_secret_post` perché claude.ai (SDK MCP Python) invia il segreto nel corpo della richiesta; con `client_secret_basic` lo scambio del token rispondeva 400 `invalid_client`.
 - Funzioni AI nascoste in produzione finché manca `ANTHROPIC_API_KEY`; link "Password dimenticata" nascosto finché mancano `RESEND_API_KEY` ed `EMAIL_FROM`; login Google assente senza credenziali OAuth.
 
 ## Punti aperti e idee
 - Da fornire dall'utente: `ANTHROPIC_API_KEY`; `RESEND_API_KEY` + `EMAIL_FROM` (con dominio mittente verificato); opzionalmente credenziali Google OAuth.
-- Da verificare su dispositivo reale: AI con chiave vera, email Resend reale, notifiche push su iPhone (richiede installazione nella schermata Home), gesti di swipe e pull-to-refresh su iOS (gli e2e emulano iPhone in Chromium, non WebKit), scanner barcode da Cibo e dal form (fotocamera solo in HTTPS), aree di tocco `touch-target` e riga «Diario di …» in /add (Invio per registrare la quantità funziona su Android e desktop; il tastierino decimale di iPhone non ha il tasto Invio), correzione della status bar iOS (prima dell'ultimo fix era sfocata solo Oggi; si attende conferma).
+- Da verificare su dispositivo reale: Comando rapido Siri su iPhone (latenza con Haiku reale, timeout di «Ottieni contenuto dell'URL»), AI con chiave vera, email Resend reale, notifiche push su iPhone (richiede installazione nella schermata Home), gesti di swipe e pull-to-refresh su iOS (gli e2e emulano iPhone in Chromium, non WebKit), scanner barcode da Cibo e dal form (fotocamera solo in HTTPS), aree di tocco `touch-target` e riga «Diario di …» in /add (Invio per registrare la quantità funziona su Android e desktop; il tastierino decimale di iPhone non ha il tasto Invio), correzione della status bar iOS (prima dell'ultimo fix era sfocata solo Oggi; si attende conferma).
 - Opzionali: eliminare i vecchi progetti Vercel `calorie-tracker-frontend` e `calorie-tracker-backend` (non toccati); ruotare le credenziali di MongoDB Atlas e rimuovere `LEGACY_MONGODB_URI` da `.env.local` (l'import legacy è concluso); collegare i preview deployment a Neon dev.
 - Promemoria a orario personalizzato: con Vercel Hobby i cron girano una volta al giorno; servirebbe il piano Pro (cron orario) o uno scheduler esterno.
 - Connettore per Claude: provare i nuovi strumenti con claude.ai reale (creazione da foto dell'etichetta, ricetta con peso da cotto); non ci sono ancora `update_food`, `update_recipe`, `get_recipe` e `copy_meal` (gli errori di creazione si correggono dall'app); gli alimenti creati da Claude hanno fonte `user` e non si distinguono da quelli inseriti a mano.
@@ -124,11 +127,12 @@ Aggiornato al 2026-10-21. Per lo stato reale usa `git log` e `git status`.
 
 - **2026-10-17, annullamento e modifica rapida**: «Annulla» in tutti i toast che aggiungono voci (`deleteDiaryEntries` elimina in blocco le voci create; `copyMeal` e `logSavedMeal` restituiscono gli id; helper `toastWithUndo`); l'editor della voce ha ±10 g, le porzioni dell'alimento (`DiaryEntryView` porta unità e porzioni) e le scorciatoie ½-2 per le ricette, e salva l'etichetta della porzione; il dettaglio del pasto salvato ha le azioni in `ScreenFooter`, «Aggiungi al diario» (`/add?savedMeal=…`, con scelta del pasto nel drawer) e la conferma prima di eliminare; toast con accordo neutro.
 - **2026-10-20, T34**: lo scanner barcode non è più solo in Aggiungi (dove registra nel diario): anche su Cibo e nel form dell'alimento, per creare un alimento dal codice senza registrarlo; il codice a barre ora è visibile e modificabile nel form, con validazione in italiano.
+- **2026-10-20, T36**: endpoint per Siri con token personale (tabella `api_token`, colonna `diary_entry.source`, migrazione 0013, nata come 0010 sul branch); due chiamate AI fisse con riferimenti brevi (R…, M…, F…) per ricette, pasti salvati e candidati; annullamento dell'ultima registrazione; il connettore Claude ora marca le sue voci come `connector`.
 - **2026-10-21, T35**: il connettore per Claude crea alimenti e ricette, trova prodotti per codice a barre, registra pasti salvati e pesate e legge i progressi; la logica di scrittura di alimenti e ricette è passata dalle action a `src/server/food-writes.ts` e `src/server/recipe-writes.ts`; nuovi controlli di coerenza (`src/lib/nutrition/food-checks.ts`: macro oltre 100 g su 100 g, zuccheri oltre i carboidrati, saturi oltre i grassi) validi anche per il form; le kcal lontane da 4/4/9 sono solo un avviso per Claude (alcol e polioli); `search_foods` ora distingue peso da cotto e peso da crudo delle ricette.
 - **2026-10-21, deploy da GitHub**: il progetto Vercel è collegato al repository; il push di `main` fa il deploy in produzione, le migrazioni vanno applicate a main prima del push.
 
 ## Riferimenti
 - `docs/spec.md`: stack, tabella decisioni Q1-Q24, regole di dominio (nutrienti per 100 g, ricette con peso da cotto, snapshot nel diario, Mifflin-St Jeor, macro predefinite), infrastruttura.
-- `docs/tasks.md`: T01-T35 e i fix successivi.
+- `docs/tasks.md`: T01-T36 e i fix successivi.
 - `README.md`: setup locale, variabili, comandi database, migrazione legacy, deploy.
 - `CLAUDE.md`: istruzioni operative per gli agenti.

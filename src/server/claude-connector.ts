@@ -206,7 +206,7 @@ export function createClaudeConnectorServer(userId: string) {
           savedMealDefault ??= saved.defaultMeal;
         }
         const targetMeal = meal ?? savedMealDefault ?? suggestMeal(currentHour());
-        const created = await insertDiaryEntries(userId, targetDay, targetMeal, entries);
+        const created = await insertDiaryEntries(userId, targetDay, targetMeal, entries, "connector");
         await Promise.all(savedMealIds.map(markSavedMealUsed));
         return textResult({
           logged: created.map((row) =>
