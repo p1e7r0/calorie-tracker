@@ -62,7 +62,7 @@ L'utente ha scelto sempre l'opzione raccomandata.
   - variabili impostate: `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `BETTER_AUTH_SECRET` (diverso dal locale), `BETTER_AUTH_URL`, `BETTER_AUTH_TRUSTED_ORIGINS`, `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `CRON_SECRET`;
   - non ancora impostate: `ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `EMAIL_FROM`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`;
   - cron: `/api/cron/evening-reminder` alle 19:00 UTC, `/api/cron/weigh-in-reminder` alle 06:00 UTC (21/8 ora legale, 20/7 ora solare).
-- **GitHub**: `origin` https://github.com/p1e7r0/calorie-tracker.git, solo `main` sul remote; i branch di task restano locali.
+- **GitHub**: `origin` https://github.com/p1e7r0/calorie-tracker.git; sul remote c'è `main` (più i branch delle sessioni cloud finché non vengono uniti); i branch di task locali restano locali e si cancellano dopo il merge. Il tag `archive/claude-connector-tools` conserva un branch superato.
 - **Origine legacy**: MongoDB Atlas delle vecchie app (collezioni `foods`, `meals` con `type: "recipe"`, `measurements`), importato con `scripts/migrate-legacy.ts` (`LEGACY_MONGODB_URI`). Import eseguito per l'account del proprietario su dev e main; lo script è idempotente e richiede che l'account sia già registrato.
 - **Docker locale**: Postgres 17 (`calorie-tracker-database`, porta 5433) con vecchi account solo locali; alternativa non più usata di default.
 - **Utenti di prova**: su Neon dev `test-*@example.com` (e2e) e `lan-*@example.com` (prove manuali); in produzione solo `smoke-test-*@example.com` che si eliminano a fine test.
@@ -73,11 +73,11 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - `favorite_food`, `favorite_recipe`.
 - `diary_entry` (snapshot dei nutrienti, tipi `food` / `recipe` / `quick`).
 - `saved_meal` + `saved_meal_item` (esattamente un alimento o una ricetta per riga).
-- `measurement`, `profile` (un record per utente, target e promemoria), `ai_request` (limite AI), `push_subscription`, `api_token` (token Siri: hash, uno per utente).
+- `measurement`, `profile` (un record per utente: target, peso obiettivo `target_weight_kg`, ultimo check-in `last_check_in_week`, promemoria), `incomplete_day` (giorni segnati come incompleti), `ai_request` (limite AI), `push_subscription`, `api_token` (token Siri: hash, uno per utente).
 - `diary_entry.source`: `app`, `connector` (Claude) o `shortcut` (Siri).
 - Tabelle better-auth: `user`, `session`, `account`, `verification`.
 - Tabelle OAuth del connettore per Claude (better-auth `jwt` + `@better-auth/mcp`): `jwks`, `oauth_client`, `oauth_resource`, `oauth_client_resource`, `oauth_access_token`, `oauth_refresh_token`, `oauth_consent`, `oauth_client_assertion`.
-- Migrazioni `0000`-`0010`; quelle custom (0001, 0002, 0004) contengono estensioni, funzioni di ricerca e la FK differita.
+- Migrazioni `0000`-`0013`; quelle custom (0001, 0002, 0004) contengono estensioni, funzioni di ricerca e la FK differita.
 
 ## Glossario
 - **Catalogo globale**: alimenti condivisi (`owner_id NULL`), dal dataset svizzero legacy o importati da Open Food Facts; nessun utente li modifica.
@@ -87,15 +87,17 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - **Pasto salvato**: modello riutilizzabile di più alimenti/ricette, registrabile in blocco.
 - **Peso da cotto**: peso finale della ricetta; se assente si usa la somma dei grammi degli ingredienti.
 - **Fabbisogno / mantenimento**: kcal stimate con Mifflin-St Jeor × fattore di attività, oppure dalla stima adattiva.
-- **Stima adattiva**: fabbisogno ricavato da introito medio e trend del peso negli ultimi 28 giorni (servono 14 giorni registrati con almeno 600 kcal e pesate distanti almeno 14 giorni).
+- **Stima adattiva**: fabbisogno ricavato da introito medio e trend del peso negli ultimi 28 giorni (servono 14 giorni registrati con almeno 600 kcal, non segnati come incompleti, e pesate distanti almeno 14 giorni).
+- **Giorno incompleto**: giorno segnato dall'utente perché registrato a metà; resta nel diario ma non conta nelle medie, nella stima adattiva e nel check-in, e nel budget settimanale vale come in linea con l'obiettivo.
+- **Peso obiettivo**: peso da raggiungere, facoltativo, con data prevista dal ritmo reale delle pesate o, se mancano dati, da quello scelto nel profilo.
 - **Budget settimanale**: obiettivo × 7 da lunedì a domenica, con suggerimento per oggi in base a quanto mangiato nei giorni precedenti.
 - **Extra**: fibre, zuccheri, grassi saturi e sale (possono essere ignoti, `null`).
 - **Macro**: P/C/G = proteine, carboidrati, grassi.
 
 ## Stato attuale
 Aggiornato al 2026-10-21. Per lo stato reale usa `git log` e `git status`.
-- Tutti i task T01-T32 sono completati, mergiati in `main` e in produzione dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
-- Ultimo merge in `main`: `chore/deploy-october-merges`; prima `fix/open-food-facts-not-found`, `feature/connector-copy-meal` (T37), PR #2 `feature/siri-shortcut` (T36), i branch del 2026-10-18 e `origin/main` con T34 e T35.
+- Tutti i task T01-T37 sono completati e in produzione; T01-T32 dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
+- Ultimo merge in `main`: `chore/docs-refresh`; prima `fix/connector-incomplete-days` (in produzione dal 2026-10-21). Nessun branch o PR in sospeso.
 - T33 (pull-to-refresh su Oggi e Progressi) in produzione dal 2026-10-17.
 - `fix/logging-flow-friction`, `feature/meal-suggestions` e `feature/weekly-check-in` (migliorie dall'analisi del 2026-10-17) in produzione dal 2026-10-17, verificati con uno smoke test (ricerca e aggiunta con Invio, suggerimenti con l'ultima quantità, grafico del fabbisogno, impostazioni dei promemoria).
 - `feature/quick-undo-and-editing` in produzione dal 2026-10-17, verificato con uno smoke test (annullamento di Kcal veloci e del pasto salvato, ±10 g nell'editor della voce, «Aggiungi al diario» dal dettaglio del pasto salvato, conferma prima di eliminarlo).
@@ -136,6 +138,6 @@ Aggiornato al 2026-10-21. Per lo stato reale usa `git log` e `git status`.
 
 ## Riferimenti
 - `docs/spec.md`: stack, tabella decisioni Q1-Q24, regole di dominio (nutrienti per 100 g, ricette con peso da cotto, snapshot nel diario, Mifflin-St Jeor, macro predefinite), infrastruttura.
-- `docs/tasks.md`: T01-T36 e i fix successivi.
-- `README.md`: setup locale, variabili, comandi database, migrazione legacy, deploy.
+- `docs/tasks.md`: T01-T37 e i fix successivi.
+- `README.md`: funzionalità, setup locale, variabili, comandi database, migrazione legacy, connettore per Claude, Siri, deploy.
 - `CLAUDE.md`: istruzioni operative per gli agenti.

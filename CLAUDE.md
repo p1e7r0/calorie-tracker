@@ -32,14 +32,14 @@ Versioni esatte in `package.json`.
 ## Struttura del repository
 - `src/app/(app)`: schermate con bottom nav: `/` (Oggi), `/food`, `/progress`, `/profile`
 - `src/app/(focus)`: schermate senza bottom nav: `/add`, `/food/new`, `/food/[foodId]`, `/food/[foodId]/edit`, `/meals/[savedMealId]`, `/recipes/new`, `/recipes/[recipeId]`, `/recipes/[recipeId]/edit`
-- `src/app/(auth)`: login, register, forgot-password, reset-password (layout scrollabile normale)
-- `src/app/actions/*.ts`: server actions (`"use server"`) per dominio: diary, foods, recipes, measurements, profile, saved-meals, reminders, open-food-facts, ai
-- `src/app/api`: `auth/[...all]`, `foods/search`, `open-food-facts/search`, `export/[kind]` (CSV), `cron/evening-reminder`, `cron/weigh-in-reminder`
+- `src/app/(auth)`: login, register, forgot-password, reset-password, consent (consenso OAuth del connettore per Claude) (layout scrollabile normale)
+- `src/app/actions/*.ts`: server actions (`"use server"`) per dominio: diary, foods, recipes, measurements, profile, saved-meals, reminders, open-food-facts, ai, claude-connector (credenziali OAuth), shortcut-token (token Siri)
+- `src/app/api`: `auth/[...all]`, `foods/search`, `open-food-facts/search`, `diary/[day]` (anteprima della copia da un altro giorno), `export/[kind]` (CSV), `cron/evening-reminder`, `cron/weigh-in-reminder`, `mcp` (connettore per Claude, token OAuth), `shortcuts/meal` (Siri, token personale)
 - `src/app/manifest.ts`, `src/app/icons/*`, `src/app/apple-icon.tsx`, `public/sw.js` (PWA, solo push)
 - `src/proxy.ts`: equivalente Next 16 del middleware (export `proxy`)
 - `src/server/*.ts`: moduli dati `server-only` (query Drizzle, AI, push, cron, Open Food Facts); eccezione `loggable.ts`, che contiene solo i tipi `LoggableFood`/`LoggableRecipe`/`LoggableItem` importati anche dai client component con `import type`
-- `src/lib/nutrition/*`: logica di dominio pura e testata (nutrienti, ricette, obiettivi, stima adattiva, budget settimanale, trend, giorni, formattazione)
-- `src/lib/*`: `search`, `csv`, `ai-schemas`, `reminders`, `open-food-facts`, `safe-path`, `resize-image` (solo browser), `email`, `auth/*`
+- `src/lib/nutrition/*`: logica di dominio pura e testata (nutrienti, ricette, obiettivi, stima adattiva, check-in, budget settimanale, peso obiettivo, giorni incompleti, copia pasto, suggerimenti, controlli di coerenza, trend, giorni, formattazione)
+- `src/lib/*`: `search`, `csv`, `ai-schemas`, `reminders`, `open-food-facts`, `claude-connector` (istruzioni e risposte del server MCP), `shortcut-meal` e `api-token` (Siri), `pull-to-refresh`, `safe-path`, `resize-image` (solo browser), `email`, `auth/*`
 - `src/components/<feature>/`: componenti per feature; `src/components/ui/`: shadcn; `src/components/app-shell/`: shell fissa
 - `src/db/schema.ts` (+ `auth-schema.ts` riesportato), `src/db/index.ts` (client)
 - `drizzle/`: migrazioni SQL + `meta/` (journal e snapshot)
@@ -53,7 +53,7 @@ Versioni esatte in `package.json`.
 - Dentro `(app)` e `(focus)` la finestra non scrolla mai: `.app-viewport` è `position: fixed` con altezza `var(--viewport-height)`; scrolla solo `ScreenBody`.
 - Una pagina restituisce un fragment: header (`PageHeader`, `BackHeader` o `<header className="... h-14 shrink-0">`) + `ScreenBody` + `ScreenFooter` opzionale (`src/components/app-shell/screen.tsx`).
 - Ogni elemento ad altezza fissa è `shrink-0`; ogni wrapper flex tra `main` e `ScreenBody` (es. `Tabs`) richiede `min-h-0 flex-1`, altrimenti `ScreenBody` non scrolla.
-- Le azioni primarie e i campi di ricerca stanno in `ScreenFooter` (in basso, stile Safari). `coversSafeArea={false}` solo quando sotto c'è la bottom nav (`FoodBrowser` su `/food`).
+- Le azioni primarie e i campi di ricerca stanno in `ScreenFooter` (in basso, stile Safari). `coversSafeArea={false}` solo quando sotto c'è la bottom nav (`FoodBrowser` su `/food`, `ProfileForm` e impostazioni su `/profile`).
 - I fallback di `Suspense` devono avere la stessa forma della shell (`ScreenBody` con skeleton, eventuale `ScreenFooter`).
 - `VisualViewportSync` (nel root layout) scrive `--viewport-height`, `--viewport-offset-top`, `--status-bar-fallback` e `data-keyboard-open` su `<html>`; usare la variante Tailwind `in-data-keyboard-open:` o `:root[data-keyboard-open]`, non stato React.
 - Utility in `globals.css`: `pt-safe`, `pb-safe`, `pb-safe-or-3`, `app-viewport`, `touch-target` (porta l'area di tocco a 44 px con uno pseudo-elemento `::after`: non usarla su elementi che hanno già `after:` o sono `absolute`, e lascia almeno 8 px tra due elementi adiacenti che la usano).
@@ -75,7 +75,7 @@ Versioni esatte in `package.json`.
 - Le mutazioni riuscite chiamano `refresh()` da `next/cache` (non `revalidatePath`).
 - Quasi ogni file di action ha il suo `failure()` (`profile.ts` gestisce l'errore inline): `diary.ts` e `reminders.ts` nascondono i messaggi zod, gli altri mostrano il primo messaggio zod, quindi i messaggi di `refine`/`min` vanno scritti in italiano. `ai.ts` e `open-food-facts.ts` trasformano gli errori esterni in un messaggio generico ("... non risponde. Riprova tra poco.").
 - I moduli `src/server/*` ricevono `userId` come parametro e si fidano: mai passare un `userId` arrivato dal client.
-- Pagine: `getCurrentUser()` (redirect a `/login`); action: `requireUserId()`; route handler: `auth.api.getSession({ headers: await headers() })` con 401 `{ error: "Non autenticato" }`.
+- Pagine: `getCurrentUser()` (redirect a `/login`); action: `requireUserId()`; route handler: `auth.api.getSession({ headers: await headers() })` con 401 `{ error: "Non autenticato" }`. Eccezioni: `/api/mcp` accetta solo il token OAuth del connettore, `/api/shortcuts/meal` solo il token personale di Siri (`authenticateApiToken`).
 - `src/proxy.ts` controlla solo la presenza del cookie di sessione e il matcher esclude `/api`: l'autenticazione vera va fatta in ogni handler e action. Nuove route pubbliche vanno in `publicPaths` o nelle esclusioni del matcher.
 
 ### Catalogo globale e cibi privati
@@ -88,12 +88,13 @@ Versioni esatte in `package.json`.
 ### Diario
 - `diary_entry` salva uno snapshot dei nutrienti (kcal, proteine, carboidrati, grassi + extra fibre, zuccheri, grassi saturi, sale) calcolato da `resolveEntryValues`; `food_id`/`recipe_id` sono `ON DELETE SET NULL`. Non ricalcolare lo storico dai valori attuali.
 - Tipi di voce: `food`, `recipe`, `quick` ("Kcal veloci"). Porzione ricetta in grammi (peso cotto) oppure in porzioni.
+- `diary_entry.source` dice chi ha creato la voce: `app` (default), `connector` (Claude) o `shortcut` (Siri); `insertDiaryEntries` e `copyMealEntries` lo ricevono come ultimo parametro.
 - Valori nutrizionali dei cibi per 100 g/ml.
 - Giorni come stringhe ISO `yyyy-mm-dd`, fuso fisso `Europe/Rome` (`todayIsoDate()` in `src/lib/nutrition/days.ts`).
 
 ### Feature attivate da env
 I flag sono costanti booleane calcolate all'avvio, non funzioni.
-- AI: `isAiEnabled` (`src/server/ai.ts`) = `ANTHROPIC_API_KEY` presente (modello `ANTHROPIC_MODEL`, default `claude-haiku-5-5`; 40 richieste per utente nelle 24 h mobili, tabella `ai_request`, la riga si inserisce prima della chiamata).
+- AI: `isAiEnabled` (`src/server/ai.ts`) = `ANTHROPIC_API_KEY` presente; senza, sono nascosti anche il token Siri e la sua sezione in Profilo (modello `ANTHROPIC_MODEL`, default `claude-haiku-5-5`; 40 richieste per utente nelle 24 h mobili, tabella `ai_request`, la riga si inserisce prima della chiamata).
 - Foto etichetta: il client ridimensiona a 1600 px JPEG qualità 0.85 (`src/lib/resize-image.ts`). Il limite reale è `bodySizeLimit: "3mb"` in `next.config.ts`, non i 4 MB controllati in `actions/ai.ts`: se cambi uno dei due, allinea l'altro.
 - Push: `isPushEnabled` (`src/server/push.ts`) = `NEXT_PUBLIC_VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` + `VAPID_SUBJECT`.
 - Google: `isGoogleSignInEnabled` (`src/lib/auth/providers.ts`) = `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`.
