@@ -54,3 +54,4 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] `feature/meal-suggestions`: scheda Suggeriti in /add ordinata per pasto (frequenza e recenza), ricette con ultima quantità e aggiunta in un tocco
 - [x] `feature/quick-undo-and-editing`: «Annulla» dopo Kcal veloci, pasto salvato, «Copia da ieri» e «Descrivi»; ±10 g, porzioni dell'alimento e scorciatoie per le porzioni di ricetta nell'editor della voce; «Aggiungi al diario» e conferma all'eliminazione nel dettaglio del pasto salvato; toast con accordo neutro («Aggiunto a pranzo: «Mela»»)
 - [x] `chore/spec-decisions`: decisioni superate di `docs/spec.md` aggiornate (deploy per blocco, stima adattiva e check-in, statistiche, connettore per Claude, Open Food Facts automatico, ricerca con parole corte)
+- [x] `chore/vercel-git-deploy`: progetto Vercel collegato a GitHub, il push di `main` fa il deploy in produzione; procedura di deploy aggiornata

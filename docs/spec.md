@@ -18,7 +18,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 |---|------|-----------|
 | Q1 | Utenti | Multi-utente, dati separati per utente |
 | Q2 | Migrazione | Alimenti (1341), 5 ricette, l'unica misurazione; preferiti dai 90 `priority`. Pasti storici esclusi |
-| Q3 | Neon | Progetto creato con `neonctl`, branch `dev` e `main`. Deploy Vercel solo dopo conferma dell'utente; aggiornato: si fa un deploy per ogni blocco di lavoro confermato, non più solo alla fine |
+| Q3 | Neon | Progetto creato con `neonctl`, branch `dev` e `main`. Deploy Vercel solo dopo conferma dell'utente; aggiornato: si fa un deploy per ogni blocco di lavoro confermato, non più solo alla fine; dal 2026-10-21 il deploy parte dal push di `main` su GitHub |
 | Q4 | ORM | Drizzle |
 | Q5 | Lingua | Solo italiano |
 | Q6 | Giornata | 4 pasti fissi: colazione, pranzo, cena, spuntini |
@@ -52,7 +52,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 ## Infrastruttura
 
 - Neon: progetto `calorie-tracker` nell'organizzazione personale del proprietario (id con `npx neonctl projects list`), regione `aws-eu-central-1`, Postgres 18. Branch `main` (produzione) e `dev` (sviluppo). Schema e catalogo comune (1080 alimenti) già presenti su entrambi.
-- Vercel: progetto `bilancia` nello spazio personale `p1e7r0s-projects` (Hobby), produzione su https://bilancia-cyan.vercel.app. Funzioni in `fra1` (Francoforte), accanto al database. Deploy dalla CLI, senza collegamento a GitHub; `.vercelignore` esclude i file `.env*`. Le variabili impostate e quelle mancanti sono elencate in `CONTEXT.md` › «Dati e infrastruttura».
+- Vercel: progetto `bilancia` nello spazio personale `p1e7r0s-projects` (Hobby), produzione su https://bilancia-cyan.vercel.app. Funzioni in `fra1` (Francoforte), accanto al database. Deploy automatico a ogni push di `main` su GitHub (integrazione Git dal 2026-10-21; prima solo dalla CLI, che resta come riserva); `.vercelignore` esclude i file `.env*`. Le variabili impostate e quelle mancanti sono elencate in `CONTEXT.md` › «Dati e infrastruttura».
 - Strumenti per gli agenti: skill Neon (`neon`, `neon-postgres`, `neon-postgres-branches`) in `.claude/skills/`, server MCP Neon con OAuth in `.mcp.json`.
 - Sviluppo locale alternativo: Postgres 17 in Docker (`docker-compose.yml`, porta 5433).
 

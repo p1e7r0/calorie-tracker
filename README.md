@@ -112,9 +112,13 @@ La registrazione dinamica dei client è disattivata. Per collegare Claude:
 
 Produzione: https://bilancia-cyan.vercel.app (progetto `bilancia`, funzioni in `fra1` accanto al database Neon).
 
+Il progetto Vercel è collegato al repository GitHub: ogni push di `main` fa il deploy in produzione. Se ci sono nuove migrazioni, applicale al database di produzione prima del push:
+
 ```bash
-pnpm db:migrate:production       # prima, se ci sono nuove migrazioni
-npx vercel deploy --prod
+pnpm db:migrate:production
+git push origin main
 ```
+
+In alternativa, dalla cartella locale: `npx vercel deploy --prod`.
 
 Le variabili d'ambiente di produzione sono già impostate su Vercel e puntano al branch Neon `main`. `.vercelignore` impedisce di caricare i file `.env*` locali.
