@@ -26,7 +26,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 | Q8 | Ricette | Ingredienti crudi in grammi + peso da cotto facoltativo + numero di porzioni. Si registra in grammi di cotto o in porzioni |
 | Q9 | Open Food Facts | Ricerca per nome e barcode con fotocamera; il prodotto usato viene salvato nel catalogo globale |
 | Q10 | PWA | Sì, senza offline |
-| Q11 | Git | Un branch per task, commit locali, merge su `main`; aggiornato: l'utente sincronizza `main` su GitHub da VS Code, i branch di task restano locali |
+| Q11 | Git | Un branch per task, commit locali, merge su `main`; aggiornato: l'utente sincronizza `main` su GitHub da VS Code, i branch di task restano locali (le sessioni cloud pushano il proprio branch, che arriva come PR) |
 | Q12 | Catalogo | Globale in sola lettura (banca dati svizzera + Open Food Facts) + privato per utente. Modificare un alimento globale crea una copia privata che lo sostituisce |
 | Q13 | Pasti condivisi | No: ognuno registra la propria porzione (ricetta + peso da cotto) |
 | Q14 | Nutrienti | Colonne: kcal, proteine, carboidrati, zuccheri, grassi, saturi, fibre, sale (per 100 g/ml). Vitamine e minerali in `jsonb` |
@@ -36,7 +36,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 | Q18 | Unità | Grammi/ml più porzioni con nome per alimento |
 | Q19 | Navigazione | Barra in basso: Oggi, Cibo, "+", Progressi, Profilo |
 | Q20 | Statistiche | Kcal 7/30 giorni con obiettivo, media macro settimanale, peso vs kcal medie; aggiornato: budget settimanale su Oggi e fabbisogno stimato settimana per settimana in Progressi |
-| Q21 | Fuori scope | Acqua, attività, integrazioni salute, digiuno, modalità offline; aggiornato: AI (T27), promemoria push (T31) e connettore per Claude (T32) implementati su richiesta dell'utente |
+| Q21 | Fuori scope | Acqua, attività, integrazioni salute, digiuno, modalità offline; aggiornato: AI (T27), promemoria push (T31), connettore per Claude (T32, T35, T37) e Siri (T36) implementati su richiesta dell'utente |
 | Q22 | Account | Email/password senza verifica; Google pronto ma attivo con le variabili; reset password via email implementato in T26 (attivo con Resend) |
 | Q23 | Stile | Neutro e compatto, un accento lime per le kcal, colori distinti per P/C/G, numeri tabellari |
 | Q24 | Qualità | Vitest sulla logica, Playwright smoke, `tsc`/`eslint`/`next build` puliti, controllo visivo mobile chiaro/scuro |
@@ -47,6 +47,8 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 - Ricetta: totale = somma degli ingredienti. Base per 100 g = peso da cotto se presente, altrimenti somma dei grammi crudi. Porzione = totale / numero di porzioni.
 - Le voci del diario salvano una copia dei nutrienti calcolati al momento dell'inserimento (la storia non cambia se l'alimento viene corretto); vengono ricalcolate quando la voce viene modificata.
 - Il giorno del diario è una data (`date`) nel fuso dell'utente, non un timestamp.
+- Giorno incompleto: segnato dall'utente, resta nel diario ma è escluso da medie, stima adattiva e check-in; nel budget settimanale vale come in linea con l'obiettivo. I giorni sotto 600 kcal sono esclusi comunque dalla stima adattiva e dalle medie del connettore.
+- Peso obiettivo: facoltativo, solo con obiettivo «dimagrire» o «aumentare»; la data prevista usa il ritmo osservato nelle ultime 4 settimane, altrimenti quello scelto nel profilo.
 - Mifflin-St Jeor: BMR = 10·kg + 6,25·cm − 5·età + 5 (uomo) / −161 (donna); TDEE = BMR · fattore attività; obiettivo dimagrimento/aumento ± kcal. Macro di default: proteine 1,8 g/kg, grassi 25% kcal, resto carboidrati.
 
 ## Infrastruttura

@@ -2,15 +2,17 @@
 
 Conta le calorie in pochi tocchi. App mobile first, tema chiaro e scuro, installabile come PWA.
 
-- Diario giornaliero con 4 pasti, riepilogo kcal e macronutrienti rispetto all'obiettivo
-- Ricerca istantanea nel catalogo (banca dati svizzera dei valori nutritivi + alimenti tuoi), recenti e preferiti
-- Open Food Facts: ricerca e scansione del codice a barre
+- Diario giornaliero con 4 pasti, riepilogo kcal, macronutrienti ed extra (fibre, zuccheri, saturi, sale) rispetto all'obiettivo, budget settimanale
+- Aggiunta in un tocco: suggerimenti per pasto, preferiti, ultima quantità, «Annulla» dopo ogni aggiunta, swipe per duplicare o eliminare
+- Ricerca istantanea e tollerante ai refusi nel catalogo (banca dati svizzera dei valori nutritivi + alimenti tuoi)
+- Open Food Facts: ricerca automatica e codice a barre, anche per creare un alimento nuovo dal codice
 - Nuovi alimenti in pochi secondi, con porzioni («1 vasetto = 125 g») e kcal calcolate dai macro
 - Ricette: ingredienti pesati a crudo, peso da cotto, porzioni; si registrano in grammi di cotto o in porzioni
-- Pasti salvati, copia di un pasto da ieri, kcal veloci
+- Pasti salvati, copia di un pasto da qualsiasi giorno, kcal veloci, giorni segnati come incompleti
 - Misure corporee (peso, massa grassa e muscolare, grasso viscerale, acqua, massa ossea, vita, fianchi) con media mobile a 7 giorni
-- Obiettivo giornaliero calcolato con Mifflin-St Jeor, personalizzabile
-- Statistiche: kcal giornaliere, media dei macronutrienti, kcal medie e peso per settimana
+- Obiettivo con Mifflin-St Jeor, personalizzabile, peso obiettivo con data prevista; stima adattiva del fabbisogno e check-in settimanale
+- Statistiche: kcal giornaliere, media dei macronutrienti, kcal medie e peso per settimana, fabbisogno stimato
+- Facoltativi: AI (etichetta da foto, pasto descritto a parole, Siri), promemoria push, esportazione CSV, connettore per Claude
 
 Specifiche e decisioni: [`docs/spec.md`](docs/spec.md). Avanzamento: [`docs/tasks.md`](docs/tasks.md).
 
@@ -41,8 +43,9 @@ docker compose up -d          # postgres://calorie:calorie@localhost:5433/calori
 | `DATABASE_URL_UNPOOLED` | Connessione diretta, usata per le migrazioni |
 | `BETTER_AUTH_SECRET` | `openssl rand -base64 32` |
 | `BETTER_AUTH_URL` | URL pubblico dell'app |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | Facoltativa, separata da virgole: altre origini da cui accedere (per esempio il dev server sulla LAN) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Facoltative: attivano «Continua con Google» |
-| `ANTHROPIC_API_KEY` | Facoltativa: attiva la foto dell'etichetta e «Descrivi il pasto» (massimo 40 richieste al giorno per utente). `ANTHROPIC_MODEL` cambia il modello, di default `claude-haiku-5-5` |
+| `ANTHROPIC_API_KEY` | Facoltativa: attiva la foto dell'etichetta, «Descrivi il pasto» e Siri (massimo 40 richieste al giorno per utente). `ANTHROPIC_MODEL` cambia il modello, di default `claude-haiku-5-5` |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Facoltative: email per il reset della password. In sviluppo, senza, il link compare nel log del server |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Facoltative: promemoria con notifiche push (`npx web-push generate-vapid-keys`) |
 | `CRON_SECRET` | Protegge i job `/api/cron/*` dei promemoria, lanciati da Vercel Cron alle 19 e alle 6 UTC |
@@ -78,7 +81,8 @@ L'account indicato deve esistere: registrati prima dall'app.
 pnpm lint
 pnpm typecheck
 pnpm test        # Vitest: logica di dominio e mappature
-pnpm test:e2e    # Playwright su viewport mobile, avvia il dev server sulla porta 3100
+pnpm build
+pnpm test:e2e    # Playwright su viewport mobile, avvia il dev server sulla porta 3100 e usa il database di .env.local
 ```
 
 ## Struttura
@@ -87,10 +91,12 @@ pnpm test:e2e    # Playwright su viewport mobile, avvia il dev server sulla port
 src/
   app/            route (gruppi: (app) con barra in basso, (focus) per le schermate dedicate, (auth))
   app/actions/    Server Actions, ognuna verifica la sessione
-  components/     UI per funzionalità (add, diary, food, recipes, saved-meals, progress, profile)
+  app/api/        route handler: auth, ricerca, CSV, cron, connettore MCP, Siri
+  components/     UI per funzionalità (add, diary, food, recipes, saved-meals, progress, profile, check-in)
   db/             schema Drizzle e client
-  lib/nutrition/  logica pura: nutrienti, ricette, obiettivi, date, tendenze
-  server/         query server-only
+  lib/            logica pura e testata (ricerca, CSV, connettore, Siri, promemoria)
+  lib/nutrition/  logica di dominio: nutrienti, ricette, obiettivi, stima adattiva, budget, peso obiettivo
+  server/         query e servizi server-only
 scripts/          migrazione dal vecchio MongoDB
 drizzle/          migrazioni SQL
 e2e/              test Playwright
@@ -98,7 +104,7 @@ e2e/              test Playwright
 
 ## Connettore per Claude
 
-Bilancia espone un server MCP su `/api/mcp` (strumenti `search_foods`, `recent_foods`, `log_meal`, `get_day`, `delete_entry`), protetto da OAuth 2.1 con il plugin MCP di better-auth (`@better-auth/mcp`, token JWT legati alla risorsa, metadata su `/.well-known/oauth-protected-resource/api/mcp` e `/.well-known/oauth-authorization-server/api/auth`).
+Bilancia espone un server MCP su `/api/mcp`, protetto da OAuth 2.1 con il plugin MCP di better-auth (`@better-auth/mcp`, token JWT legati alla risorsa, metadata su `/.well-known/oauth-protected-resource/api/mcp` e `/.well-known/oauth-authorization-server/api/auth`).
 
 La registrazione dinamica dei client è disattivata. Per collegare Claude:
 
@@ -107,6 +113,26 @@ La registrazione dinamica dei client è disattivata. Per collegare Claude:
 3. Premi «Connetti», accedi a Bilancia e consenti l'accesso.
 
 «Rigenera» e «Scollega» cancellano il client e revocano i token già emessi. Sono attivi anche i Client ID Metadata Document (`@better-auth/cimd`).
+
+| Strumento | Cosa fa |
+|---|---|
+| `search_foods`, `recent_foods` | Cerca alimenti, ricette e pasti salvati; elenca quelli usati di recente con l'ultima quantità |
+| `log_meal` | Registra alimenti, ricette, pasti salvati o kcal veloci in un pasto |
+| `get_day`, `delete_entry` | Legge il diario di un giorno ed elimina una voce |
+| `copy_meal` | Copia un pasto da un giorno qualsiasi in un altro pasto o giorno |
+| `lookup_barcode` | Trova un prodotto per codice a barre nel catalogo o lo importa da Open Food Facts |
+| `create_food`, `create_recipe` | Crea alimenti (solo con valori forniti dall'utente) e ricette |
+| `log_weight` | Registra una pesata |
+| `get_progress` | Totali giornalieri, medie, budget settimanale, trend del peso e stima del fabbisogno |
+
+## Siri
+
+Con `ANTHROPIC_API_KEY` impostata, Profilo › Impostazioni › Siri crea un token personale (mostrato una volta, salvato solo come hash). Un Comando rapido detta il pasto e lo invia a `/api/shortcuts/meal`:
+
+- `POST` con `Authorization: Bearer <token>` e corpo JSON `{ "text": "..." }`: registra il pasto e risponde con un campo `message` da pronunciare;
+- `DELETE` sullo stesso URL: annulla l'ultima registrazione fatta da Siri nelle ultime 24 ore.
+
+Ogni pasto usa al massimo 2 delle 40 richieste AI giornaliere.
 
 ## Deploy su Vercel
 
@@ -119,6 +145,6 @@ pnpm db:migrate:production
 git push origin main
 ```
 
-In alternativa, dalla cartella locale: `npx vercel deploy --prod`.
+In alternativa, dalla cartella locale: `npx vercel@64.3.1 deploy --prod`.
 
 Le variabili d'ambiente di produzione sono già impostate su Vercel e puntano al branch Neon `main`. `.vercelignore` impedisce di caricare i file `.env*` locali.
