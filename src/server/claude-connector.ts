@@ -15,6 +15,7 @@ import {
   describeWeightTrend,
 } from "@/lib/claude-connector";
 import { bodyMetrics } from "@/lib/nutrition/body-metrics";
+import { isCopyOntoItself } from "@/lib/nutrition/copy-meal";
 import { currentHour, daysBetween, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { kcalMismatch } from "@/lib/nutrition/food-checks";
 import { type MealType, mealTypes, suggestMeal } from "@/lib/nutrition/meals";
@@ -23,7 +24,7 @@ import { normalizeBarcode } from "@/lib/open-food-facts";
 import { nameMatchesQuery } from "@/lib/search";
 import { getAdaptiveGoal } from "./adaptive-goal";
 import { getDailyTargets, getDiaryDay } from "./diary";
-import { type EntryItem, entryItemSchema, insertDiaryEntries } from "./diary-entries";
+import { copyMealEntries, type EntryItem, entryItemSchema, insertDiaryEntries } from "./diary-entries";
 import { insertFood } from "./food-writes";
 import { getLoggableFood, recentFoods, searchFoods } from "./foods";
 import { listMeasurements } from "./measurements";
@@ -257,6 +258,50 @@ export function createClaudeConnectorServer(userId: string) {
           .returning({ day: diaryEntry.day, label: diaryEntry.label });
         if (!deleted) throw new Error("Entry not found.");
         return textResult({ deleted: deleted.label, summary: await daySummary(userId, deleted.day) });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "copy_meal",
+    {
+      title: "Copia un pasto",
+      description:
+        "Copy every entry of a meal of one day into a meal of another day, with the same quantities and values. Useful for «the same as yesterday at lunch». Returns the created entries and the updated target day.",
+      inputSchema: z.object({
+        fromDay: z
+          .string()
+          .refine(isIsoDate, "Use an ISO date such as 2026-10-16.")
+          .describe("ISO date (yyyy-mm-dd) of the day to copy from."),
+        fromMeal: z.enum(mealTypes).describe("Meal to copy from: breakfast, lunch, dinner or snack."),
+        toDay: daySchema,
+        toMeal: z
+          .enum(mealTypes)
+          .optional()
+          .describe("Meal to copy into: breakfast, lunch, dinner or snack. Defaults to the same meal as fromMeal."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ fromDay, fromMeal, toDay, toMeal }) => {
+      try {
+        const targetDay = toDay ?? todayIsoDate();
+        const targetMeal = toMeal ?? fromMeal;
+        const copy = { fromDay, fromMeal, toDay: targetDay, toMeal: targetMeal };
+        if (isCopyOntoItself(copy)) throw new Error("The source and the target are the same meal of the same day.");
+        const created = await copyMealEntries(userId, copy, "connector");
+        if (created.length === 0) throw new Error(`There is nothing logged for ${fromMeal} on ${fromDay}.`);
+        return textResult({
+          copied: created.map((row) =>
+            describeEntry({
+              ...row,
+              nutrients: { kcal: row.kcal, protein: row.protein, carbs: row.carbs, fat: row.fat },
+            }),
+          ),
+          meal: targetMeal,
+          summary: await daySummary(userId, targetDay),
+        });
       } catch (error) {
         return errorResult(error);
       }

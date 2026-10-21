@@ -188,7 +188,7 @@ test("Claude creates foods and recipes, logs weight and reads progress", async (
 
   const tools = await callMcp(request, tokens.access_token, "tools/list", {}, 2);
   expect(tools.tools.map((tool: { name: string }) => tool.name)).toEqual(
-    expect.arrayContaining(["create_food", "create_recipe", "lookup_barcode", "log_weight", "get_progress"]),
+    expect.arrayContaining(["create_food", "create_recipe", "lookup_barcode", "log_weight", "get_progress", "copy_meal"]),
   );
 
   const oats = toolPayload(
@@ -316,6 +316,15 @@ test("Claude creates foods and recipes, logs weight and reads progress", async (
   expect(progress.average).toBeNull();
   expect(progress.weight.inPeriod).toHaveLength(1);
   expect(progress.maintenance.status).toBe("insufficient");
+
+  const copied = toolPayload(
+    await callTool("copy_meal", { fromDay: again.summary.day, fromMeal: "breakfast", toMeal: "snack" }),
+  );
+  expect(copied.copied).toHaveLength(2);
+  expect(copied.meal).toBe("snack");
+  expect(copied.summary.meals[3].entries).toHaveLength(2);
+  const sameMeal = await callTool("copy_meal", { fromDay: again.summary.day, fromMeal: "breakfast" });
+  expect(sameMeal.isError).toBe(true);
 
   await page.goto("/food");
   await page.waitForLoadState("networkidle");
