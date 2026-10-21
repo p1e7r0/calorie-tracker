@@ -48,7 +48,7 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
           {checkIn ? <WeeklyCheckInCard checkIn={checkIn} /> : null}
           <div className="mt-2">
             {diary.meals.map((meal) => (
-              <MealSection key={meal.meal} meal={meal} day={day} />
+              <MealSection key={meal.meal} meal={meal} day={day} today={today} loggedDays={loggedDays} />
             ))}
           </div>
         </ScreenBody>

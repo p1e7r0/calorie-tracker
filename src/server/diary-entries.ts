@@ -1,7 +1,9 @@
 import "server-only";
+import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { database } from "@/db";
 import { diaryEntry } from "@/db/schema";
+import type { MealCopy } from "@/lib/nutrition/copy-meal";
 import {
   emptyExtraNutrients,
   extrasFromRow,
@@ -137,6 +139,37 @@ export async function insertDiaryEntries(userId: string, day: string, meal: Meal
         userId,
         day,
         meal,
+      })),
+    )
+    .returning();
+}
+
+export async function copyMealEntries(userId: string, { fromDay, fromMeal, toDay, toMeal }: MealCopy) {
+  const source = await database
+    .select()
+    .from(diaryEntry)
+    .where(and(eq(diaryEntry.userId, userId), eq(diaryEntry.day, fromDay), eq(diaryEntry.meal, fromMeal)))
+    .orderBy(asc(diaryEntry.createdAt));
+  if (source.length === 0) return [];
+  return database
+    .insert(diaryEntry)
+    .values(
+      source.map((entry) => ({
+        userId,
+        day: toDay,
+        meal: toMeal,
+        kind: entry.kind,
+        foodId: entry.foodId,
+        recipeId: entry.recipeId,
+        label: entry.label,
+        grams: entry.grams,
+        servings: entry.servings,
+        portionLabel: entry.portionLabel,
+        kcal: entry.kcal,
+        protein: entry.protein,
+        carbs: entry.carbs,
+        fat: entry.fat,
+        ...extrasFromRow(entry),
       })),
     )
     .returning();

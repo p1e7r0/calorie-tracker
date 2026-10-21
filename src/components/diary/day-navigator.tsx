@@ -9,19 +9,10 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { addDays, formatDayLabel, formatLongDay } from "@/lib/nutrition/days";
+import { loggedDayClassName, toIsoDate, toLocalDate } from "./calendar-days";
 
 function dayHref(day: string, today: string) {
   return day === today ? "/" : `/?date=${day}`;
-}
-
-function toLocalDate(isoDate: string) {
-  return new Date(`${isoDate}T12:00:00`);
-}
-
-function toIsoDate(date: Date) {
-  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join(
-    "-",
-  );
 }
 
 export function DayNavigator({ day, today, loggedDays }: { day: string; today: string; loggedDays: string[] }) {
@@ -56,10 +47,7 @@ export function DayNavigator({ day, today, loggedDays }: { day: string; today: s
             disabled={{ after: toLocalDate(today) }}
             endMonth={toLocalDate(today)}
             modifiers={{ logged: loggedDays.map(toLocalDate) }}
-            modifiersClassNames={{
-              logged:
-                "relative after:pointer-events-none after:absolute after:bottom-1 after:left-1/2 after:size-1 after:-translate-x-1/2 after:rounded-full after:bg-energy",
-            }}
+            modifiersClassNames={{ logged: loggedDayClassName }}
             onSelect={(date) => {
               if (!date) return;
               setOpen(false);
