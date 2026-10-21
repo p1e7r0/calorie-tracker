@@ -16,7 +16,7 @@ import {
 } from "@/lib/claude-connector";
 import { bodyMetrics } from "@/lib/nutrition/body-metrics";
 import { isCopyOntoItself } from "@/lib/nutrition/copy-meal";
-import { currentHour, daysBetween, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
+import { addDays, currentHour, daysBetween, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { kcalMismatch } from "@/lib/nutrition/food-checks";
 import { type MealType, mealTypes, suggestMeal } from "@/lib/nutrition/meals";
 import { weekStart } from "@/lib/nutrition/weeks";
@@ -27,6 +27,7 @@ import { getDailyTargets, getDiaryDay } from "./diary";
 import { copyMealEntries, type EntryItem, entryItemSchema, insertDiaryEntries } from "./diary-entries";
 import { insertFood } from "./food-writes";
 import { getLoggableFood, recentFoods, searchFoods } from "./foods";
+import { listIncompleteDays } from "./incomplete-days";
 import { listMeasurements } from "./measurements";
 import {
   fetchOpenFoodFactsProduct,
@@ -495,11 +496,13 @@ export function createClaudeConnectorServer(userId: string) {
       try {
         const today = todayIsoDate();
         const periodDays = days ?? 14;
-        const [dailyTotals, targets, weightPoints, adaptive] = await Promise.all([
-          getDailyTotals(userId, today, Math.max(periodDays, daysBetween(weekStart(today), today) + 1)),
+        const loadedDays = Math.max(periodDays, daysBetween(weekStart(today), today) + 1);
+        const [dailyTotals, targets, weightPoints, adaptive, incompleteDays] = await Promise.all([
+          getDailyTotals(userId, today, loadedDays),
           getDailyTargets(userId),
           weights(userId),
           getAdaptiveGoal(userId, today),
+          listIncompleteDays(userId, addDays(today, -(loadedDays - 1)), today),
         ]);
         return textResult(
           describeProgress({
@@ -508,6 +511,7 @@ export function createClaudeConnectorServer(userId: string) {
             dailyTotals,
             targets,
             weights: weightPoints,
+            incompleteDays,
             maintenance: adaptive.estimate,
             suggestedTargetKcal: adaptive.suggestion?.kcal ?? null,
           }),

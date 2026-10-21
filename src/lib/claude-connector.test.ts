@@ -163,6 +163,7 @@ describe("describeProgress", () => {
     days: 7,
     targets: { kcal: 2000, proteinG: 120, carbsG: 220, fatG: 70 },
     weights: [],
+    incompleteDays: [],
     maintenance: { status: "insufficient" as const, loggedDays: 3, weightSpanDays: 0, excludedIncompleteDays: 0 },
     suggestedTargetKcal: null,
   };
@@ -195,6 +196,18 @@ describe("describeProgress", () => {
       eatenKcal: 5000,
       daysLeft: 5,
     });
+  });
+
+  it("leaves the days marked as incomplete out of the average and the weekly budget", () => {
+    const progress = describeProgress({
+      ...base,
+      incompleteDays: ["2026-10-19"],
+      dailyTotals: [totals("2026-10-19", 900), totals("2026-10-20", 2200), totals(today, 500)],
+    });
+    expect(progress.days.find((day) => day.day === "2026-10-19")?.incomplete).toBe(true);
+    expect(progress.days.find((day) => day.day === "2026-10-20")?.incomplete).toBe(false);
+    expect(progress.average).toMatchObject({ kcal: 2200, overDays: 1 });
+    expect(progress.week).toMatchObject({ eatenKcal: 4700, remainingKcal: 9300 });
   });
 
   it("explains what the maintenance estimate still needs", () => {
