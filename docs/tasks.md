@@ -68,3 +68,7 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] `fix/open-food-facts-not-found`: un codice a barre sconosciuto apre «Nuovo alimento» invece di «Open Food Facts non risponde» (l'API ora risponde 404 ai prodotti mancanti); test e2e allineati ai merge del 2026-10-21
 - [x] `chore/deploy-october-merges`: deploy in produzione dei merge del 2026-10-21 (migrazioni 0011-0013 su main, smoke test)
 - [x] `fix/connector-incomplete-days`: `get_progress` del connettore esclude dalle medie i giorni segnati come incompleti, li conta in linea nel budget settimanale e li indica con `incomplete: true`, come l'app
+
+## Fix: header del workspace per la chiave Anthropic
+- La prima chiave API fornita non è legata a un workspace e l'API rispondeva «This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header».
+- Nuova variabile facoltativa `ANTHROPIC_WORKSPACE_ID`: se presente, il client aggiunge l'header `anthropic-workspace-id` a ogni richiesta (`src/server/ai.ts`). Con una chiave già di workspace non serve.

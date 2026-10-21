@@ -93,7 +93,7 @@ Versioni esatte in `package.json`.
 
 ### Feature attivate da env
 I flag sono costanti booleane calcolate all'avvio, non funzioni.
-- AI: `isAiEnabled` (`src/server/ai.ts`) = `ANTHROPIC_API_KEY` presente (modello `ANTHROPIC_MODEL`, default `claude-haiku-5-5`; 40 richieste per utente nelle 24 h mobili, tabella `ai_request`, la riga si inserisce prima della chiamata).
+- AI: `isAiEnabled` (`src/server/ai.ts`) = `ANTHROPIC_API_KEY` presente (modello `ANTHROPIC_MODEL`, default `claude-haiku-5-5`; 40 richieste per utente nelle 24 h mobili, tabella `ai_request`, la riga si inserisce prima della chiamata). Se la chiave API non è legata a un workspace, l'API rifiuta la richiesta senza l'header `anthropic-workspace-id`: impostare `ANTHROPIC_WORKSPACE_ID` (facoltativa con una chiave già di workspace).
 - Foto etichetta: il client ridimensiona a 1600 px JPEG qualità 0.85 (`src/lib/resize-image.ts`). Il limite reale è `bodySizeLimit: "3mb"` in `next.config.ts`, non i 4 MB controllati in `actions/ai.ts`: se cambi uno dei due, allinea l'altro.
 - Push: `isPushEnabled` (`src/server/push.ts`) = `NEXT_PUBLIC_VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` + `VAPID_SUBJECT`.
 - Google: `isGoogleSignInEnabled` (`src/lib/auth/providers.ts`) = `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET`.

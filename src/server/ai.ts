@@ -24,12 +24,15 @@ export class AiError extends Error {}
 
 const model = process.env.ANTHROPIC_MODEL ?? "claude-haiku-5-5";
 const dailyRequestLimit = 40;
+const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID;
 
 let client: Anthropic | null = null;
 
 function anthropic() {
   if (!isAiEnabled) throw new AiError("Le funzioni AI non sono attive.");
-  client ??= new Anthropic();
+  client ??= new Anthropic({
+    defaultHeaders: workspaceId ? { "anthropic-workspace-id": workspaceId } : undefined,
+  });
   return client;
 }
 
