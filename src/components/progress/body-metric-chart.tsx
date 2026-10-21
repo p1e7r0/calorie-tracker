@@ -1,6 +1,6 @@
 "use client";
 
-import { CartesianGrid, ComposedChart, Line, Scatter, XAxis, YAxis } from "recharts";
+import { CartesianGrid, ComposedChart, Line, ReferenceLine, Scatter, XAxis, YAxis } from "recharts";
 import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { formatShortDay } from "@/lib/nutrition/days";
 import { formatDecimal } from "@/lib/nutrition/format";
@@ -16,8 +16,16 @@ function dayFromTime(time: number) {
   return new Date(time).toISOString().slice(0, 10);
 }
 
-export function BodyMetricChart({ points, unit }: { points: BodyChartPoint[]; unit: string }) {
-  const values = points.map((point) => point.value);
+export function BodyMetricChart({
+  points,
+  unit,
+  reference,
+}: {
+  points: BodyChartPoint[];
+  unit: string;
+  reference: { value: number; label: string } | null;
+}) {
+  const values = [...points.map((point) => point.value), ...(reference ? [reference.value] : [])];
   const minimum = Math.min(...values);
   const maximum = Math.max(...values);
   const padding = Math.max((maximum - minimum) * 0.15, 0.5);
@@ -65,6 +73,21 @@ export function BodyMetricChart({ points, unit }: { points: BodyChartPoint[]; un
             );
           }}
         />
+        {reference ? (
+          <ReferenceLine
+            y={reference.value}
+            ifOverflow="extendDomain"
+            stroke="var(--muted-foreground)"
+            strokeDasharray="4 4"
+            strokeWidth={1}
+            label={{
+              value: `${reference.label} ${formatDecimal(reference.value)} ${unit}`,
+              position: "insideBottomRight",
+              fill: "var(--muted-foreground)",
+              fontSize: 11,
+            }}
+          />
+        ) : null}
         <Scatter
           dataKey="value"
           fill="var(--color-value)"

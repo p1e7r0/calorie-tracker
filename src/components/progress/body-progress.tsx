@@ -7,6 +7,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { type BodyMetricKey, bodyMetrics } from "@/lib/nutrition/body-metrics";
 import { addDays, daysBetween, formatElapsed, formatShortDay } from "@/lib/nutrition/days";
 import { formatDecimal } from "@/lib/nutrition/format";
+import type { GoalType } from "@/lib/nutrition/goals";
+import { describeTargetWeightProjection, projectTargetWeight } from "@/lib/nutrition/target-weight";
 import { changeOverDays, lastValuePerDay, movingAverage } from "@/lib/nutrition/trends";
 import { cn } from "@/lib/utils";
 import type { MeasurementView } from "@/server/measurements";
@@ -20,7 +22,17 @@ const ranges = [
   { value: "all", label: "Tutto", days: null },
 ] as const;
 
-export function BodyProgress({ measurements, today }: { measurements: MeasurementView[]; today: string }) {
+export type TargetWeightSettings = { targetKg: number; goal: GoalType; plannedWeeklyRateKg: number };
+
+export function BodyProgress({
+  measurements,
+  today,
+  targetWeight,
+}: {
+  measurements: MeasurementView[];
+  today: string;
+  targetWeight: TargetWeightSettings | null;
+}) {
   const [metricKey, setMetricKey] = useState<BodyMetricKey>("weightKg");
   const [rangeValue, setRangeValue] = useState<(typeof ranges)[number]["value"]>("90");
   const [editing, setEditing] = useState<MeasurementView | "new" | null>(null);
@@ -51,6 +63,14 @@ export function BodyProgress({ measurements, today }: { measurements: Measuremen
   const latest = series.at(-1);
   const change = changeOverDays(series, 30);
   const unitSuffix = metric.unit ? ` ${metric.unit}` : "";
+  const showsTargetWeight = metricKey === "weightKg" && targetWeight !== null && targetWeight.goal !== "maintain";
+  const targetProjection = showsTargetWeight
+    ? projectTargetWeight({
+        ...targetWeight,
+        weights: measurements.map((measurement) => ({ day: measurement.measuredOn, value: measurement.weightKg })),
+        today,
+      })
+    : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -94,9 +114,19 @@ export function BodyProgress({ measurements, today }: { measurements: Measuremen
         </Button>
       </div>
 
+      {targetProjection ? (
+        <section aria-label="Peso obiettivo" className="rounded-xl bg-muted/60 px-3 py-2.5 text-sm text-pretty">
+          <p>{describeTargetWeightProjection(targetProjection, today)}</p>
+        </section>
+      ) : null}
+
       {points.length >= 2 ? (
         <>
-          <BodyMetricChart points={points} unit={metric.unit} />
+          <BodyMetricChart
+            points={points}
+            unit={metric.unit}
+            reference={showsTargetWeight ? { value: targetWeight.targetKg, label: "Obiettivo" } : null}
+          />
           <ToggleGroup
             variant="outline"
             spacing={0}

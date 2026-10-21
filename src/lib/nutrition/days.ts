@@ -85,3 +85,13 @@ export function formatElapsed(days: number) {
   const months = Math.round(days / 30);
   return months === 1 ? "in 1 mese" : `in ${months} mesi`;
 }
+
+const monthFormatter = new Intl.DateTimeFormat("it-IT", { month: "long", timeZone: "UTC" });
+
+export function formatDayWithArticle(isoDate: string, today: string) {
+  const [year, , day] = isoDate.split("-").map(Number);
+  const month = monthFormatter.format(new Date(`${isoDate}T12:00:00Z`));
+  const yearSuffix = isoDate.slice(0, 4) === today.slice(0, 4) ? "" : ` ${year}`;
+  const article = day === 8 || day === 11 ? "l'" : "il ";
+  return `${article}${day === 1 ? "1°" : day} ${month}${yearSuffix}`;
+}

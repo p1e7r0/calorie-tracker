@@ -134,6 +134,7 @@ async function Goals({ searchParams }: Pick<PageProps<"/profile">, "searchParams
           activityLevel: profile?.activityLevel ?? "light",
           goal: profile?.goal ?? "maintain",
           weeklyRateKg: profile?.weeklyRateKg ?? 0.5,
+          targetWeightKg: toFormNumber(profile?.targetWeightKg),
           customized: profile?.targetsCustomized ?? false,
           kcal: profile?.targetsCustomized ? toFormNumber(profile.targetKcal) : "",
           proteinG: profile?.targetsCustomized ? toFormNumber(profile.targetProteinG) : "",

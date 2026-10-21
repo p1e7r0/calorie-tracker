@@ -13,6 +13,12 @@ export function formatDecimal(value: number) {
   return decimalFormatter.format(value);
 }
 
+export function formatSignedDecimal(value: number) {
+  const rounded = Math.round(value * 10) / 10;
+  const sign = rounded > 0 ? "+" : rounded < 0 ? "−" : "";
+  return `${sign}${decimalFormatter.format(Math.abs(rounded))}`;
+}
+
 export function parseDecimal(value: string) {
   const normalized = value.trim().replace(/\s/g, "").replace(",", ".");
   if (normalized === "") return null;
