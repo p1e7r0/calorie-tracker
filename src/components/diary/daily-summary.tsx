@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { formatGrams, formatKcal } from "@/lib/nutrition/format";
 import type { Nutrients } from "@/lib/nutrition/nutrients";
 import { type ExtraNutrients, extraNutrients } from "@/lib/nutrition/extra-nutrients";
@@ -17,15 +18,24 @@ export function DailySummary({
   extras,
   targets,
   weekly,
+  incomplete,
 }: {
   totals: Nutrients;
   extras: ExtraNutrients;
   targets: DailyTargetsView;
   weekly: WeeklyBudget | null;
+  incomplete: boolean;
 }) {
+  const incompleteBadge = incomplete ? (
+    <Badge variant="outline" className="mb-2">
+      Giorno incompleto
+    </Badge>
+  ) : null;
+
   if (!targets) {
     return (
       <section aria-label="Riepilogo del giorno" className="rounded-2xl bg-card p-4 ring-1 ring-border">
+        {incompleteBadge}
         <p className="text-sm text-muted-foreground">Mangiate</p>
         <p className="font-heading text-5xl leading-none font-semibold tracking-tight">
           {formatKcal(totals.kcal)}
@@ -49,6 +59,7 @@ export function DailySummary({
 
   return (
     <section aria-label="Riepilogo del giorno" className="rounded-2xl bg-card p-4 ring-1 ring-border">
+      {incompleteBadge}
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="text-sm text-muted-foreground">{isOver ? "Oltre l'obiettivo" : "Restano"}</p>
@@ -141,6 +152,13 @@ function WeeklyBudgetRow({ weekly }: { weekly: WeeklyBudget }) {
           style={{ width: `${ratio * 100}%` }}
         />
       </div>
+      {weekly.incompletePastDays > 0 ? (
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          {weekly.incompletePastDays === 1
+            ? "Il giorno incompleto conta come in linea con l'obiettivo."
+            : `I ${weekly.incompletePastDays} giorni incompleti contano come in linea con l'obiettivo.`}
+        </p>
+      ) : null}
     </div>
   );
 }

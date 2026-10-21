@@ -163,7 +163,7 @@ describe("describeProgress", () => {
     days: 7,
     targets: { kcal: 2000, proteinG: 120, carbsG: 220, fatG: 70 },
     weights: [],
-    maintenance: { status: "insufficient" as const, loggedDays: 3, weightSpanDays: 0 },
+    maintenance: { status: "insufficient" as const, loggedDays: 3, weightSpanDays: 0, excludedIncompleteDays: 0 },
     suggestedTargetKcal: null,
   };
   const totals = (day: string, kcal: number) => ({ day, kcal, protein: 100, carbs: 200, fat: 60 });

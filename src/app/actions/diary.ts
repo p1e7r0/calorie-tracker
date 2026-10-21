@@ -7,7 +7,7 @@ import { database } from "@/db";
 import { diaryEntry } from "@/db/schema";
 import { requireUserId } from "@/lib/auth/session";
 import { isCopyOntoItself } from "@/lib/nutrition/copy-meal";
-import { isIsoDate } from "@/lib/nutrition/days";
+import { isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { mealTypes } from "@/lib/nutrition/meals";
 import {
   multiplyNutrients,
@@ -25,6 +25,7 @@ import {
   recipePortionExtras,
 } from "@/server/diary-entries";
 import { getVisibleFood } from "@/server/foods";
+import { setIncompleteDay } from "@/server/incomplete-days";
 import { getLoggableRecipe } from "@/server/recipes";
 
 export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
@@ -252,6 +253,25 @@ export async function copyMeal(input: z.input<typeof copyMealSchema>): Promise<A
     const created = await copyMealEntries(userId, copy);
     if (created.length > 0) refresh();
     return { ok: true, data: { entryIds: created.map((entry) => entry.id) } };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+const incompleteDaySchema = z.object({
+  day: isoDate.refine((day) => day <= todayIsoDate(), "Data non valida"),
+  incomplete: z.boolean(),
+});
+
+export async function markIncompleteDay(
+  input: z.input<typeof incompleteDaySchema>,
+): Promise<ActionResult<{ incomplete: boolean }>> {
+  try {
+    const userId = await requireUserId();
+    const { day, incomplete } = incompleteDaySchema.parse(input);
+    await setIncompleteDay(userId, day, incomplete);
+    refresh();
+    return { ok: true, data: { incomplete } };
   } catch (error) {
     return failure(error);
   }

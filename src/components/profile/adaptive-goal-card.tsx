@@ -55,6 +55,7 @@ export function AdaptiveGoalCard({ adaptiveGoal }: { adaptiveGoal: AdaptiveGoal 
           ) : (
             <p className="mt-3 text-sm text-muted-foreground">Compila i tuoi dati qui sopra per avere un obiettivo.</p>
           )}
+          <IncompleteDaysNote count={estimate.excludedIncompleteDays} />
         </>
       ) : estimate.status === "implausible" ? (
         <p className="mt-1 text-sm text-muted-foreground">
@@ -77,9 +78,21 @@ export function AdaptiveGoalCard({ adaptiveGoal }: { adaptiveGoal: AdaptiveGoal 
             value={estimate.weightSpanDays}
             required={requiredWeightSpanDays}
           />
+          <IncompleteDaysNote count={estimate.excludedIncompleteDays} />
         </>
       )}
     </section>
+  );
+}
+
+function IncompleteDaysNote({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <p className="mt-3 text-xs text-muted-foreground">
+      {count === 1
+        ? "Un giorno segnato come incompleto non conta nella stima."
+        : `${count} giorni segnati come incompleti non contano nella stima.`}
+    </p>
   );
 }
 

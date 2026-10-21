@@ -85,6 +85,13 @@
       "when": 1792335732260,
       "tag": "0011_target_weight",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792335895661,
+      "tag": "0012_incomplete_day",
+      "breakpoints": true
     }
   ]
 }

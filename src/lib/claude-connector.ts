@@ -1,6 +1,6 @@
 import {
   adaptiveWindowDays,
-  incompleteDayKcal,
+  partialDayKcal,
   type MaintenanceEstimate,
   requiredLoggedDays,
   requiredWeightSpanDays,
@@ -192,7 +192,7 @@ export function describeProgress({
 }) {
   const fromDay = addDays(today, -(days - 1));
   const inPeriod = dailyTotals.filter((totals) => totals.day >= fromDay && totals.day <= today);
-  const completeDays = inPeriod.filter((totals) => totals.day < today && totals.kcal >= incompleteDayKcal);
+  const completeDays = inPeriod.filter((totals) => totals.day < today && totals.kcal >= partialDayKcal);
   const completeTotals = sumNutrients(completeDays);
   const average =
     completeDays.length > 0
@@ -210,7 +210,7 @@ export function describeProgress({
     toDay: today,
     days: inPeriod.map((totals) => ({ day: totals.day, ...roundNutrients(totals) })),
     average: average && { ...average, overDays: completeDays.length },
-    note: `Average over the logged days before today with at least ${incompleteDayKcal} kcal; days without entries are missing from the list.`,
+    note: `Average over the logged days before today with at least ${partialDayKcal} kcal; days without entries are missing from the list.`,
     targets: targets
       ? { kcal: targets.kcal, protein: targets.proteinG, carbs: targets.carbsG, fat: targets.fatG }
       : null,
