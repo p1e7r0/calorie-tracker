@@ -163,7 +163,8 @@ I flag sono costanti booleane calcolate all'avvio, non funzioni.
 - Se manca `.vercel/project.json` (è in `.gitignore`): `npx vercel@64.3.1 link --scope p1e7r0s-projects --project bilancia`.
 - Non eseguire `vercel env pull` su `.env.local`: sovrascriverebbe la configurazione del branch dev con quella di produzione.
 - Smoke test in produzione con utenti `smoke-test-*@example.com` che si cancellano alla fine (Profilo › Impostazioni › Elimina l'account). In produzione c'è un solo utente reale: non toccare i suoi dati.
-- Nuove variabili: impostarle su Vercel per nome (`npx vercel env add <NOME> production`); i preview deployment (push di altri branch) non hanno variabili.
+- Nuove variabili: impostarle su Vercel per nome (`npx vercel env add <NOME> production`, `preview` se servono anche ai preview).
+- Preview deployment (push di altri branch): usano Neon **dev** e un `BETTER_AUTH_SECRET` proprio; senza `BETTER_AUTH_URL` l'URL base arriva da `VERCEL_BRANCH_URL`/`VERCEL_URL` (`src/lib/auth/mcp-resource.ts`). Applicare a dev le migrazioni del branch prima del push. Per provarli da terminale (protetti da Vercel Authentication): `npx vercel@64.3.1 curl <percorso> --deployment <url>`.
 - `.vercelignore` esclude i file `.env*` (tranne `.env.example`).
 
 ## Problemi noti e soluzioni
