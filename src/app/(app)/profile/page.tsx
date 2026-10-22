@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { toFormNumber } from "@/components/food/food-form-values";
+import { CookwareSettings } from "@/components/cookware/cookware-settings";
 import { AccountSummary } from "@/components/profile/account-summary";
 import { AdaptiveGoalCard } from "@/components/profile/adaptive-goal-card";
 import { ClaudeConnectorSettings } from "@/components/profile/claude-connector-settings";
@@ -21,6 +22,7 @@ import { todayIsoDate } from "@/lib/nutrition/days";
 import { getAdaptiveGoal } from "@/server/adaptive-goal";
 import { isAiEnabled } from "@/server/ai";
 import { getApiTokenInfo } from "@/server/api-tokens";
+import { listCookware } from "@/server/cookware";
 import { getClaudeClientCreatedAt } from "@/server/oauth-clients";
 import { getProfileWithLatestWeight } from "@/server/profile";
 import { isPushEnabled } from "@/server/push";
@@ -67,6 +69,14 @@ export default function ProfilePage({ searchParams }: PageProps<"/profile">) {
               </h2>
               <Suspense fallback={<Skeleton className="h-11 w-full" />}>
                 <AccountSummary />
+              </Suspense>
+            </section>
+            <section aria-labelledby="cookware-heading" className="flex flex-col gap-2">
+              <h2 id="cookware-heading" className="text-sm font-medium text-muted-foreground">
+                Pentole
+              </h2>
+              <Suspense fallback={<Skeleton className="h-24 w-full" />}>
+                <Cookware />
               </Suspense>
             </section>
             {isPushEnabled ? (
@@ -185,6 +195,12 @@ async function Reminders() {
       initialWeighInWeekday={profile?.reminderWeighInWeekday ?? null}
     />
   );
+}
+
+async function Cookware() {
+  const user = await getCurrentUser();
+  const cookware = await listCookware(user.id);
+  return <CookwareSettings cookware={cookware} />;
 }
 
 async function ClaudeConnector() {

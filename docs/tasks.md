@@ -70,3 +70,4 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] `fix/connector-incomplete-days`: `get_progress` del connettore esclude dalle medie i giorni segnati come incompleti, li conta in linea nel budget settimanale e li indica con `incomplete: true`, come l'app
 - [x] `chore/docs-refresh`: README, CLAUDE.md, CONTEXT.md e spec allineati alle funzionalità di T34-T37 e ai branch del 2026-10-18 (strumenti del connettore, Siri, struttura del repository, modello dati, glossario)
 - [x] `fix/keyboard-covers-overlays`: su iOS la tastiera non copre più la quantità nella scheda dell'alimento e della ricetta; drawer, dialog, scanner barcode e selettore degli ingredienti seguono il visual viewport (`--keyboard-inset`)
+- [x] `feature/cookware-tare`: pentole salvate con il peso a vuoto (Profilo › Impostazioni › Pentole, migrazione 0014) e «Pesa con la pentola» nell'editor della ricetta, che toglie la tara dal peso totale

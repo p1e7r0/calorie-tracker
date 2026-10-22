@@ -253,6 +253,23 @@ export const savedMealItem = pgTable(
   ],
 );
 
+export const cookware = pgTable(
+  "cookware",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    weightG: real().notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("cookware_user_index").on(table.userId),
+    check("cookware_weight_positive", sql`${table.weightG} > 0`),
+  ],
+);
+
 export const measurement = pgTable(
   "measurement",
   {

@@ -8,6 +8,7 @@ import { RecipeEditor } from "@/components/recipes/recipe-editor";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getRecipeForEditing } from "@/server/recipes";
+import { listCookware } from "@/server/cookware";
 import { ingredientSuggestions } from "@/server/suggestions";
 
 export const metadata: Metadata = { title: "Modifica ricetta" };
@@ -34,9 +35,10 @@ export default function EditRecipePage({ params }: PageProps<"/recipes/[recipeId
 async function EditRecipe({ params }: Pick<PageProps<"/recipes/[recipeId]/edit">, "params">) {
   const user = await getCurrentUser();
   const { recipeId } = await params;
-  const [recipe, suggestions] = await Promise.all([
+  const [recipe, suggestions, cookware] = await Promise.all([
     /^[0-9a-f-]{36}$/.test(recipeId) ? getRecipeForEditing(user.id, recipeId) : null,
     ingredientSuggestions(user.id),
+    listCookware(user.id),
   ]);
   if (!recipe) notFound();
 
@@ -46,6 +48,7 @@ async function EditRecipe({ params }: Pick<PageProps<"/recipes/[recipeId]/edit">
       <RecipeEditor
         recipeId={recipe.id}
         suggestions={suggestions}
+        cookware={cookware}
         initialValues={{
           name: recipe.name,
           servings: recipe.servings,
