@@ -18,7 +18,7 @@ test("saves cookware and subtracts it from the weighed recipe", async ({ page })
   await drawer.getByLabel("Nome").fill("Padella grande");
   await drawer.getByLabel("Peso vuota").fill("1.250");
   await drawer.getByRole("button", { name: "Salva pentola" }).click();
-  await expect(page.getByRole("button", { name: "Modifica Padella grande" })).toContainText("1.250 g");
+  await expect(page.getByRole("button", { name: "Modifica Padella grande" })).toContainText("1250 g");
 
   await page.goto("/recipes/new");
   await page.waitForLoadState("networkidle");
