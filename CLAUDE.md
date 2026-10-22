@@ -31,9 +31,9 @@ Versioni esatte in `package.json`.
 
 ## Struttura del repository
 - `src/app/(app)`: schermate con bottom nav: `/` (Oggi), `/food`, `/progress`, `/profile`
-- `src/app/(focus)`: schermate senza bottom nav: `/add`, `/food/new`, `/food/[foodId]`, `/food/[foodId]/edit`, `/meals/[savedMealId]`, `/recipes/new`, `/recipes/[recipeId]`, `/recipes/[recipeId]/edit`
+- `src/app/(focus)`: schermate senza bottom nav: `/add`, `/food/new`, `/food/[foodId]`, `/food/[foodId]/edit`, `/meals/[savedMealId]`, `/prepared/new` (anche `?recipe=`), `/prepared/[preparedMealId]`, `/recipes/new`, `/recipes/[recipeId]`, `/recipes/[recipeId]/edit`
 - `src/app/(auth)`: login, register, forgot-password, reset-password, consent (consenso OAuth del connettore per Claude) (layout scrollabile normale)
-- `src/app/actions/*.ts`: server actions (`"use server"`) per dominio: diary, foods, recipes, measurements, profile, saved-meals, reminders, open-food-facts, ai, claude-connector (credenziali OAuth), shortcut-token (token Siri), cookware (pentole)
+- `src/app/actions/*.ts`: server actions (`"use server"`) per dominio: diary, foods, recipes, measurements, profile, saved-meals, prepared-meals, reminders, open-food-facts, ai, claude-connector (credenziali OAuth), shortcut-token (token Siri), cookware (pentole)
 - `src/app/api`: `auth/[...all]`, `foods/search`, `open-food-facts/search`, `diary/[day]` (anteprima della copia da un altro giorno), `export/[kind]` (CSV), `cron/evening-reminder`, `cron/weigh-in-reminder`, `mcp` (connettore per Claude, token OAuth), `shortcuts/meal` (Siri, token personale)
 - `src/app/manifest.ts`, `src/app/icons/*`, `src/app/apple-icon.tsx`, `public/sw.js` (PWA, solo push)
 - `src/proxy.ts`: equivalente Next 16 del middleware (export `proxy`)
@@ -76,7 +76,7 @@ Versioni esatte in `package.json`.
 - Le mutazioni riuscite chiamano `refresh()` da `next/cache` (non `revalidatePath`).
 - Quasi ogni file di action ha il suo `failure()` (`profile.ts` gestisce l'errore inline): `diary.ts` e `reminders.ts` nascondono i messaggi zod, gli altri mostrano il primo messaggio zod, quindi i messaggi di `refine`/`min` vanno scritti in italiano. `ai.ts` e `open-food-facts.ts` trasformano gli errori esterni in un messaggio generico ("... non risponde. Riprova tra poco.").
 - I moduli `src/server/*` ricevono `userId` come parametro e si fidano: mai passare un `userId` arrivato dal client.
-- La logica di scrittura sta nei moduli server (`diary-entries`, `food-writes`, `recipe-writes`, `saved-meals`, `measurements`, `profile-writes`), condivisa da action e connettore per Claude: le action fanno solo `requireUserId()`, `refresh()` e la conversione dell'errore. Una nuova funzione dell'app che scrive dati va esposta anche come strumento in `src/server/claude-connector.ts`, con le istruzioni in `src/lib/claude-connector.ts`.
+- La logica di scrittura sta nei moduli server (`diary-entries`, `food-writes`, `recipe-writes`, `saved-meals`, `prepared-meals`, `measurements`, `profile-writes`), condivisa da action e connettore per Claude: le action fanno solo `requireUserId()`, `refresh()` e la conversione dell'errore. Una nuova funzione dell'app che scrive dati va esposta anche come strumento in `src/server/claude-connector.ts`, con le istruzioni in `src/lib/claude-connector.ts`.
 - Pagine: `getCurrentUser()` (redirect a `/login`); action: `requireUserId()`; route handler: `auth.api.getSession({ headers: await headers() })` con 401 `{ error: "Non autenticato" }`. Eccezioni: `/api/mcp` accetta solo il token OAuth del connettore, `/api/shortcuts/meal` solo il token personale di Siri (`authenticateApiToken`).
 - `src/proxy.ts` controlla solo la presenza del cookie di sessione e il matcher esclude `/api`: l'autenticazione vera va fatta in ogni handler e action. Nuove route pubbliche vanno in `publicPaths` o nelle esclusioni del matcher.
 
@@ -85,12 +85,13 @@ Versioni esatte in `package.json`.
 - Modificare un cibo globale crea una copia personale con `replacesFoodId` (copy-on-write, `updateFood`), sposta il preferito; l'id restituito può differire da quello in ingresso.
 - Ogni lettura di cibi per un utente passa da `visibleFoodCondition(userId)` (`src/server/foods.ts`): esclude archiviati e globali sostituiti dall'utente.
 - Cibi e ricette si archiviano (`archived_at`), non si cancellano.
-- Ricette, diario, misure, pasti salvati, pentole, push subscription sono strettamente per utente.
+- Ricette, diario, misure, pasti salvati, pasti pronti, pentole, push subscription sono strettamente per utente.
 
 ### Diario
 - `diary_entry` salva uno snapshot dei nutrienti (kcal, proteine, carboidrati, grassi + extra fibre, zuccheri, grassi saturi, sale) calcolato da `resolveEntryValues`; `food_id`/`recipe_id` sono `ON DELETE SET NULL`. Non ricalcolare lo storico dai valori attuali.
 - Tipi di voce: `food`, `recipe`, `quick` ("Kcal veloci"). Porzione ricetta in grammi (peso cotto) oppure in porzioni.
-- `diary_entry.source` dice chi ha creato la voce: `app` (default), `connector` (Claude) o `shortcut` (Siri); `insertDiaryEntries` e `copyMealEntries` lo ricevono come ultimo parametro.
+- `diary_entry.source` dice chi ha creato la voce: `app` (default), `connector` (Claude) o `shortcut` (Siri); `insertDiaryEntries`, `copyMealEntries` e `consumePreparedMeal` lo ricevono come ultimo parametro.
+- Pasti pronti (`prepared_meal` + `prepared_meal_item`, `src/server/prepared-meals.ts`): porzioni in frigo o in congelatore; le voci salvano lo snapshot di **una porzione** al momento della preparazione e `consumePreparedMeal` lo copia nel diario così com'è (non ricalcola dalla ricetta) togliendo una porzione nella stessa transazione. A zero porzioni la riga resta (serve ad «Annulla», `restorePreparedMealPortion`) ed è nascosta dalle liste; cambiare frigo/congelatore riporta `stored_on` a oggi.
 - Valori nutrizionali dei cibi per 100 g/ml.
 - Giorni come stringhe ISO `yyyy-mm-dd`, fuso fisso `Europe/Rome` (`todayIsoDate()` in `src/lib/nutrition/days.ts`).
 

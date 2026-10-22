@@ -8,10 +8,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth/client";
 
 const permissions = [
-  "Cercare tra i tuoi alimenti, le tue ricette e i pasti salvati",
+  "Cercare tra i tuoi alimenti, le tue ricette, i pasti salvati e quelli pronti",
   "Leggere il diario, i progressi, le misurazioni e il profilo",
   "Aggiungere, modificare ed eliminare voci nel diario",
-  "Creare, modificare ed eliminare alimenti, ricette e pasti salvati",
+  "Creare, modificare ed eliminare alimenti, ricette, pasti salvati e pasti pronti",
   "Registrare, correggere ed eliminare peso e misure",
   "Cambiare gli obiettivi del profilo",
 ];

@@ -75,7 +75,7 @@ async function connectClaude(page: Page, browser: Browser, request: APIRequestCo
   await claudePage.getByRole("button", { name: "Accedi" }).click();
   await expect(claudePage).toHaveURL(/\/consent\?/);
   await expect(claudePage.getByRole("heading", { name: "Collega Claude" })).toBeVisible();
-  await expect(claudePage.getByText("Creare, modificare ed eliminare alimenti, ricette e pasti salvati")).toBeVisible();
+  await expect(claudePage.getByText("Creare, modificare ed eliminare alimenti, ricette, pasti salvati e pasti pronti")).toBeVisible();
   await claudePage.waitForLoadState("networkidle");
   const callback = claudePage.waitForRequest(/^https:\/\/claude\.ai\/api\/mcp\/auth_callback/);
   await claudePage.getByRole("button", { name: "Consenti" }).click();
@@ -523,4 +523,95 @@ test("Claude edits and deletes foods, recipes, entries, saved meals, measurement
 
   const removed = toolPayload(await callTool("delete_measurement", { measurementId: weighIn.measurementId }));
   expect(removed).toMatchObject({ deleted: { day: today, weightKg: 70.2 }, trend: null });
+});
+
+test("Claude stores prepared meals and logs their portions", async ({ page, browser, request }) => {
+  test.setTimeout(120_000);
+  const { tokens } = await connectClaude(page, browser, request);
+  let requestId = 10;
+  const callTool = (name: string, toolArguments: object) =>
+    callMcp(request, tokens.access_token, "tools/call", { name, arguments: toolArguments }, requestId++);
+  const suffix = Date.now();
+
+  const tools = await callMcp(request, tokens.access_token, "tools/list", {}, 2);
+  expect(tools.tools.map((tool: { name: string }) => tool.name)).toEqual(
+    expect.arrayContaining(["list_prepared_meals", "create_prepared_meal", "update_prepared_meal", "delete_prepared_meal"]),
+  );
+
+  const chickpeas = toolPayload(
+    await callTool("create_food", { name: `Ceci lessati ${suffix}`, kcal: 120, protein: 7, carbs: 18, fat: 2 }),
+  ).food;
+  const bread = toolPayload(
+    await callTool("create_food", { name: `Pane integrale ${suffix}`, kcal: 250, protein: 9, carbs: 45, fat: 3 }),
+  ).food;
+  const stew = toolPayload(
+    await callTool("create_recipe", {
+      name: `Zuppa di ceci ${suffix}`,
+      servings: 4,
+      ingredients: [{ foodId: chickpeas.foodId, grams: 1000 }],
+    }),
+  ).recipe;
+
+  const created = toolPayload(
+    await callTool("create_prepared_meal", {
+      name: `Zuppa ${suffix}`,
+      location: "freezer",
+      portions: 2,
+      items: [
+        { type: "recipe", recipeId: stew.recipeId, servings: 1 },
+        { type: "food", foodId: bread.foodId, grams: 40 },
+      ],
+    }),
+  ).preparedMeal;
+  expect(created).toMatchObject({
+    name: `Zuppa ${suffix}`,
+    location: "freezer",
+    portionsLeft: 2,
+    portion: { kcal: 400, items: [{ name: `Zuppa di ceci ${suffix}`, servings: 1 }, { name: `Pane integrale ${suffix}`, grams: 40 }] },
+  });
+
+  await callTool("update_recipe", { recipeId: stew.recipeId, servings: 2 });
+  const found = toolPayload(await callTool("search_foods", { query: `zuppa ${suffix}` }));
+  expect(found.preparedMeals).toEqual([expect.objectContaining({ preparedMealId: created.preparedMealId })]);
+  expect(found.preparedMeals[0].portion.kcal).toBe(400);
+
+  const thawed = toolPayload(
+    await callTool("update_prepared_meal", { preparedMealId: created.preparedMealId, location: "fridge" }),
+  ).preparedMeal;
+  expect(thawed).toMatchObject({ location: "fridge", portionsLeft: 2 });
+
+  const tooMany = await callTool("log_meal", {
+    meal: "dinner",
+    items: [1, 2, 3].map(() => ({ type: "preparedMeal", preparedMealId: created.preparedMealId })),
+  });
+  expect(tooMany.isError).toBe(true);
+  expect(tooMany.content[0].text).toContain("Only 2 portion(s)");
+
+  const dinner = toolPayload(
+    await callTool("log_meal", {
+      meal: "dinner",
+      items: [{ type: "preparedMeal", preparedMealId: created.preparedMealId }],
+    }),
+  );
+  expect(dinner.logged).toEqual([
+    expect.objectContaining({ type: "recipe", recipeId: stew.recipeId, kcal: 300 }),
+    expect.objectContaining({ type: "food", foodId: bread.foodId, kcal: 100 }),
+  ]);
+  expect(dinner.preparedMealsLeft).toEqual([{ name: `Zuppa ${suffix}`, portionsLeft: 1 }]);
+
+  const listed = toolPayload(await callTool("list_prepared_meals", {}));
+  expect(listed.preparedMeals).toEqual([expect.objectContaining({ portionsLeft: 1, storedOn: listed.today })]);
+
+  await page.goto("/food?tab=prepared");
+  await expect(page.getByRole("region", { name: "Frigo" }).getByRole("link", { name: /Zuppa/ })).toContainText(
+    "1 porzione",
+  );
+
+  expect(toolPayload(await callTool("delete_prepared_meal", { preparedMealId: created.preparedMealId }))).toEqual({
+    deleted: `Zuppa ${suffix}`,
+  });
+  expect(toolPayload(await callTool("list_prepared_meals", {})).preparedMeals).toHaveLength(0);
+  expect(
+    (await callTool("log_meal", { items: [{ type: "preparedMeal", preparedMealId: created.preparedMealId }] })).isError,
+  ).toBe(true);
 });

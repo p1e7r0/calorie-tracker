@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { AddEntryInput } from "@/app/actions/diary";
 import { MacroLine } from "@/components/diary/macro-line";
 import { gramsShortcut, QuantityField, type QuantityShortcut } from "@/components/diary/quantity-field";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,14 @@ function toInputValue(value: number) {
   return formatDecimal(value).replace(/\./g, "");
 }
 
+export type ChosenQuantity = Extract<AddEntryInput["item"], { type: "food" | "recipe" }>;
+
+type QuantityProperties = {
+  submitLabel: string;
+  isPending: boolean;
+  onSubmit: (quantity: ChosenQuantity) => void;
+};
+
 export function LogItemDrawer({
   item,
   day,
@@ -38,55 +47,52 @@ export function LogItemDrawer({
   onLogged: () => void;
   onUndone?: () => void;
 }) {
+  const { isPending, log } = useLogEntry(onLogged, onUndone);
+  return (
+    <ItemQuantityDrawer
+      item={item}
+      submitLabel={`Aggiungi a ${mealLabels[meal].toLowerCase()}`}
+      isPending={isPending}
+      onSubmit={(quantity) => log({ day, meal, item: quantity }, item.name)}
+      onOpenChange={onOpenChange}
+    />
+  );
+}
+
+export function ItemQuantityDrawer({
+  item,
+  onOpenChange,
+  ...properties
+}: QuantityProperties & { item: LoggableItem; onOpenChange: (open: boolean) => void }) {
   return (
     <Drawer open onOpenChange={onOpenChange}>
       <DrawerContent>
         {item.type === "food" ? (
-          <FoodQuantity food={item} day={day} meal={meal} onLogged={onLogged} onUndone={onUndone} />
+          <FoodQuantity food={item} {...properties} />
         ) : (
-          <RecipeQuantity recipe={item} day={day} meal={meal} onLogged={onLogged} onUndone={onUndone} />
+          <RecipeQuantity recipe={item} {...properties} />
         )}
       </DrawerContent>
     </Drawer>
   );
 }
 
-function FoodQuantity({
-  food,
-  day,
-  meal,
-  onLogged,
-  onUndone,
-}: {
-  food: LoggableFood;
-  day: string;
-  meal: MealType;
-  onLogged: () => void;
-  onUndone?: () => void;
-}) {
+function FoodQuantity({ food, submitLabel, isPending, onSubmit }: QuantityProperties & { food: LoggableFood }) {
   const defaultGrams = food.lastGrams ?? food.portions[0]?.grams ?? 100;
   const [quantity, setQuantity] = useState(() => toInputValue(defaultGrams));
   const [portionLabel, setPortionLabel] = useState<string | null>(null);
-  const { isPending, log } = useLogEntry(onLogged, onUndone);
   const grams = parseDecimal(quantity);
   const preview = scaleNutrients(food.per100, grams ?? 0);
   const canLog = !isPending && grams !== null && grams > 0;
 
   function submit() {
     if (!canLog) return;
-    log(
-      {
-        day,
-        meal,
-        item: {
-          type: "food",
-          foodId: food.id,
-          grams,
-          portionLabel: portionLabel ? `${portionLabel} (${formatGrams(grams)} ${food.unit})` : null,
-        },
-      },
-      food.name,
-    );
+    onSubmit({
+      type: "food",
+      foodId: food.id,
+      grams,
+      portionLabel: portionLabel ? `${portionLabel} (${formatGrams(grams)} ${food.unit})` : null,
+    });
   }
 
   const shortcuts: QuantityShortcut[] = [
@@ -132,26 +138,14 @@ function FoodQuantity({
       </form>
       <DrawerFooter className="pb-[max(1rem,env(safe-area-inset-bottom))]">
         <Button size="lg" disabled={!canLog} onClick={submit}>
-          Aggiungi a {mealLabels[meal].toLowerCase()}
+          {submitLabel}
         </Button>
       </DrawerFooter>
     </>
   );
 }
 
-function RecipeQuantity({
-  recipe,
-  day,
-  meal,
-  onLogged,
-  onUndone,
-}: {
-  recipe: LoggableRecipe;
-  day: string;
-  meal: MealType;
-  onLogged: () => void;
-  onUndone?: () => void;
-}) {
+function RecipeQuantity({ recipe, submitLabel, isPending, onSubmit }: QuantityProperties & { recipe: LoggableRecipe }) {
   const [mode, setMode] = useState<"servings" | "grams">(() => {
     if (recipe.lastServings) return "servings";
     if (recipe.lastGrams) return "grams";
@@ -161,7 +155,6 @@ function RecipeQuantity({
     if (mode === "servings") return toInputValue(recipe.lastServings ?? 1);
     return toInputValue(recipe.lastGrams ?? Math.round(recipe.finalWeightG / recipe.servings));
   });
-  const { isPending, log } = useLogEntry(onLogged, onUndone);
   const amount = parseDecimal(quantity);
   const preview =
     mode === "servings"
@@ -171,19 +164,12 @@ function RecipeQuantity({
 
   function submit() {
     if (!canLog) return;
-    log(
-      {
-        day,
-        meal,
-        item: {
-          type: "recipe",
-          recipeId: recipe.id,
-          grams: mode === "grams" ? amount : null,
-          servings: mode === "servings" ? amount : null,
-        },
-      },
-      recipe.name,
-    );
+    onSubmit({
+      type: "recipe",
+      recipeId: recipe.id,
+      grams: mode === "grams" ? amount : null,
+      servings: mode === "servings" ? amount : null,
+    });
   }
 
   const shortcuts: QuantityShortcut[] =
@@ -249,7 +235,7 @@ function RecipeQuantity({
       </form>
       <DrawerFooter className="pb-[max(1rem,env(safe-area-inset-bottom))]">
         <Button size="lg" disabled={!canLog} onClick={submit}>
-          Aggiungi a {mealLabels[meal].toLowerCase()}
+          {submitLabel}
         </Button>
       </DrawerFooter>
     </>
