@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   describeDay,
   describeFoodCandidate,
+  describeFoodDetail,
+  describeMeasurement,
+  describeProfile,
+  describeRecipeDetail,
   describeProgress,
   describeRecipeCandidate,
   describeSavedMeal,
@@ -80,6 +84,9 @@ describe("describeDay", () => {
           {
             id: "entry-1",
             meal: "breakfast" as const,
+            kind: "food" as const,
+            foodId: "food-1",
+            recipeId: null,
             label: "Latte",
             grams: 200,
             servings: null,
@@ -97,6 +104,8 @@ describe("describeDay", () => {
   it("labels meals in Italian and computes the kcal left", () => {
     const summary = describeDay("2026-10-16", diary, { kcal: 2000, proteinG: 120, carbsG: 220, fatG: 70 });
     expect(summary.meals[0]).toMatchObject({ label: "Colazione", entries: [{ entryId: "entry-1", kcal: 128 }] });
+    expect(summary.meals[0].entries[0]).toMatchObject({ type: "food", foodId: "food-1" });
+    expect(summary.meals[0].entries[0]).not.toHaveProperty("recipeId");
     expect(summary.remainingKcal).toBe(1872);
     expect(summary.targets).toEqual({ kcal: 2000, protein: 120, carbs: 220, fat: 70 });
   });
@@ -114,8 +123,8 @@ describe("describeSavedMeal", () => {
         name: "Colazione solita",
         defaultMeal: "breakfast",
         items: [
-          { name: "Latte", grams: 200.04, servings: null },
-          { name: "Torta di mele", grams: null, servings: 1 },
+          { id: "item-1", name: "Latte", grams: 200.04, servings: null },
+          { id: "item-2", name: "Torta di mele", grams: null, servings: 1 },
         ],
         totals: { kcal: 420.6, protein: 12.04, carbs: 60, fat: 14.26 },
       }),
@@ -124,13 +133,127 @@ describe("describeSavedMeal", () => {
       name: "Colazione solita",
       meal: "breakfast",
       items: [
-        { name: "Latte", grams: 200, servings: null },
-        { name: "Torta di mele", grams: null, servings: 1 },
+        { itemId: "item-1", name: "Latte", grams: 200, servings: null },
+        { itemId: "item-2", name: "Torta di mele", grams: null, servings: 1 },
       ],
       kcal: 421,
       protein: 12,
       carbs: 60,
       fat: 14.3,
+    });
+  });
+});
+
+describe("describeFoodDetail", () => {
+  it("keeps one decimal and the optional values for editing", () => {
+    expect(
+      describeFoodDetail({
+        id: "food-1",
+        name: "Yogurt greco",
+        brand: null,
+        barcode: "8001234567890",
+        source: "user",
+        unit: "g",
+        kcal: 96.64,
+        protein: 9.04,
+        carbs: 3.96,
+        fat: 5.01,
+        sugars: 3.96,
+        saturatedFat: null,
+        fiber: 0,
+        salt: 0.12,
+        portions: [{ label: "1 vasetto", grams: 170 }],
+        isFavorite: false,
+        isOwn: true,
+      }),
+    ).toEqual({
+      foodId: "food-1",
+      name: "Yogurt greco",
+      brand: null,
+      barcode: "8001234567890",
+      source: "user",
+      unit: "g",
+      per100: { kcal: 96.6, protein: 9, carbs: 4, sugars: 4, fat: 5, saturatedFat: null, fiber: 0, salt: 0.1 },
+      portions: [{ label: "1 vasetto", grams: 170 }],
+      favorite: false,
+      own: true,
+    });
+  });
+});
+
+describe("describeRecipeDetail", () => {
+  it("lists the ingredients with their kcal", () => {
+    const detail = describeRecipeDetail(
+      {
+        id: "recipe-1",
+        name: "Porridge",
+        per100: { kcal: 80, protein: 4, carbs: 11, fat: 2 },
+        perServing: { kcal: 240, protein: 12, carbs: 33, fat: 6 },
+        servings: 2,
+        finalWeightG: 600,
+        hasCookedWeight: true,
+      },
+      {
+        notes: null,
+        isFavorite: true,
+        ingredients: [
+          { foodId: "food-1", name: "Fiocchi d'avena", unit: "g", grams: 80, per100: { kcal: 372, protein: 13.5, carbs: 58.7, fat: 7 } },
+        ],
+      },
+    );
+    expect(detail).toMatchObject({ recipeId: "recipe-1", cookedWeightG: 600, notes: null, favorite: true });
+    expect(detail.ingredients).toEqual([{ foodId: "food-1", name: "Fiocchi d'avena", unit: "g", grams: 80, kcal: 298 }]);
+  });
+});
+
+describe("describeMeasurement", () => {
+  it("leaves out the empty values", () => {
+    expect(
+      describeMeasurement({
+        id: "measurement-1",
+        measuredOn: "2026-10-20",
+        weightKg: 81.5,
+        bodyFatPercent: 22,
+        musclePercent: null,
+        visceralFat: null,
+        bodyWaterPercent: null,
+        boneMassKg: null,
+        waistCm: 90,
+        hipCm: null,
+        note: null,
+      }),
+    ).toEqual({ measurementId: "measurement-1", day: "2026-10-20", weightKg: 81.5, bodyFatPercent: 22, waistCm: 90 });
+  });
+});
+
+describe("describeProfile", () => {
+  it("reports a missing profile as incomplete", () => {
+    expect(describeProfile(null, null)).toMatchObject({ complete: false, goal: null, targets: null });
+  });
+
+  it("hides the weekly rate when the goal is to maintain", () => {
+    const summary = describeProfile(
+      {
+        sex: "female",
+        birthDate: "1990-05-01",
+        heightCm: 168,
+        activityLevel: "light",
+        goal: "maintain",
+        weeklyRateKg: 0.5,
+        targetWeightKg: null,
+        targetKcal: 1900,
+        targetProteinG: 110,
+        targetCarbsG: 220,
+        targetFatG: 65,
+        targetsCustomized: false,
+      },
+      { weightKg: 62.04, measuredOn: "2026-10-20" },
+    );
+    expect(summary).toMatchObject({
+      complete: true,
+      weeklyRateKg: null,
+      latestWeight: { day: "2026-10-20", kg: 62 },
+      targets: { kcal: 1900, protein: 110, carbs: 220, fat: 65, custom: false },
     });
   });
 });

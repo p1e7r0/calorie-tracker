@@ -45,6 +45,7 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T35 Connettore per Claude: creare alimenti e ricette, codice a barre, pasti salvati, pesata e progressi; controlli di coerenza dei valori nutrizionali anche nel form
 - [x] T36 Siri: `POST /api/shortcuts/meal` registra un pasto dettato (alimenti, ricette, pasti salvati) con due chiamate AI fisse; `DELETE` annulla l'ultimo; token personale con un solo permesso dal profilo
 - [x] T37 Connettore per Claude: `copy_meal` copia un pasto da un giorno qualsiasi (ripreso da `feature/claude-connector-tools`, i cui `log_weight` e `get_summary` erano già coperti da T35)
+- [x] T38 Connettore per Claude: modifica ed eliminazione di voci, alimenti, ricette, pasti salvati e misure, preferiti, giorno incompleto, profilo e obiettivi (logica di scrittura condivisa con le action in `src/server/*`)
 
 ## Fix successivi
 

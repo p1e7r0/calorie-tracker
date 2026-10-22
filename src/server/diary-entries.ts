@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { database } from "@/db";
 import { diaryEntry } from "@/db/schema";
@@ -11,7 +11,7 @@ import {
   roundExtras,
   scaleExtras,
 } from "@/lib/nutrition/extra-nutrients";
-import type { MealType } from "@/lib/nutrition/meals";
+import { type MealType, mealTypes } from "@/lib/nutrition/meals";
 import { multiplyNutrients, type Nutrients, roundNutrients, scaleNutrients } from "@/lib/nutrition/nutrients";
 import { recipePortionNutrients, type RecipeNutrition } from "@/lib/nutrition/recipe";
 import { getVisibleFood } from "./foods";
@@ -184,5 +184,91 @@ export async function copyMealEntries(
         source,
       })),
     )
+    .returning();
+}
+
+export const entryUpdateSchema = z.object({
+  id: z.uuid(),
+  meal: z.enum(mealTypes).nullish(),
+  grams: quantity.nullish(),
+  servings: z.number().positive().max(100).nullish(),
+  kcal: z.number().min(0).max(20_000).nullish(),
+  portionLabel: z.string().trim().max(200).nullish(),
+});
+
+export type EntryUpdate = z.input<typeof entryUpdateSchema>;
+
+export async function editDiaryEntry(userId: string, input: EntryUpdate) {
+  const update = entryUpdateSchema.parse(input);
+  const [entry] = await database
+    .select()
+    .from(diaryEntry)
+    .where(and(eq(diaryEntry.id, update.id), eq(diaryEntry.userId, userId)));
+  if (!entry) throw new Error("Voce non trovata.");
+
+  const snapshot: Nutrients = {
+    kcal: entry.kcal,
+    protein: entry.protein,
+    carbs: entry.carbs,
+    fat: entry.fat,
+  };
+  let nutrients = snapshot;
+  let extras = extrasFromRow(entry);
+  let grams = entry.grams;
+  let servings = entry.servings;
+  let portionLabel = entry.portionLabel;
+
+  if (entry.kind === "quick") {
+    if (update.kcal !== null && update.kcal !== undefined) {
+      nutrients = entry.kcal > 0 ? multiplyNutrients(snapshot, update.kcal / entry.kcal) : { ...snapshot, kcal: update.kcal };
+      extras = entry.kcal > 0 ? multiplyExtras(extras, update.kcal / entry.kcal) : extras;
+    }
+  } else if (entry.kind === "food" && update.grams) {
+    const foodRow = entry.foodId ? await getVisibleFood(userId, entry.foodId) : null;
+    nutrients = foodRow
+      ? scaleNutrients(foodRow, update.grams)
+      : multiplyNutrients(snapshot, entry.grams ? update.grams / entry.grams : 1);
+    extras = foodRow
+      ? scaleExtras(extrasFromRow(foodRow), update.grams)
+      : multiplyExtras(extras, entry.grams ? update.grams / entry.grams : 1);
+    if (update.portionLabel !== undefined) portionLabel = update.portionLabel || null;
+    else if (update.grams !== entry.grams) portionLabel = null;
+    grams = update.grams;
+  } else if (entry.kind === "recipe" && (update.grams || update.servings)) {
+    const recipe = entry.recipeId ? await getLoggableRecipe(userId, entry.recipeId) : null;
+    const portion = update.grams ? { grams: update.grams } : { servings: update.servings! };
+    if (recipe) {
+      nutrients = recipePortionNutrients(recipeNutritionFromLoggable(recipe), portion);
+      extras = await recipePortionExtras(recipe.id, portion);
+    } else {
+      const previous = entry.grams ?? entry.servings ?? 1;
+      const next = update.grams ?? update.servings ?? 1;
+      nutrients = multiplyNutrients(snapshot, next / previous);
+      extras = multiplyExtras(extras, next / previous);
+    }
+    grams = update.grams ?? null;
+    servings = update.grams ? null : (update.servings ?? null);
+  }
+
+  const [updated] = await database
+    .update(diaryEntry)
+    .set({
+      meal: update.meal ?? entry.meal,
+      grams,
+      servings,
+      portionLabel,
+      ...roundNutrients(nutrients),
+      ...roundExtras(extras),
+    })
+    .where(and(eq(diaryEntry.id, entry.id), eq(diaryEntry.userId, userId)))
+    .returning();
+  return updated;
+}
+
+export async function removeDiaryEntries(userId: string, entryIds: readonly string[]) {
+  const ids = z.array(z.uuid()).min(1).max(100).parse(entryIds);
+  return database
+    .delete(diaryEntry)
+    .where(and(eq(diaryEntry.userId, userId), inArray(diaryEntry.id, ids)))
     .returning();
 }

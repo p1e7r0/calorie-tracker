@@ -9,10 +9,11 @@ import { authClient } from "@/lib/auth/client";
 
 const permissions = [
   "Cercare tra i tuoi alimenti, le tue ricette e i pasti salvati",
-  "Leggere il diario, i progressi e i tuoi obiettivi",
-  "Aggiungere ed eliminare voci nel diario",
-  "Creare alimenti e ricette",
-  "Registrare il peso",
+  "Leggere il diario, i progressi, le misurazioni e il profilo",
+  "Aggiungere, modificare ed eliminare voci nel diario",
+  "Creare, modificare ed eliminare alimenti, ricette e pasti salvati",
+  "Registrare, correggere ed eliminare peso e misure",
+  "Cambiare gli obiettivi del profilo",
 ];
 
 export function ConsentForm({ clientName }: { clientName: string }) {

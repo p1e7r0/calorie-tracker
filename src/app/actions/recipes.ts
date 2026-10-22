@@ -6,13 +6,7 @@ import { z } from "zod";
 import { database } from "@/db";
 import { recipe, recipeIngredient } from "@/db/schema";
 import { requireUserId } from "@/lib/auth/session";
-import {
-  assertIngredientsVisible,
-  insertRecipe,
-  type RecipeInput,
-  recipeInputSchema,
-  toRecipeValues,
-} from "@/server/recipe-writes";
+import { archiveOwnRecipe, editRecipe, insertRecipe, type RecipeInput } from "@/server/recipe-writes";
 import type { ActionResult } from "./diary";
 
 export type { RecipeInput };
@@ -37,21 +31,7 @@ export async function createRecipe(input: RecipeInput): Promise<ActionResult<{ i
 export async function updateRecipe(recipeId: string, input: RecipeInput): Promise<ActionResult<{ id: string }>> {
   try {
     const userId = await requireUserId();
-    const parsed = recipeInputSchema.parse(input);
-    const id = z.uuid().parse(recipeId);
-    await assertIngredientsVisible(userId, parsed.ingredients.map((ingredient) => ingredient.foodId));
-    await database.transaction(async (transaction) => {
-      const updated = await transaction
-        .update(recipe)
-        .set(toRecipeValues(parsed))
-        .where(and(eq(recipe.id, id), eq(recipe.ownerId, userId), isNull(recipe.archivedAt)))
-        .returning({ id: recipe.id });
-      if (updated.length === 0) throw new Error("Ricetta non trovata.");
-      await transaction.delete(recipeIngredient).where(eq(recipeIngredient.recipeId, id));
-      await transaction
-        .insert(recipeIngredient)
-        .values(parsed.ingredients.map((ingredient, position) => ({ ...ingredient, position, recipeId: id })));
-    });
+    const id = await editRecipe(userId, recipeId, input);
     refresh();
     return { ok: true, data: { id } };
   } catch (error) {
@@ -62,12 +42,7 @@ export async function updateRecipe(recipeId: string, input: RecipeInput): Promis
 export async function archiveRecipe(recipeId: string): Promise<ActionResult> {
   try {
     const userId = await requireUserId();
-    const archived = await database
-      .update(recipe)
-      .set({ archivedAt: new Date() })
-      .where(and(eq(recipe.id, z.uuid().parse(recipeId)), eq(recipe.ownerId, userId), isNull(recipe.archivedAt)))
-      .returning({ id: recipe.id });
-    if (archived.length === 0) throw new Error("Ricetta non trovata.");
+    await archiveOwnRecipe(userId, recipeId);
     refresh();
     return { ok: true, data: undefined };
   } catch (error) {
