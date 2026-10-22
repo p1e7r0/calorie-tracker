@@ -36,6 +36,10 @@ import { QuickKcalDrawer } from "./quick-kcal-drawer";
 import { LogSavedMealDrawer } from "@/components/saved-meals/log-saved-meal-drawer";
 import type { SavedMealView } from "@/server/saved-meals";
 import { type SearchResults, useFoodSearch } from "@/components/food/use-food-search";
+import { LogPreparedMealDrawer } from "@/components/prepared-meals/log-prepared-meal-drawer";
+import { PreparedMealSummary } from "@/components/prepared-meals/prepared-meal-summary";
+import { nameMatchesQuery } from "@/lib/search";
+import type { PreparedMealView } from "@/server/prepared-meals";
 
 type AddScreenProperties = {
   day: string;
@@ -45,8 +49,11 @@ type AddScreenProperties = {
   favoriteFoods: LoggableFood[];
   recipes: LoggableRecipe[];
   savedMeals: SavedMealView[];
+  preparedMeals: PreparedMealView[];
+  today: string;
   initialItem: LoggableItem | null;
   initialSavedMealId: string | null;
+  initialPreparedMealId: string | null;
   backHref: string;
   aiEnabled: boolean;
 };
@@ -55,7 +62,7 @@ export function AddScreen(properties: AddScreenProperties) {
   const { bfcacheId } = useRouter();
   const initialKey = properties.initialItem
     ? `${properties.initialItem.type}-${properties.initialItem.id}`
-    : (properties.initialSavedMealId ?? "none");
+    : (properties.initialSavedMealId ?? properties.initialPreparedMealId ?? "none");
   return <AddScreenContent key={`${bfcacheId}-${initialKey}`} {...properties} />;
 }
 
@@ -67,8 +74,11 @@ function AddScreenContent({
   favoriteFoods,
   recipes,
   savedMeals,
+  preparedMeals,
+  today,
   initialItem,
   initialSavedMealId,
+  initialPreparedMealId,
   backHref,
   aiEnabled,
 }: AddScreenProperties) {
@@ -82,9 +92,12 @@ function AddScreenContent({
   const [selectedSavedMeal, setSelectedSavedMeal] = useState<SavedMealView | null>(
     () => savedMeals.find((savedMeal) => savedMeal.id === initialSavedMealId) ?? null,
   );
+  const [selectedPreparedMeal, setSelectedPreparedMeal] = useState<PreparedMealView | null>(
+    () => preparedMeals.find((preparedMeal) => preparedMeal.id === initialPreparedMealId) ?? null,
+  );
   const [loggedCount, setLoggedCount] = useState(0);
   const [tab, setTab] = useState(() => {
-    if (selectedSavedMeal) return "meals";
+    if (selectedSavedMeal || selectedPreparedMeal) return "meals";
     return mealTypes.some((mealType) => suggestions[mealType].length > 0) ? "suggested" : "favorites";
   });
   const search = useFoodSearch(query);
@@ -120,6 +133,7 @@ function AddScreenContent({
     setQuickKcalOpen(false);
     setDescribeMealOpen(false);
     setSelectedSavedMeal(null);
+    setSelectedPreparedMeal(null);
     setLoggedCount((current) => current + count);
   }
 
@@ -168,6 +182,9 @@ function AddScreenContent({
             isLoading={search.isLoading}
             failed={search.failed}
             results={search.results}
+            preparedMeals={preparedMeals.filter((preparedMeal) => nameMatchesQuery(preparedMeal.name, trimmedQuery))}
+            today={today}
+            onSelectPreparedMeal={setSelectedPreparedMeal}
             createHref={createHref}
             onSelect={setSelectedItem}
             onQuickAdd={quickAdd}
@@ -228,6 +245,21 @@ function AddScreenContent({
               />
             </TabsContent>
             <TabsContent value="meals">
+              {preparedMeals.length > 0 ? (
+                <section aria-labelledby="add-prepared-meals" className="mb-4">
+                  <h2 id="add-prepared-meals" className="pt-2 text-sm font-medium text-muted-foreground">
+                    Pasti pronti
+                  </h2>
+                  <PreparedMealList
+                    preparedMeals={preparedMeals}
+                    today={today}
+                    onSelect={setSelectedPreparedMeal}
+                  />
+                </section>
+              ) : null}
+              {preparedMeals.length > 0 ? (
+                <h2 className="text-sm font-medium text-muted-foreground">Pasti salvati</h2>
+              ) : null}
               {savedMeals.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">
                   Nel diario, apri il menu ⋯ di un pasto e scegli «Salva come pasto».
@@ -334,6 +366,20 @@ function AddScreenContent({
           }}
         />
       ) : null}
+      {selectedPreparedMeal ? (
+        <LogPreparedMealDrawer
+          preparedMeal={selectedPreparedMeal}
+          day={day}
+          meal={meal}
+          today={today}
+          onLogged={handleLogged}
+          onUndone={handleUndone}
+          onMealChange={setMeal}
+          onOpenChange={(open) => {
+            if (!open) setSelectedPreparedMeal(null);
+          }}
+        />
+      ) : null}
       {scannerOpen ? (
         <BarcodeScanner isLookingUp={isLookingUp} onDetected={handleBarcode} onClose={() => setScannerOpen(false)} />
       ) : null}
@@ -364,6 +410,9 @@ function SearchResultsList({
   isLoading,
   failed,
   results,
+  preparedMeals,
+  today,
+  onSelectPreparedMeal,
   createHref,
   onSelect,
   onQuickAdd,
@@ -373,6 +422,9 @@ function SearchResultsList({
   isLoading: boolean;
   failed: boolean;
   results: SearchResults | null;
+  preparedMeals: PreparedMealView[];
+  today: string;
+  onSelectPreparedMeal: (preparedMeal: PreparedMealView) => void;
   createHref: string;
   onSelect: (item: LoggableItem) => void;
   onQuickAdd: (item: LoggableItem) => void;
@@ -392,7 +444,12 @@ function SearchResultsList({
   const items: LoggableItem[] = [...results.recipes, ...results.foods];
   return (
     <div className={cn("transition-opacity", isLoading && "opacity-60")}>
-      {items.length === 0 ? (
+      {preparedMeals.length > 0 ? (
+        <section aria-label="Pasti pronti" className="mb-1 border-b">
+          <PreparedMealList preparedMeals={preparedMeals} today={today} onSelect={onSelectPreparedMeal} />
+        </section>
+      ) : null}
+      {items.length === 0 && preparedMeals.length > 0 ? null : items.length === 0 ? (
         <p className="pt-6 pb-2 text-center text-sm text-muted-foreground">Nessun alimento trovato per «{query}».</p>
       ) : (
         <ItemList items={items} onSelect={onSelect} onQuickAdd={onQuickAdd} emptyMessage="" />
@@ -484,6 +541,32 @@ function ItemList({
           </li>
         );
       })}
+    </ul>
+  );
+}
+
+function PreparedMealList({
+  preparedMeals,
+  today,
+  onSelect,
+}: {
+  preparedMeals: PreparedMealView[];
+  today: string;
+  onSelect: (preparedMeal: PreparedMealView) => void;
+}) {
+  return (
+    <ul className="divide-y">
+      {preparedMeals.map((preparedMeal) => (
+        <li key={preparedMeal.id}>
+          <button
+            type="button"
+            onClick={() => onSelect(preparedMeal)}
+            className="flex w-full items-center gap-3 px-1 py-2.5 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/60"
+          >
+            <PreparedMealSummary preparedMeal={preparedMeal} today={today} />
+          </button>
+        </li>
+      ))}
     </ul>
   );
 }

@@ -31,7 +31,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 | Q13 | Pasti condivisi | No: ognuno registra la propria porzione (ricetta + peso da cotto) |
 | Q14 | Nutrienti | Colonne: kcal, proteine, carboidrati, zuccheri, grassi, saturi, fibre, sale (per 100 g/ml). Vitamine e minerali in `jsonb` |
 | Q15 | Misure | Peso obbligatorio; facoltativi % grasso, % muscolo, grasso viscerale, % acqua, massa ossea, vita, fianchi. Grafici con media mobile 7 giorni |
-| Q16 | Ricorrenti | Preferiti, recenti/frequenti, pasti salvati, copia pasto da un altro giorno |
+| Q16 | Ricorrenti | Preferiti, recenti/frequenti, pasti salvati, copia pasto da un altro giorno; aggiornato: pasti pronti in frigo e in congelatore, consumati una porzione alla volta (T39) |
 | Q17 | Nuovo alimento | "Crea «testo»" dalla ricerca vuota, modulo compatto; più "kcal veloci" senza alimento |
 | Q18 | Unità | Grammi/ml più porzioni con nome per alimento |
 | Q19 | Navigazione | Barra in basso: Oggi, Cibo, "+", Progressi, Profilo |
@@ -48,6 +48,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 - Peso da cotto con la pentola: peso totale meno il peso a vuoto della pentola, arrotondato al grammo; deve restare maggiore di zero.
 - Le voci del diario salvano una copia dei nutrienti calcolati al momento dell'inserimento (la storia non cambia se l'alimento viene corretto); vengono ricalcolate quando la voce viene modificata.
 - Il giorno del diario è una data (`date`) nel fuso dell'utente, non un timestamp.
+- Pasto pronto: N porzioni uguali di alimenti e ricette, in frigo o in congelatore. I valori di una porzione si fissano quando lo si prepara (come le voci del diario) e non cambiano se poi si modifica la ricetta; registrare una porzione copia quei valori nel diario e toglie la porzione. Spostarlo tra frigo e congelatore fa ripartire la data di conservazione; oltre 3 giorni in frigo o 90 in congelatore la data è evidenziata (indicazione, non un blocco).
 - Giorno incompleto: segnato dall'utente, resta nel diario ma è escluso da medie, stima adattiva e check-in; nel budget settimanale vale come in linea con l'obiettivo. I giorni sotto 600 kcal sono esclusi comunque dalla stima adattiva e dalle medie del connettore.
 - Peso obiettivo: facoltativo, solo con obiettivo «dimagrire» o «aumentare»; la data prevista usa il ritmo osservato nelle ultime 4 settimane, altrimenti quello scelto nel profilo.
 - Mifflin-St Jeor: BMR = 10·kg + 6,25·cm − 5·età + 5 (uomo) / −161 (donna); TDEE = BMR · fattore attività; obiettivo dimagrimento/aumento ± kcal. Macro di default: proteine 1,8 g/kg, grassi 25% kcal, resto carboidrati.

@@ -1,6 +1,6 @@
 "use client";
 
-import { MinusIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { MinusIcon, PencilIcon, PlusIcon, RefrigeratorIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
@@ -43,6 +43,14 @@ export function RecipeView({ recipe }: { recipe: RecipeForEditing }) {
             {formatKcal(nutrition.per100g.kcal)} kcal per 100 g, {formatKcal(nutrition.total.kcal)} kcal in tutto
           </p>
         </section>
+
+        <Link
+          href={`/prepared/new?recipe=${recipe.id}`}
+          className={buttonVariants({ variant: "outline", size: "lg" })}
+        >
+          <RefrigeratorIcon />
+          Metti in frigo o in congelatore
+        </Link>
 
         <section aria-labelledby="recipe-ingredients">
           <div className="flex items-center justify-between gap-3">

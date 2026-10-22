@@ -11,6 +11,7 @@ import {
   describeFoodCandidate,
   describeFoodDetail,
   describeMeasurement,
+  describePreparedMeal,
   describeProfile,
   describeProgress,
   describeRecipeCandidate,
@@ -23,6 +24,7 @@ import { isCopyOntoItself } from "@/lib/nutrition/copy-meal";
 import { addDays, currentHour, daysBetween, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { kcalMismatch } from "@/lib/nutrition/food-checks";
 import { type MealType, mealTypes, suggestMeal } from "@/lib/nutrition/meals";
+import { maximumPreparedPortions, storageLocations } from "@/lib/nutrition/prepared-meals";
 import { weekStart } from "@/lib/nutrition/weeks";
 import { normalizeBarcode } from "@/lib/open-food-facts";
 import { nameMatchesQuery } from "@/lib/search";
@@ -45,6 +47,14 @@ import {
   findVisibleFoodByBarcode,
   importOpenFoodFactsCandidate,
 } from "./open-food-facts";
+import {
+  consumePreparedMeal,
+  editPreparedMeal,
+  getPreparedMeal,
+  insertPreparedMeal,
+  listPreparedMeals,
+  removePreparedMeal,
+} from "./prepared-meals";
 import { getProfileWithLatestWeight } from "./profile";
 import { applyAdaptiveTargets, writeProfile } from "./profile-writes";
 import { archiveOwnRecipe, editRecipe, insertRecipe, markRecipeFavorite } from "./recipe-writes";
@@ -109,19 +119,23 @@ const ingredientsSchema = z
   .min(1)
   .max(60);
 
+const foodLogItemSchema = z.object({
+  type: z.literal("food"),
+  foodId: z.uuid().describe("foodId returned by search_foods or recent_foods."),
+  grams: z.number().positive().max(10_000).describe("Eaten quantity in grams (or ml for liquids)."),
+  portionLabel: z.string().max(80).optional().describe("Name of the portion used, e.g. «1 vasetto»."),
+});
+
+const recipeLogItemSchema = z.object({
+  type: z.literal("recipe"),
+  recipeId: z.uuid().describe("recipeId returned by search_foods."),
+  grams: z.number().positive().max(10_000).optional().describe("Eaten cooked weight in grams."),
+  servings: z.number().positive().max(100).optional().describe("Eaten servings, used when grams is missing."),
+});
+
 const logItemSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("food"),
-    foodId: z.uuid().describe("foodId returned by search_foods or recent_foods."),
-    grams: z.number().positive().max(10_000).describe("Eaten quantity in grams (or ml for liquids)."),
-    portionLabel: z.string().max(80).optional().describe("Name of the portion used, e.g. «1 vasetto»."),
-  }),
-  z.object({
-    type: z.literal("recipe"),
-    recipeId: z.uuid().describe("recipeId returned by search_foods."),
-    grams: z.number().positive().max(10_000).optional().describe("Eaten cooked weight in grams."),
-    servings: z.number().positive().max(100).optional().describe("Eaten servings, used when grams is missing."),
-  }),
+  foodLogItemSchema,
+  recipeLogItemSchema,
   z.object({
     type: z.literal("quick"),
     label: z.string().trim().min(1).max(80).describe("Short Italian description, e.g. «Pizza margherita»."),
@@ -133,6 +147,14 @@ const logItemSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("savedMeal"),
     savedMealId: z.uuid().describe("savedMealId returned by search_foods or recent_foods. Logs every food of the meal."),
+  }),
+  z.object({
+    type: z.literal("preparedMeal"),
+    preparedMealId: z
+      .uuid()
+      .describe(
+        "preparedMealId returned by search_foods or list_prepared_meals. Logs one portion and takes it out of the fridge or freezer; repeat the item to log more portions.",
+      ),
   }),
 ]);
 
@@ -212,7 +234,7 @@ export function createClaudeConnectorServer(userId: string) {
     {
       title: "Cerca alimenti",
       description:
-        "Search the user's food catalog, recipes and saved meals. Nutrition values are per 100 g (or 100 ml). Returns foods with portions, the last quantity the user logged and whether the food is a favorite or the user's own, plus matching recipes and saved meals.",
+        "Search the user's food catalog, recipes, saved meals and prepared meals. Nutrition values are per 100 g (or 100 ml). Returns foods with portions, the last quantity the user logged and whether the food is a favorite or the user's own, plus matching recipes, saved meals and prepared meals (portions cooked in advance and kept in the fridge or freezer).",
       inputSchema: z.object({
         query: z.string().trim().min(2).max(80).describe("Short Italian food name, e.g. «yogurt greco»."),
       }),
@@ -225,9 +247,10 @@ export function createClaudeConnectorServer(userId: string) {
           const shorterQuery = query.split(/\s+/).slice(0, 2).join(" ");
           if (shorterQuery !== query) foods = await searchFoods(userId, shorterQuery, 8);
         }
-        const [recipes, savedMeals] = await Promise.all([
+        const [recipes, savedMeals, preparedMeals] = await Promise.all([
           listLoggableRecipes(userId, query),
           listSavedMealViews(userId),
+          listPreparedMeals(userId),
         ]);
         return textResult({
           foods: foods.map(describeFoodCandidate),
@@ -236,6 +259,10 @@ export function createClaudeConnectorServer(userId: string) {
             .filter((savedMeal) => nameMatchesQuery(savedMeal.name, query))
             .slice(0, 3)
             .map(describeSavedMeal),
+          preparedMeals: preparedMeals
+            .filter((preparedMeal) => nameMatchesQuery(preparedMeal.name, query))
+            .slice(0, 3)
+            .map(describePreparedMeal),
         });
       } catch (error) {
         return errorResult(error);
@@ -270,7 +297,7 @@ export function createClaudeConnectorServer(userId: string) {
     {
       title: "Registra nel diario",
       description:
-        "Add one or more items to a meal of the user's food diary. Each item is a catalog food with grams, a recipe with grams or servings, a saved meal, or a quick item with estimated kcal and macros. Returns the created entries and the updated day.",
+        "Add one or more items to a meal of the user's food diary. Each item is a catalog food with grams, a recipe with grams or servings, a saved meal, one portion of a prepared meal, or a quick item with estimated kcal and macros. Returns the created entries, the portions left of the prepared meals and the updated day.",
       inputSchema: z.object({
         day: daySchema,
         meal: mealSchema,
@@ -283,8 +310,13 @@ export function createClaudeConnectorServer(userId: string) {
         const targetDay = day ?? todayIsoDate();
         const entries: EntryItem[] = [];
         const savedMealIds: string[] = [];
+        const preparedMealIds: string[] = [];
         let savedMealDefault: MealType | null = null;
         for (const item of items) {
+          if (item.type === "preparedMeal") {
+            preparedMealIds.push(item.preparedMealId);
+            continue;
+          }
           if (item.type !== "savedMeal") {
             entries.push(entryItemSchema.parse(item));
             continue;
@@ -296,12 +328,31 @@ export function createClaudeConnectorServer(userId: string) {
           savedMealIds.push(saved.id);
           savedMealDefault ??= saved.defaultMeal;
         }
+        for (const preparedMealId of new Set(preparedMealIds)) {
+          const prepared = await getPreparedMeal(userId, preparedMealId);
+          if (!prepared) throw new Error("Prepared meal not found: it may be finished already.");
+          const requested = preparedMealIds.filter((candidate) => candidate === preparedMealId).length;
+          if (requested > prepared.portions) {
+            throw new Error(`Only ${prepared.portions} portion(s) of «${prepared.name}» left.`);
+          }
+        }
         const targetMeal = meal ?? savedMealDefault ?? suggestMeal(currentHour());
         const created = await insertDiaryEntries(userId, targetDay, targetMeal, entries, "connector");
         await Promise.all(savedMealIds.map(markSavedMealUsed));
+        const preparedMealsLeft: { name: string; portionsLeft: number }[] = [];
+        for (const preparedMealId of preparedMealIds) {
+          const consumed = await consumePreparedMeal(
+            userId,
+            { preparedMealId, day: targetDay, meal: targetMeal },
+            "connector",
+          );
+          created.push(...consumed.entries);
+          preparedMealsLeft.push({ name: consumed.name, portionsLeft: consumed.portionsLeft });
+        }
         return textResult({
           logged: created.map((row) => describeEntry(entryNutrients(row))),
           meal: targetMeal,
+          ...(preparedMealsLeft.length > 0 ? { preparedMealsLeft } : {}),
           summary: await daySummary(userId, targetDay),
         });
       } catch (error) {
@@ -880,6 +931,102 @@ export function createClaudeConnectorServer(userId: string) {
     async ({ savedMealId }) => {
       try {
         const deleted = await removeSavedMeal(userId, savedMealId);
+        return textResult({ deleted: deleted.name });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_prepared_meals",
+    {
+      title: "Pasti pronti",
+      description:
+        "List the prepared meals the user keeps in the fridge or freezer: portions left, the day they were stored there and what one portion contains, with its nutrition values. Fridge first, then freezer, oldest first.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => {
+      try {
+        const preparedMeals = await listPreparedMeals(userId);
+        return textResult({ today: todayIsoDate(), preparedMeals: preparedMeals.map(describePreparedMeal) });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_prepared_meal",
+    {
+      title: "Metti in frigo o in congelatore",
+      description:
+        "Store identical portions of food cooked in advance in the fridge or freezer, to log them later one at a time with log_meal. The items describe one portion: catalog foods with grams, recipes with cooked grams or servings. Their nutrition values are fixed now, so later changes to the recipe do not affect the stored portions. Returns the prepared meal.",
+      inputSchema: z.object({
+        name: z.string().trim().min(1).max(80).describe("Short Italian name, e.g. «Lasagne» or «Pranzo da ufficio»."),
+        location: z.enum(storageLocations).describe("fridge or freezer."),
+        portions: z
+          .number()
+          .int()
+          .min(1)
+          .max(maximumPreparedPortions)
+          .describe("Number of identical portions (containers) stored."),
+        items: z
+          .array(z.discriminatedUnion("type", [foodLogItemSchema, recipeLogItemSchema]))
+          .min(1)
+          .max(30)
+          .describe("What one portion contains."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async (input) => {
+      try {
+        const preparedMealId = await insertPreparedMeal(userId, input);
+        const created = await getPreparedMeal(userId, preparedMealId);
+        return textResult({ preparedMeal: created && describePreparedMeal(created) });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_prepared_meal",
+    {
+      title: "Modifica un pasto pronto",
+      description:
+        "Rename a prepared meal, move it between fridge and freezer (for example to thaw it; this restarts its storage day) or fix the number of portions left. Pass only the fields to change. To log a portion use log_meal; when the last portions are thrown away use delete_prepared_meal.",
+      inputSchema: z.object({
+        preparedMealId: z.uuid(),
+        name: z.string().trim().min(1).max(80).optional(),
+        location: z.enum(storageLocations).optional(),
+        portions: z.number().int().min(1).max(maximumPreparedPortions).optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (input) => {
+      try {
+        await editPreparedMeal(userId, input);
+        const updated = await getPreparedMeal(userId, input.preparedMealId);
+        return textResult({ preparedMeal: updated && describePreparedMeal(updated) });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "delete_prepared_meal",
+    {
+      title: "Elimina un pasto pronto",
+      description: "Delete a prepared meal with all its portions, for example when it was thrown away. Diary entries stay.",
+      inputSchema: z.object({ preparedMealId: z.uuid() }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ preparedMealId }) => {
+      try {
+        const deleted = await removePreparedMeal(userId, preparedMealId);
         return textResult({ deleted: deleted.name });
       } catch (error) {
         return errorResult(error);

@@ -4,6 +4,7 @@ import {
   describeFoodCandidate,
   describeFoodDetail,
   describeMeasurement,
+  describePreparedMeal,
   describeProfile,
   describeRecipeDetail,
   describeProgress,
@@ -140,6 +141,41 @@ describe("describeSavedMeal", () => {
       protein: 12,
       carbs: 60,
       fat: 14.3,
+    });
+  });
+});
+
+describe("describePreparedMeal", () => {
+  it("describes one portion and the portions left", () => {
+    expect(
+      describePreparedMeal({
+        id: "prepared-1",
+        name: "Lasagne",
+        location: "freezer",
+        portions: 3,
+        storedOn: "2026-10-20",
+        items: [
+          { label: "Lasagne al ragù", grams: null, servings: 1, portionLabel: null },
+          { label: "Pane", grams: 40.04, servings: null, portionLabel: "1 fetta (40 g)" },
+        ],
+        totals: { kcal: 640.4, protein: 30.06, carbs: 70, fat: 24.25 },
+      }),
+    ).toEqual({
+      preparedMealId: "prepared-1",
+      name: "Lasagne",
+      location: "freezer",
+      storedOn: "2026-10-20",
+      portionsLeft: 3,
+      portion: {
+        items: [
+          { name: "Lasagne al ragù", grams: null, servings: 1 },
+          { name: "Pane", grams: 40, servings: null, portion: "1 fetta (40 g)" },
+        ],
+        kcal: 640,
+        protein: 30.1,
+        carbs: 70,
+        fat: 24.3,
+      },
     });
   });
 });

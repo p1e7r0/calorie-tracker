@@ -53,7 +53,7 @@ export function DeleteAccountButton() {
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminare l&apos;account?</AlertDialogTitle>
             <AlertDialogDescription>
-              Cancello diario, misure, alimenti, ricette e pasti salvati. Non si può annullare: se vuoi tenerli,
+              Cancello diario, misure, alimenti, ricette, pasti salvati e pasti pronti. Non si può annullare: se vuoi tenerli,
               scarica prima i CSV.
             </AlertDialogDescription>
           </AlertDialogHeader>

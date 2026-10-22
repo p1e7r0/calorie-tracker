@@ -12,9 +12,12 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PreparedMealSummary } from "@/components/prepared-meals/prepared-meal-summary";
 import { formatKcal } from "@/lib/nutrition/format";
+import { storageLocationLabels, storageLocations } from "@/lib/nutrition/prepared-meals";
 import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableRecipe } from "@/server/loggable";
+import type { PreparedMealView } from "@/server/prepared-meals";
 import { BarcodeScanner } from "./barcode-scanner";
 import { useFoodSearch } from "./use-food-search";
 
@@ -26,6 +29,8 @@ export function FoodBrowser({
   mostUsedFoods,
   recipes,
   savedMeals,
+  preparedMeals,
+  today,
   initialTab,
 }: {
   ownFoods: LoggableFood[];
@@ -33,6 +38,8 @@ export function FoodBrowser({
   mostUsedFoods: LoggableFood[];
   recipes: LoggableRecipe[];
   savedMeals: SavedMealSummary[];
+  preparedMeals: PreparedMealView[];
+  today: string;
   initialTab: string;
 }) {
   const router = useRouter();
@@ -154,6 +161,43 @@ export function FoodBrowser({
                 </ul>
               ) : null}
             </TabsContent>
+            <TabsContent value="prepared" className="flex flex-col gap-4">
+              <Link href="/prepared/new" className={buttonVariants({ variant: "outline", size: "lg" })}>
+                <PlusIcon />
+                Nuovo pasto pronto
+              </Link>
+              {preparedMeals.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Hai cucinato per più giorni? Metti le porzioni in frigo o in congelatore e aggiungile al diario
+                  quando le mangi.
+                </p>
+              ) : (
+                storageLocations.map((location) => {
+                  const meals = preparedMeals.filter((preparedMeal) => preparedMeal.location === location);
+                  if (meals.length === 0) return null;
+                  return (
+                    <section key={location} aria-labelledby={`prepared-${location}`}>
+                      <h2 id={`prepared-${location}`} className="font-heading text-lg font-semibold tracking-tight">
+                        {storageLocationLabels[location]}
+                      </h2>
+                      <ul className="divide-y">
+                        {meals.map((preparedMeal) => (
+                          <li key={preparedMeal.id}>
+                            <Link
+                              href={`/prepared/${preparedMeal.id}`}
+                              className="flex items-center gap-3 py-2.5 outline-none focus-visible:bg-muted/60"
+                            >
+                              <PreparedMealSummary preparedMeal={preparedMeal} today={today} />
+                              <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  );
+                })
+              )}
+            </TabsContent>
           </ScreenBody>
         </Tabs>
       )}
@@ -208,6 +252,7 @@ function FoodTabsList() {
       <TabsTrigger value="foods">Alimenti</TabsTrigger>
       <TabsTrigger value="recipes">Ricette</TabsTrigger>
       <TabsTrigger value="meals">Pasti salvati</TabsTrigger>
+      <TabsTrigger value="prepared">Pronti</TabsTrigger>
     </TabsList>
   );
 }

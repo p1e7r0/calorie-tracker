@@ -19,19 +19,23 @@ import { getLoggableRecipe, getRecipeExtras } from "./recipes";
 
 const quantity = z.number().positive().max(10_000);
 
+export const foodEntryItemSchema = z.object({
+  type: z.literal("food"),
+  foodId: z.uuid(),
+  grams: quantity,
+  portionLabel: z.string().max(80).nullish(),
+});
+
+export const recipeEntryItemSchema = z.object({
+  type: z.literal("recipe"),
+  recipeId: z.uuid(),
+  grams: quantity.nullish(),
+  servings: z.number().positive().max(100).nullish(),
+});
+
 export const entryItemSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("food"),
-    foodId: z.uuid(),
-    grams: quantity,
-    portionLabel: z.string().max(80).nullish(),
-  }),
-  z.object({
-    type: z.literal("recipe"),
-    recipeId: z.uuid(),
-    grams: quantity.nullish(),
-    servings: z.number().positive().max(100).nullish(),
-  }),
+  foodEntryItemSchema,
+  recipeEntryItemSchema,
   z.object({
     type: z.literal("quick"),
     label: z.string().trim().max(80).nullish(),

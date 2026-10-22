@@ -9,6 +9,7 @@ Conta le calorie in pochi tocchi. App mobile first, tema chiaro e scuro, install
 - Nuovi alimenti in pochi secondi, con porzioni («1 vasetto = 125 g») e kcal calcolate dai macro
 - Ricette: ingredienti pesati a crudo, peso da cotto, porzioni; si registrano in grammi di cotto o in porzioni
 - Pasti salvati, copia di un pasto da qualsiasi giorno, kcal veloci, giorni segnati come incompleti
+- Pasti pronti: porzioni cucinate in anticipo e messe in frigo o in congelatore, con i valori del giorno in cui le prepari; ogni porzione mangiata esce dall'elenco
 - Misure corporee (peso, massa grassa e muscolare, grasso viscerale, acqua, massa ossea, vita, fianchi) con media mobile a 7 giorni
 - Obiettivo con Mifflin-St Jeor, personalizzabile, peso obiettivo con data prevista; stima adattiva del fabbisogno e check-in settimanale
 - Statistiche: kcal giornaliere, media dei macronutrienti, kcal medie e peso per settimana, fabbisogno stimato
@@ -92,10 +93,10 @@ src/
   app/            route (gruppi: (app) con barra in basso, (focus) per le schermate dedicate, (auth))
   app/actions/    Server Actions, ognuna verifica la sessione
   app/api/        route handler: auth, ricerca, CSV, cron, connettore MCP, Siri
-  components/     UI per funzionalità (add, diary, food, recipes, saved-meals, progress, profile, check-in)
+  components/     UI per funzionalità (add, diary, food, recipes, saved-meals, prepared-meals, progress, profile, check-in)
   db/             schema Drizzle e client
   lib/            logica pura e testata (ricerca, CSV, connettore, Siri, promemoria)
-  lib/nutrition/  logica di dominio: nutrienti, ricette, obiettivi, stima adattiva, budget, peso obiettivo
+  lib/nutrition/  logica di dominio: nutrienti, ricette, obiettivi, stima adattiva, budget, peso obiettivo, pasti pronti
   server/         query e servizi server-only
 scripts/          migrazione dal vecchio MongoDB
 drizzle/          migrazioni SQL
@@ -116,8 +117,8 @@ La registrazione dinamica dei client è disattivata. Per collegare Claude:
 
 | Strumento | Cosa fa |
 |---|---|
-| `search_foods`, `recent_foods` | Cerca alimenti, ricette e pasti salvati; elenca quelli usati di recente con l'ultima quantità |
-| `log_meal` | Registra alimenti, ricette, pasti salvati o kcal veloci in un pasto |
+| `search_foods`, `recent_foods` | Cerca alimenti, ricette, pasti salvati e pasti pronti; elenca quelli usati di recente con l'ultima quantità |
+| `log_meal` | Registra alimenti, ricette, pasti salvati, una porzione di un pasto pronto o kcal veloci in un pasto |
 | `get_day`, `update_entry`, `delete_entry` | Legge il diario di un giorno, sposta una voce in un altro pasto o ne cambia la quantità, elimina una o più voci |
 | `set_incomplete_day` | Segna un giorno come incompleto o toglie il segno |
 | `copy_meal` | Copia un pasto da un giorno qualsiasi in un altro pasto o giorno |
@@ -127,6 +128,7 @@ La registrazione dinamica dei client è disattivata. Per collegare Claude:
 | `get_recipe`, `update_recipe`, `delete_recipe` | Legge ingredienti e valori di una ricetta, la modifica, la elimina |
 | `set_favorite` | Aggiunge o toglie un alimento o una ricetta dai preferiti |
 | `save_meal`, `update_saved_meal`, `delete_saved_meal` | Salva un pasto registrato, lo rinomina o ne toglie voci, lo elimina |
+| `list_prepared_meals`, `create_prepared_meal`, `update_prepared_meal`, `delete_prepared_meal` | Elenca i pasti pronti in frigo e in congelatore, ne mette di nuovi, li rinomina, li sposta tra frigo e congelatore o corregge le porzioni rimaste, li elimina |
 | `log_weight` | Registra una pesata, con le altre misure corporee se fornite |
 | `list_measurements`, `update_measurement`, `delete_measurement` | Elenca, corregge ed elimina pesate e misure |
 | `get_profile`, `update_profile`, `apply_suggested_targets` | Legge profilo e obiettivi, li modifica, applica l'obiettivo suggerito dalla stima adattiva |

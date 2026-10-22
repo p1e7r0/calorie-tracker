@@ -3,7 +3,9 @@ import { Suspense } from "react";
 import { PageHeader } from "@/components/app-shell/page-header";
 import { FoodBrowser, FoodBrowserSkeleton } from "@/components/food/food-browser";
 import { getCurrentUser } from "@/lib/auth/session";
+import { todayIsoDate } from "@/lib/nutrition/days";
 import { favoriteFoods, listOwnFoods, mostUsedFoods } from "@/server/foods";
+import { listPreparedMeals } from "@/server/prepared-meals";
 import { listLoggableRecipes } from "@/server/recipes";
 import { listSavedMeals } from "@/server/saved-meals";
 
@@ -23,12 +25,13 @@ export default function FoodPage({ searchParams }: PageProps<"/food">) {
 async function Catalog({ searchParams }: Pick<PageProps<"/food">, "searchParams">) {
   const user = await getCurrentUser();
   const { tab } = await searchParams;
-  const [ownFoods, favorites, mostUsed, recipes, savedMeals] = await Promise.all([
+  const [ownFoods, favorites, mostUsed, recipes, savedMeals, preparedMeals] = await Promise.all([
     listOwnFoods(user.id),
     favoriteFoods(user.id),
     mostUsedFoods(user.id),
     listLoggableRecipes(user.id),
     listSavedMeals(user.id),
+    listPreparedMeals(user.id),
   ]);
   return (
     <FoodBrowser
@@ -37,7 +40,9 @@ async function Catalog({ searchParams }: Pick<PageProps<"/food">, "searchParams"
       mostUsedFoods={mostUsed}
       recipes={recipes}
       savedMeals={savedMeals}
-      initialTab={tab === "recipes" || tab === "meals" ? tab : "foods"}
+      preparedMeals={preparedMeals}
+      today={todayIsoDate()}
+      initialTab={tab === "recipes" || tab === "meals" || tab === "prepared" ? tab : "foods"}
     />
   );
 }

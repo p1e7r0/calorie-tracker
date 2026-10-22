@@ -1,12 +1,17 @@
 import { toast } from "sonner";
-import { deleteDiaryEntries } from "@/app/actions/diary";
+import { type ActionResult, deleteDiaryEntries } from "@/app/actions/diary";
 
-export function toastWithUndo(message: string, entryIds: string[], onUndone?: () => void) {
+export function toastWithUndo(
+  message: string,
+  entryIds: string[],
+  onUndone?: () => void,
+  undo: (entryIds: string[]) => Promise<ActionResult<unknown>> = deleteDiaryEntries,
+) {
   toast.success(message, {
     action: {
       label: "Annulla",
       onClick: async () => {
-        const result = await deleteDiaryEntries(entryIds);
+        const result = await undo(entryIds);
         if (!result.ok) {
           toast.error(result.error);
           return;

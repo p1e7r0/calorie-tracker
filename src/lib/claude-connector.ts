@@ -17,10 +17,10 @@ export const claudeRedirectUri = "https://claude.ai/api/mcp/auth_callback";
 
 export const connectorInstructions = `Bilancia is the user's personal calorie tracker. The user speaks Italian: answer in Italian.
 When the user tells you what they ate or drank:
-1. Split the description into single foods. Call search_foods once per food with a short, generic Italian name (for example «pasta di semola», «parmigiano», «mela», «olio d'oliva»), or the product name for branded items. It also returns the user's recipes and saved meals.
-2. Pick the best match. Prefer the user's own foods, favorites and foods with lastGrams, recipes when the user names one of their dishes, and saved meals for «the usual» meal. Pay attention to raw versus cooked items.
+1. Split the description into single foods. Call search_foods once per food with a short, generic Italian name (for example «pasta di semola», «parmigiano», «mela», «olio d'oliva»), or the product name for branded items. It also returns the user's recipes, saved meals and prepared meals.
+2. Pick the best match. Prefer the user's own foods, favorites and foods with lastGrams, recipes when the user names one of their dishes, prepared meals when the user eats a portion of something cooked in advance and kept in the fridge or freezer, and saved meals for «the usual» meal. Pay attention to raw versus cooked items.
 3. Decide the quantity in grams: use the amount the user gave, a named portion of the food, lastGrams, or a typical Italian portion (a spoon of oil is 10 g, an apple 150 g, a plate of dry pasta 80 g).
-4. Call log_meal once per meal with every item. A saved meal is a single item that logs all of its foods. Only when nothing in the catalog fits, use a quick item with your own estimate of kcal and macros, and a short Italian label.
+4. Call log_meal once per meal with every item. A saved meal is a single item that logs all of its foods; a prepared meal is a single item that logs one portion and takes it out of the fridge or freezer. Only when nothing in the catalog fits, use a quick item with your own estimate of kcal and macros, and a short Italian label.
 5. Reply with a short summary of what you logged (quantities and kcal) and the kcal left for the day.
 Foods and recipes you create stay in the user's catalog and are reused for every future log, so their values must be real:
 - For a packaged product with a barcode, call lookup_barcode first: it finds the product in the catalog or imports it from Open Food Facts.
@@ -34,9 +34,10 @@ You can also change almost everything the user can change in the app:
 - Diary: update_entry moves an entry to another meal or changes its quantity; delete_entry removes entries; set_incomplete_day marks a day the user did not log completely.
 - Foods and recipes: read them with get_food or get_recipe, then change them with update_food or update_recipe, passing only the fields to change. A changed food of the global catalog becomes the user's own copy with a new foodId. delete_food and delete_recipe remove them from the catalog; set_favorite adds or removes favorites. Past diary entries keep the values they were logged with.
 - Saved meals: save_meal saves a logged meal, update_saved_meal renames it or removes items, delete_saved_meal deletes it.
+- Prepared meals (portions cooked in advance and kept in the fridge or freezer): list_prepared_meals shows what is stored, create_prepared_meal stores the portions of a dish the user just cooked, update_prepared_meal renames them, moves them between fridge and freezer or fixes the portions left, delete_prepared_meal removes them when they are thrown away.
 - Measurements: list_measurements, update_measurement and delete_measurement fix weigh-ins.
 - Profile: get_profile reads goals and daily targets; update_profile changes them; apply_suggested_targets applies the adaptive suggestion of get_progress.
-Change or delete something only when the user asks for it, and say what you changed. Deleting is final for diary entries, saved meals and measurements; for foods and recipes it hides them from the catalog.`;
+Change or delete something only when the user asks for it, and say what you changed. Deleting is final for diary entries, saved meals, prepared meals and measurements; for foods and recipes it hides them from the catalog.`;
 
 type PortionOption = { label: string; grams: number };
 
@@ -163,6 +164,35 @@ export function describeSavedMeal(candidate: SavedMealCandidate) {
       servings: item.servings,
     })),
     ...roundNutrients(candidate.totals),
+  };
+}
+
+export type PreparedMealCandidate = {
+  id: string;
+  name: string;
+  location: "fridge" | "freezer";
+  portions: number;
+  storedOn: string;
+  items: { label: string; grams: number | null; servings: number | null; portionLabel: string | null }[];
+  totals: Nutrients;
+};
+
+export function describePreparedMeal(candidate: PreparedMealCandidate) {
+  return {
+    preparedMealId: candidate.id,
+    name: candidate.name,
+    location: candidate.location,
+    storedOn: candidate.storedOn,
+    portionsLeft: candidate.portions,
+    portion: {
+      items: candidate.items.map((item) => ({
+        name: item.label,
+        grams: item.grams === null ? null : roundOne(item.grams),
+        servings: item.servings,
+        ...(item.portionLabel ? { portion: item.portionLabel } : {}),
+      })),
+      ...roundNutrients(candidate.totals),
+    },
   };
 }
 
