@@ -9,6 +9,7 @@ import {
   describeProgress,
   describeRecipeCandidate,
   describeSavedMeal,
+  describeStoredMeal,
   describeWeightTrend,
 } from "./claude-connector";
 
@@ -140,6 +141,35 @@ describe("describeSavedMeal", () => {
       protein: 12,
       carbs: 60,
       fat: 14.3,
+    });
+  });
+});
+
+describe("describeStoredMeal", () => {
+  it("adds the storage age and flags meals to check", () => {
+    expect(
+      describeStoredMeal(
+        {
+          id: "stored-1",
+          name: "Lasagna",
+          location: "fridge",
+          preparedOn: "2026-10-17",
+          portions: 2,
+          items: [{ id: "item-1", label: "Lasagna", grams: 350.04, servings: null }],
+          perPortion: { kcal: 560.4, protein: 30.04, carbs: 50, fat: 25.26 },
+        },
+        "2026-10-22",
+      ),
+    ).toEqual({
+      storedMealId: "stored-1",
+      name: "Lasagna",
+      location: "fridge",
+      preparedOn: "2026-10-17",
+      daysStored: 5,
+      checkBeforeEating: true,
+      portionsLeft: 2,
+      portionItems: [{ itemId: "item-1", name: "Lasagna", grams: 350, servings: null }],
+      perPortion: { kcal: 560, protein: 30, carbs: 50, fat: 25.3 },
     });
   });
 });

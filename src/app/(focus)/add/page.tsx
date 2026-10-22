@@ -10,6 +10,7 @@ import { favoriteFoods, getLoggableFood } from "@/server/foods";
 import { isAiEnabled } from "@/server/ai";
 import { getLoggableRecipe, listLoggableRecipes } from "@/server/recipes";
 import { listSavedMealViews } from "@/server/saved-meals";
+import { listStoredMeals } from "@/server/stored-meals";
 import { mealSuggestions } from "@/server/suggestions";
 
 export const metadata: Metadata = { title: "Aggiungi" };
@@ -24,16 +25,17 @@ export default function AddPage({ searchParams }: PageProps<"/add">) {
 
 async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
   const user = await getCurrentUser();
-  const { date, meal, food, recipe, savedMeal } = await searchParams;
+  const { date, meal, food, recipe, savedMeal, storedMeal } = await searchParams;
   const today = todayIsoDate();
   const day = isIsoDate(date) ? date : today;
   const initialMeal = isMealType(meal) ? meal : suggestMeal(currentHour());
   const isIdentifier = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f-]{36}$/.test(value);
-  const [suggestions, favorites, recipes, savedMeals, initialItem] = await Promise.all([
+  const [suggestions, favorites, recipes, savedMeals, storedMeals, initialItem] = await Promise.all([
     mealSuggestions(user.id, today),
     favoriteFoods(user.id),
     listLoggableRecipes(user.id),
     listSavedMealViews(user.id),
+    listStoredMeals(user.id),
     isIdentifier(food)
       ? getLoggableFood(user.id, food)
       : isIdentifier(recipe)
@@ -50,8 +52,11 @@ async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
       favoriteFoods={favorites}
       recipes={recipes}
       savedMeals={savedMeals}
+      storedMeals={storedMeals}
+      today={today}
       initialItem={initialItem}
       initialSavedMealId={isIdentifier(savedMeal) ? savedMeal : null}
+      initialStoredMealId={isIdentifier(storedMeal) ? storedMeal : null}
       backHref={day === today ? "/" : `/?date=${day}`}
       aiEnabled={isAiEnabled}
     />
