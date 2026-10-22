@@ -9,7 +9,7 @@ import { database } from "@/db";
 import * as schema from "@/db/schema";
 import { sendEmail } from "@/lib/email";
 import { deleteApiTokens } from "@/server/api-tokens";
-import { mcpResourceUrl } from "./mcp-resource";
+import { applicationUrl, mcpResourceUrl, vercelOrigins } from "./mcp-resource";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -17,9 +17,11 @@ const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 const trustedOrigins = (process.env.BETTER_AUTH_TRUSTED_ORIGINS ?? "")
   .split(",")
   .map((origin) => origin.trim())
-  .filter(Boolean);
+  .filter(Boolean)
+  .concat(vercelOrigins);
 
 export const auth = betterAuth({
+  baseURL: applicationUrl,
   database: drizzleAdapter(database, { provider: "pg", schema }),
   trustedOrigins,
   disabledPaths: ["/token"],
