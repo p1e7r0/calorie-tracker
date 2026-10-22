@@ -33,7 +33,7 @@ Versioni esatte in `package.json`.
 - `src/app/(app)`: schermate con bottom nav: `/` (Oggi), `/food`, `/progress`, `/profile`
 - `src/app/(focus)`: schermate senza bottom nav: `/add`, `/food/new`, `/food/[foodId]`, `/food/[foodId]/edit`, `/meals/[savedMealId]`, `/recipes/new`, `/recipes/[recipeId]`, `/recipes/[recipeId]/edit`
 - `src/app/(auth)`: login, register, forgot-password, reset-password, consent (consenso OAuth del connettore per Claude) (layout scrollabile normale)
-- `src/app/actions/*.ts`: server actions (`"use server"`) per dominio: diary, foods, recipes, measurements, profile, saved-meals, reminders, open-food-facts, ai, claude-connector (credenziali OAuth), shortcut-token (token Siri)
+- `src/app/actions/*.ts`: server actions (`"use server"`) per dominio: diary, foods, recipes, measurements, profile, saved-meals, reminders, open-food-facts, ai, claude-connector (credenziali OAuth), shortcut-token (token Siri), cookware (pentole)
 - `src/app/api`: `auth/[...all]`, `foods/search`, `open-food-facts/search`, `diary/[day]` (anteprima della copia da un altro giorno), `export/[kind]` (CSV), `cron/evening-reminder`, `cron/weigh-in-reminder`, `mcp` (connettore per Claude, token OAuth), `shortcuts/meal` (Siri, token personale)
 - `src/app/manifest.ts`, `src/app/icons/*`, `src/app/apple-icon.tsx`, `public/sw.js` (PWA, solo push)
 - `src/proxy.ts`: equivalente Next 16 del middleware (export `proxy`)
@@ -83,7 +83,7 @@ Versioni esatte in `package.json`.
 - Modificare un cibo globale crea una copia personale con `replacesFoodId` (copy-on-write, `updateFood`), sposta il preferito; l'id restituito può differire da quello in ingresso.
 - Ogni lettura di cibi per un utente passa da `visibleFoodCondition(userId)` (`src/server/foods.ts`): esclude archiviati e globali sostituiti dall'utente.
 - Cibi e ricette si archiviano (`archived_at`), non si cancellano.
-- Ricette, diario, misure, pasti salvati, push subscription sono strettamente per utente.
+- Ricette, diario, misure, pasti salvati, pentole, push subscription sono strettamente per utente.
 
 ### Diario
 - `diary_entry` salva uno snapshot dei nutrienti (kcal, proteine, carboidrati, grassi + extra fibre, zuccheri, grassi saturi, sale) calcolato da `resolveEntryValues`; `food_id`/`recipe_id` sono `ON DELETE SET NULL`. Non ricalcolare lo storico dai valori attuali.

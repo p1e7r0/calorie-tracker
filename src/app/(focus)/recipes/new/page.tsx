@@ -5,6 +5,7 @@ import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { RecipeEditor } from "@/components/recipes/recipe-editor";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
+import { listCookware } from "@/server/cookware";
 import { ingredientSuggestions } from "@/server/suggestions";
 
 export const metadata: Metadata = { title: "Nuova ricetta" };
@@ -33,10 +34,11 @@ export default function NewRecipePage() {
 
 async function NewRecipe() {
   const user = await getCurrentUser();
-  const suggestions = await ingredientSuggestions(user.id);
+  const [suggestions, cookware] = await Promise.all([ingredientSuggestions(user.id), listCookware(user.id)]);
   return (
     <RecipeEditor
       suggestions={suggestions}
+      cookware={cookware}
       initialValues={{ name: "", servings: 4, cookedWeight: "", ingredients: [] }}
     />
   );
