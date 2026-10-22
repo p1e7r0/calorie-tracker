@@ -45,6 +45,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 
 - Valori nutrizionali sempre per 100 g (o 100 ml). Nutriente di una voce = `valore * grammi / 100`.
 - Ricetta: totale = somma degli ingredienti. Base per 100 g = peso da cotto se presente, altrimenti somma dei grammi crudi. Porzione = totale / numero di porzioni.
+- Peso da cotto con la pentola: peso totale meno il peso a vuoto della pentola, arrotondato al grammo; deve restare maggiore di zero.
 - Le voci del diario salvano una copia dei nutrienti calcolati al momento dell'inserimento (la storia non cambia se l'alimento viene corretto); vengono ricalcolate quando la voce viene modificata.
 - Il giorno del diario è una data (`date`) nel fuso dell'utente, non un timestamp.
 - Giorno incompleto: segnato dall'utente, resta nel diario ma è escluso da medie, stima adattiva e check-in; nel budget settimanale vale come in linea con l'obiettivo. I giorni sotto 600 kcal sono esclusi comunque dalla stima adattiva e dalle medie del connettore.

@@ -1,6 +1,6 @@
 "use client";
 
-import { MinusIcon, PlusIcon, XIcon } from "lucide-react";
+import { MinusIcon, PlusIcon, ScaleIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -8,12 +8,14 @@ import { createRecipe, type RecipeInput, updateRecipe } from "@/app/actions/reci
 import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { MacroLine } from "@/components/diary/macro-line";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import type { CookwareView } from "@/lib/nutrition/cookware";
 import { formatDecimal, formatGrams, formatKcal, parseDecimal } from "@/lib/nutrition/format";
 import type { Nutrients } from "@/lib/nutrition/nutrients";
 import { computeRecipeNutrition } from "@/lib/nutrition/recipe";
 import type { LoggableFood } from "@/server/loggable";
+import { CookedWeightDrawer } from "./cooked-weight-drawer";
 import { IngredientPicker } from "./ingredient-picker";
 
 export type EditableIngredient = {
@@ -40,14 +42,17 @@ export function RecipeEditor({
   recipeId,
   initialValues,
   suggestions,
+  cookware,
 }: {
   recipeId?: string;
   initialValues: RecipeEditorValues;
   suggestions: LoggableFood[];
+  cookware: CookwareView[];
 }) {
   const router = useRouter();
   const [values, setValues] = useState(initialValues);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [cookedWeightOpen, setCookedWeightOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -177,7 +182,10 @@ export function RecipeEditor({
                 g
               </span>
             </div>
-            <FieldDescription className="text-xs">Il peso del piatto finito, tolta la pentola.</FieldDescription>
+            <Button variant="link" className="h-9 justify-start px-0 text-xs" onClick={() => setCookedWeightOpen(true)}>
+              <ScaleIcon />
+              Pesa con la pentola
+            </Button>
           </Field>
           <Field>
             <FieldLabel id="recipe-servings-label">Porzioni</FieldLabel>
@@ -234,6 +242,18 @@ export function RecipeEditor({
           </Button>
         </div>
       </ScreenFooter>
+
+      {cookedWeightOpen ? (
+        <CookedWeightDrawer
+          cookware={cookware}
+          rawWeightG={nutrition.rawWeightG}
+          onOpenChange={setCookedWeightOpen}
+          onApply={(cookedWeightG) => {
+            update("cookedWeight", String(cookedWeightG));
+            setCookedWeightOpen(false);
+          }}
+        />
+      ) : null}
 
       {pickerOpen ? (
         <IngredientPicker
