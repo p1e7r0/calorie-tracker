@@ -39,6 +39,8 @@ export function VisualViewportSync() {
       tallestHeight = Math.max(tallestHeight, layoutHeight);
       root.style.setProperty("--viewport-height", `${visualViewport.height}px`);
       root.style.setProperty("--viewport-offset-top", `${visualViewport.offsetTop}px`);
+      const keyboardInset = Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop);
+      root.style.setProperty("--keyboard-inset", `${Math.round(keyboardInset)}px`);
       if (visualViewport.height < tallestHeight * keyboardThreshold) {
         root.dataset.keyboardOpen = "";
       } else {
@@ -54,6 +56,7 @@ export function VisualViewportSync() {
       visualViewport.removeEventListener("scroll", update);
       root.style.removeProperty("--viewport-height");
       root.style.removeProperty("--viewport-offset-top");
+      root.style.removeProperty("--keyboard-inset");
       delete root.dataset.keyboardOpen;
     };
   }, []);
