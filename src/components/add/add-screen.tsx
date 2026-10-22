@@ -35,6 +35,9 @@ import { DescribeMealDrawer } from "./describe-meal-drawer";
 import { QuickKcalDrawer } from "./quick-kcal-drawer";
 import { LogSavedMealDrawer } from "@/components/saved-meals/log-saved-meal-drawer";
 import type { SavedMealView } from "@/server/saved-meals";
+import type { StoredMealView } from "@/server/stored-meals";
+import { LogStoredMealDrawer } from "@/components/stored-meals/log-stored-meal-drawer";
+import { StoredMealSummary } from "@/components/stored-meals/stored-meal-summary";
 import { type SearchResults, useFoodSearch } from "@/components/food/use-food-search";
 
 type AddScreenProperties = {
@@ -45,8 +48,11 @@ type AddScreenProperties = {
   favoriteFoods: LoggableFood[];
   recipes: LoggableRecipe[];
   savedMeals: SavedMealView[];
+  storedMeals: StoredMealView[];
+  today: string;
   initialItem: LoggableItem | null;
   initialSavedMealId: string | null;
+  initialStoredMealId: string | null;
   backHref: string;
   aiEnabled: boolean;
 };
@@ -55,7 +61,7 @@ export function AddScreen(properties: AddScreenProperties) {
   const { bfcacheId } = useRouter();
   const initialKey = properties.initialItem
     ? `${properties.initialItem.type}-${properties.initialItem.id}`
-    : (properties.initialSavedMealId ?? "none");
+    : (properties.initialSavedMealId ?? properties.initialStoredMealId ?? "none");
   return <AddScreenContent key={`${bfcacheId}-${initialKey}`} {...properties} />;
 }
 
@@ -67,8 +73,11 @@ function AddScreenContent({
   favoriteFoods,
   recipes,
   savedMeals,
+  storedMeals,
+  today,
   initialItem,
   initialSavedMealId,
+  initialStoredMealId,
   backHref,
   aiEnabled,
 }: AddScreenProperties) {
@@ -82,9 +91,12 @@ function AddScreenContent({
   const [selectedSavedMeal, setSelectedSavedMeal] = useState<SavedMealView | null>(
     () => savedMeals.find((savedMeal) => savedMeal.id === initialSavedMealId) ?? null,
   );
+  const [selectedStoredMeal, setSelectedStoredMeal] = useState<StoredMealView | null>(
+    () => storedMeals.find((storedMeal) => storedMeal.id === initialStoredMealId) ?? null,
+  );
   const [loggedCount, setLoggedCount] = useState(0);
   const [tab, setTab] = useState(() => {
-    if (selectedSavedMeal) return "meals";
+    if (selectedSavedMeal || selectedStoredMeal) return "meals";
     return mealTypes.some((mealType) => suggestions[mealType].length > 0) ? "suggested" : "favorites";
   });
   const search = useFoodSearch(query);
@@ -120,6 +132,7 @@ function AddScreenContent({
     setQuickKcalOpen(false);
     setDescribeMealOpen(false);
     setSelectedSavedMeal(null);
+    setSelectedStoredMeal(null);
     setLoggedCount((current) => current + count);
   }
 
@@ -228,31 +241,63 @@ function AddScreenContent({
               />
             </TabsContent>
             <TabsContent value="meals">
-              {savedMeals.length === 0 ? (
+              {savedMeals.length === 0 && storedMeals.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">
-                  Nel diario, apri il menu ⋯ di un pasto e scegli «Salva come pasto».
+                  Nel diario, apri il menu ⋯ di un pasto e scegli «Salva come pasto» o «Metti da parte».
                 </p>
-              ) : (
-                <ul className="divide-y">
-                  {savedMeals.map((savedMeal) => (
-                    <li key={savedMeal.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSavedMeal(savedMeal)}
-                        className="flex w-full items-center gap-3 px-1 py-2.5 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/60"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate">{savedMeal.name}</span>
-                          <span className="block truncate text-sm text-muted-foreground">
-                            {savedMeal.items.map((item) => item.name).join(", ")}
+              ) : null}
+              {storedMeals.length > 0 ? (
+                <section aria-labelledby="add-stored-meals-heading" className="mb-3">
+                  <h2 id="add-stored-meals-heading" className="px-1 pt-2 text-sm font-medium text-muted-foreground">
+                    In frigo e congelatore
+                  </h2>
+                  <ul className="divide-y">
+                    {storedMeals.map((storedMeal) => (
+                      <li key={storedMeal.id}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedStoredMeal(storedMeal)}
+                          className="flex w-full items-center gap-3 px-1 py-2.5 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/60"
+                        >
+                          <StoredMealSummary storedMeal={storedMeal} today={today} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+              {savedMeals.length > 0 ? (
+                <section aria-labelledby="add-saved-meals-heading">
+                  {storedMeals.length > 0 ? (
+                    <h2 id="add-saved-meals-heading" className="px-1 pt-2 text-sm font-medium text-muted-foreground">
+                      Pasti salvati
+                    </h2>
+                  ) : (
+                    <h2 id="add-saved-meals-heading" className="sr-only">
+                      Pasti salvati
+                    </h2>
+                  )}
+                  <ul className="divide-y">
+                    {savedMeals.map((savedMeal) => (
+                      <li key={savedMeal.id}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSavedMeal(savedMeal)}
+                          className="flex w-full items-center gap-3 px-1 py-2.5 text-left outline-none hover:bg-muted/50 focus-visible:bg-muted/60"
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate">{savedMeal.name}</span>
+                            <span className="block truncate text-sm text-muted-foreground">
+                              {savedMeal.items.map((item) => item.name).join(", ")}
+                            </span>
                           </span>
-                        </span>
-                        <span className="shrink-0 text-sm tabular-nums">{formatKcal(savedMeal.totals.kcal)} kcal</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                          <span className="shrink-0 text-sm tabular-nums">{formatKcal(savedMeal.totals.kcal)} kcal</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
             </TabsContent>
           </ScreenBody>
         </Tabs>
@@ -331,6 +376,20 @@ function AddScreenContent({
           onMealChange={setMeal}
           onOpenChange={(open) => {
             if (!open) setSelectedSavedMeal(null);
+          }}
+        />
+      ) : null}
+      {selectedStoredMeal ? (
+        <LogStoredMealDrawer
+          storedMeal={selectedStoredMeal}
+          day={day}
+          meal={meal}
+          today={today}
+          onLogged={handleLogged}
+          onUndone={handleUndone}
+          onMealChange={setMeal}
+          onOpenChange={(open) => {
+            if (!open) setSelectedStoredMeal(null);
           }}
         />
       ) : null}

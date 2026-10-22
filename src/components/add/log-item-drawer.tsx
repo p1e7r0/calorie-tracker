@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { AddEntryInput } from "@/app/actions/diary";
 import { MacroLine } from "@/components/diary/macro-line";
 import { gramsShortcut, QuantityField, type QuantityShortcut } from "@/components/diary/quantity-field";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatDecimal, formatGrams, formatKcal, parseDecimal } from "@/lib/nutrition/format";
 import { mealLabels, type MealType } from "@/lib/nutrition/meals";
-import { multiplyNutrients, scaleNutrients } from "@/lib/nutrition/nutrients";
+import { multiplyNutrients, type Nutrients, scaleNutrients } from "@/lib/nutrition/nutrients";
 import type { LoggableFood, LoggableItem, LoggableRecipe } from "@/server/loggable";
 import { useLogEntry } from "./use-log-entry";
 
@@ -38,54 +39,55 @@ export function LogItemDrawer({
   onLogged: () => void;
   onUndone?: () => void;
 }) {
+  const { isPending, log } = useLogEntry(onLogged, onUndone);
   return (
     <Drawer open onOpenChange={onOpenChange}>
       <DrawerContent>
-        {item.type === "food" ? (
-          <FoodQuantity food={item} day={day} meal={meal} onLogged={onLogged} onUndone={onUndone} />
-        ) : (
-          <RecipeQuantity recipe={item} day={day} meal={meal} onLogged={onLogged} onUndone={onUndone} />
-        )}
+        <ItemQuantity
+          item={item}
+          submitLabel={`Aggiungi a ${mealLabels[meal].toLowerCase()}`}
+          isPending={isPending}
+          onSubmit={(entryItem) => log({ day, meal, item: entryItem }, item.name)}
+        />
       </DrawerContent>
     </Drawer>
   );
 }
 
-function FoodQuantity({
-  food,
-  day,
-  meal,
-  onLogged,
-  onUndone,
-}: {
-  food: LoggableFood;
-  day: string;
-  meal: MealType;
-  onLogged: () => void;
-  onUndone?: () => void;
-}) {
+export type QuantityItem = AddEntryInput["item"];
+
+type QuantityProperties = {
+  submitLabel: string;
+  isPending: boolean;
+  onSubmit: (item: QuantityItem, nutrients: Nutrients) => void;
+};
+
+export function ItemQuantity({ item, ...properties }: QuantityProperties & { item: LoggableItem }) {
+  return item.type === "food" ? (
+    <FoodQuantity food={item} {...properties} />
+  ) : (
+    <RecipeQuantity recipe={item} {...properties} />
+  );
+}
+
+function FoodQuantity({ food, submitLabel, isPending, onSubmit }: QuantityProperties & { food: LoggableFood }) {
   const defaultGrams = food.lastGrams ?? food.portions[0]?.grams ?? 100;
   const [quantity, setQuantity] = useState(() => toInputValue(defaultGrams));
   const [portionLabel, setPortionLabel] = useState<string | null>(null);
-  const { isPending, log } = useLogEntry(onLogged, onUndone);
   const grams = parseDecimal(quantity);
   const preview = scaleNutrients(food.per100, grams ?? 0);
   const canLog = !isPending && grams !== null && grams > 0;
 
   function submit() {
     if (!canLog) return;
-    log(
+    onSubmit(
       {
-        day,
-        meal,
-        item: {
-          type: "food",
-          foodId: food.id,
-          grams,
-          portionLabel: portionLabel ? `${portionLabel} (${formatGrams(grams)} ${food.unit})` : null,
-        },
+        type: "food",
+        foodId: food.id,
+        grams,
+        portionLabel: portionLabel ? `${portionLabel} (${formatGrams(grams)} ${food.unit})` : null,
       },
-      food.name,
+      preview,
     );
   }
 
@@ -132,7 +134,7 @@ function FoodQuantity({
       </form>
       <DrawerFooter className="pb-[max(1rem,env(safe-area-inset-bottom))]">
         <Button size="lg" disabled={!canLog} onClick={submit}>
-          Aggiungi a {mealLabels[meal].toLowerCase()}
+          {submitLabel}
         </Button>
       </DrawerFooter>
     </>
@@ -141,17 +143,10 @@ function FoodQuantity({
 
 function RecipeQuantity({
   recipe,
-  day,
-  meal,
-  onLogged,
-  onUndone,
-}: {
-  recipe: LoggableRecipe;
-  day: string;
-  meal: MealType;
-  onLogged: () => void;
-  onUndone?: () => void;
-}) {
+  submitLabel,
+  isPending,
+  onSubmit,
+}: QuantityProperties & { recipe: LoggableRecipe }) {
   const [mode, setMode] = useState<"servings" | "grams">(() => {
     if (recipe.lastServings) return "servings";
     if (recipe.lastGrams) return "grams";
@@ -161,7 +156,6 @@ function RecipeQuantity({
     if (mode === "servings") return toInputValue(recipe.lastServings ?? 1);
     return toInputValue(recipe.lastGrams ?? Math.round(recipe.finalWeightG / recipe.servings));
   });
-  const { isPending, log } = useLogEntry(onLogged, onUndone);
   const amount = parseDecimal(quantity);
   const preview =
     mode === "servings"
@@ -171,18 +165,14 @@ function RecipeQuantity({
 
   function submit() {
     if (!canLog) return;
-    log(
+    onSubmit(
       {
-        day,
-        meal,
-        item: {
-          type: "recipe",
-          recipeId: recipe.id,
-          grams: mode === "grams" ? amount : null,
-          servings: mode === "servings" ? amount : null,
-        },
+        type: "recipe",
+        recipeId: recipe.id,
+        grams: mode === "grams" ? amount : null,
+        servings: mode === "servings" ? amount : null,
       },
-      recipe.name,
+      preview,
     );
   }
 
@@ -249,7 +239,7 @@ function RecipeQuantity({
       </form>
       <DrawerFooter className="pb-[max(1rem,env(safe-area-inset-bottom))]">
         <Button size="lg" disabled={!canLog} onClick={submit}>
-          Aggiungi a {mealLabels[meal].toLowerCase()}
+          {submitLabel}
         </Button>
       </DrawerFooter>
     </>
