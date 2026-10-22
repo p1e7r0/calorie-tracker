@@ -117,7 +117,7 @@ export function DescribeMealDrawer({
 
   return (
     <Drawer open onOpenChange={onOpenChange}>
-      <DrawerContent className="data-[swipe-axis=y]:[--drawer-content-max-height:calc(100dvh-3rem)]">
+      <DrawerContent className="data-[swipe-axis=y]:[--drawer-content-max-height:calc(var(--viewport-height,100dvh)-3rem)]">
         <DrawerHeader>
           <DrawerTitle className="text-lg">Descrivi il pasto</DrawerTitle>
           <DrawerDescription>

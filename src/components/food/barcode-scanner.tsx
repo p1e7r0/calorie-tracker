@@ -94,7 +94,7 @@ export function BarcodeScanner({
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent showCloseButton={false} className="flex h-dvh max-w-none flex-col gap-0 rounded-none p-0 sm:max-w-md">
+      <DialogContent showCloseButton={false} className="flex h-(--viewport-height,100dvh) max-w-none flex-col gap-0 rounded-none p-0 sm:max-w-md">
         <div className="flex items-center justify-between p-3">
           <div>
             <DialogTitle>Scansiona il codice a barre</DialogTitle>
