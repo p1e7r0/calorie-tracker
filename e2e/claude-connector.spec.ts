@@ -75,7 +75,7 @@ async function connectClaude(page: Page, browser: Browser, request: APIRequestCo
   await claudePage.getByRole("button", { name: "Accedi" }).click();
   await expect(claudePage).toHaveURL(/\/consent\?/);
   await expect(claudePage.getByRole("heading", { name: "Collega Claude" })).toBeVisible();
-  await expect(claudePage.getByText("Creare alimenti e ricette")).toBeVisible();
+  await expect(claudePage.getByText("Creare, modificare ed eliminare alimenti, ricette e pasti salvati")).toBeVisible();
   await claudePage.waitForLoadState("networkidle");
   const callback = claudePage.waitForRequest(/^https:\/\/claude\.ai\/api\/mcp\/auth_callback/);
   await claudePage.getByRole("button", { name: "Consenti" }).click();
@@ -330,4 +330,197 @@ test("Claude creates foods and recipes, logs weight and reads progress", async (
   await page.waitForLoadState("networkidle");
   await page.getByRole("searchbox", { name: "Cerca nel catalogo" }).fill(`Fiocchi d'avena ${suffix}`);
   await expect(page.getByRole("link", { name: new RegExp(`^Fiocchi d'avena ${suffix}`) })).toBeVisible();
+});
+
+test("Claude edits and deletes foods, recipes, entries, saved meals, measurements and goals", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const { tokens } = await connectClaude(page, browser, request);
+  let requestId = 10;
+  const callTool = (name: string, toolArguments: object) =>
+    callMcp(request, tokens.access_token, "tools/call", { name, arguments: toolArguments }, requestId++);
+  const suffix = Date.now();
+
+  const tools = await callMcp(request, tokens.access_token, "tools/list", {}, 2);
+  expect(tools.tools.map((tool: { name: string }) => tool.name)).toEqual(
+    expect.arrayContaining([
+      "update_entry",
+      "set_incomplete_day",
+      "get_food",
+      "update_food",
+      "delete_food",
+      "set_favorite",
+      "get_recipe",
+      "update_recipe",
+      "delete_recipe",
+      "save_meal",
+      "update_saved_meal",
+      "delete_saved_meal",
+      "list_measurements",
+      "update_measurement",
+      "delete_measurement",
+      "get_profile",
+      "update_profile",
+      "apply_suggested_targets",
+    ]),
+  );
+
+  const rice = toolPayload(
+    await callTool("create_food", { name: `Riso basmati ${suffix}`, kcal: 350, protein: 8, carbs: 77, fat: 1 }),
+  ).food;
+  const updatedRice = toolPayload(
+    await callTool("update_food", {
+      foodId: rice.foodId,
+      kcal: 356,
+      fiber: 1.2,
+      portions: [{ label: "1 porzione", grams: 80 }],
+    }),
+  );
+  expect(updatedRice).toMatchObject({
+    copiedFromGlobalCatalog: false,
+    warnings: [],
+    food: {
+      foodId: rice.foodId,
+      name: `Riso basmati ${suffix}`,
+      per100: { kcal: 356, protein: 8, carbs: 77, fat: 1, fiber: 1.2, sugars: null },
+      portions: [{ label: "1 porzione", grams: 80 }],
+    },
+  });
+  const clearedFiber = toolPayload(await callTool("update_food", { foodId: rice.foodId, fiber: null }));
+  expect(clearedFiber.food.per100.fiber).toBeNull();
+  expect(toolPayload(await callTool("get_food", { foodId: rice.foodId })).portions).toHaveLength(1);
+  const favorite = toolPayload(await callTool("set_favorite", { foodId: rice.foodId, favorite: true }));
+  expect(favorite.favorite).toBe(true);
+  expect(toolPayload(await callTool("get_food", { foodId: rice.foodId })).favorite).toBe(true);
+
+  const oil = toolPayload(
+    await callTool("create_food", { name: `Olio extravergine ${suffix}`, kcal: 899, protein: 0, carbs: 0, fat: 99.9 }),
+  ).food;
+  const recipe = toolPayload(
+    await callTool("create_recipe", {
+      name: `Riso in bianco ${suffix}`,
+      servings: 2,
+      ingredients: [
+        { foodId: rice.foodId, grams: 160 },
+        { foodId: oil.foodId, grams: 10 },
+      ],
+    }),
+  ).recipe;
+  const detail = toolPayload(await callTool("get_recipe", { recipeId: recipe.recipeId }));
+  expect(detail.ingredients).toEqual([
+    expect.objectContaining({ foodId: rice.foodId, grams: 160 }),
+    expect.objectContaining({ foodId: oil.foodId, grams: 10 }),
+  ]);
+  const renamed = toolPayload(
+    await callTool("update_recipe", { recipeId: recipe.recipeId, name: `Riso all'olio ${suffix}`, cookedWeightG: 420 }),
+  );
+  expect(renamed).toMatchObject({
+    warnings: [],
+    recipe: { name: `Riso all'olio ${suffix}`, servings: 2, cookedWeightG: 420 },
+  });
+  expect(renamed.recipe.ingredients).toHaveLength(2);
+
+  const lunch = toolPayload(
+    await callTool("log_meal", {
+      meal: "lunch",
+      items: [
+        { type: "recipe", recipeId: recipe.recipeId, servings: 1 },
+        { type: "food", foodId: rice.foodId, grams: 50 },
+        { type: "quick", label: "Caffè", kcal: 2 },
+      ],
+    }),
+  );
+  const [recipeEntry, riceEntry, coffeeEntry] = lunch.logged;
+  expect(recipeEntry).toMatchObject({ type: "recipe", recipeId: recipe.recipeId });
+
+  const moved = toolPayload(await callTool("update_entry", { entryId: riceEntry.entryId, meal: "dinner", grams: 100 }));
+  expect(moved.updated).toMatchObject({ entryId: riceEntry.entryId, grams: 100, kcal: 356 });
+  expect(moved.summary.meals[2].entries).toEqual([expect.objectContaining({ entryId: riceEntry.entryId })]);
+  const heavierCoffee = toolPayload(await callTool("update_entry", { entryId: coffeeEntry.entryId, kcal: 30 }));
+  expect(heavierCoffee.updated.kcal).toBe(30);
+  expect((await callTool("update_entry", { entryId: coffeeEntry.entryId })).isError).toBe(true);
+
+  const saved = toolPayload(await callTool("save_meal", { meal: "lunch", name: `Pranzo leggero ${suffix}` }));
+  expect(saved).toMatchObject({ skippedQuickEntries: 1, savedMeal: { name: `Pranzo leggero ${suffix}`, meal: "lunch" } });
+  expect(saved.savedMeal.items).toHaveLength(1);
+
+  const deleted = toolPayload(await callTool("delete_entry", { entryIds: [recipeEntry.entryId, coffeeEntry.entryId] }));
+  expect(deleted.deleted).toEqual(expect.arrayContaining([`Riso all'olio ${suffix}`, "Caffè"]));
+  expect(deleted.notFound).toBe(0);
+  expect(deleted.summaries[0].meals[1].entries).toHaveLength(0);
+
+  const today = moved.summary.day;
+  expect(toolPayload(await callTool("set_incomplete_day", { incomplete: true }))).toEqual({ day: today, incomplete: true });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByText(`Riso basmati ${suffix}`)).toBeVisible();
+  await expect(page.getByText(`Riso all'olio ${suffix}`)).toHaveCount(0);
+  expect(toolPayload(await callTool("set_incomplete_day", { incomplete: false })).incomplete).toBe(false);
+
+  const renamedMeal = toolPayload(
+    await callTool("update_saved_meal", {
+      savedMealId: saved.savedMeal.savedMealId,
+      name: `Pranzo veloce ${suffix}`,
+      removeItemIds: [saved.savedMeal.items[0].itemId],
+    }),
+  );
+  expect(renamedMeal.savedMeal).toMatchObject({ name: `Pranzo veloce ${suffix}`, items: [] });
+  expect(toolPayload(await callTool("delete_saved_meal", { savedMealId: saved.savedMeal.savedMealId }))).toEqual({
+    deleted: `Pranzo veloce ${suffix}`,
+  });
+  expect(toolPayload(await callTool("recent_foods", {})).savedMeals).toHaveLength(0);
+
+  expect(toolPayload(await callTool("delete_recipe", { recipeId: recipe.recipeId })).deleted).toBe(`Riso all'olio ${suffix}`);
+  expect((await callTool("get_recipe", { recipeId: recipe.recipeId })).isError).toBe(true);
+  expect(toolPayload(await callTool("delete_food", { foodId: oil.foodId })).deleted).toBe(`Olio extravergine ${suffix}`);
+  const afterDelete = toolPayload(await callTool("search_foods", { query: `olio extravergine ${suffix}` }));
+  expect(afterDelete.foods).toHaveLength(0);
+
+  const weighIn = toolPayload(await callTool("log_weight", { weightKg: 70.4, waistCm: 82, note: "Mattina" }));
+  const listed = toolPayload(await callTool("list_measurements", {}));
+  expect(listed.measurements).toEqual([
+    { measurementId: weighIn.measurementId, day: today, weightKg: 70.4, waistCm: 82, note: "Mattina" },
+  ]);
+  const corrected = toolPayload(
+    await callTool("update_measurement", { measurementId: weighIn.measurementId, weightKg: 70.2, clear: ["note"] }),
+  );
+  expect(corrected.measurement).toEqual({ measurementId: weighIn.measurementId, day: today, weightKg: 70.2, waistCm: 82 });
+
+  expect(toolPayload(await callTool("get_profile", {}))).toMatchObject({ complete: false, targets: null });
+  const incomplete = await callTool("update_profile", { goal: "lose" });
+  expect(incomplete.isError).toBe(true);
+  const profile = toolPayload(
+    await callTool("update_profile", {
+      sex: "female",
+      birthDate: "1990-05-01",
+      heightCm: 168,
+      activityLevel: "moderate",
+      goal: "lose",
+      weeklyRateKg: 0.5,
+      targetWeightKg: 65,
+    }),
+  );
+  expect(profile).toMatchObject({
+    complete: true,
+    goal: "lose",
+    targetWeightKg: 65,
+    latestWeight: { kg: 70.2 },
+    targets: { custom: false },
+  });
+  const custom = toolPayload(
+    await callTool("update_profile", { customTargets: { kcal: 1700, proteinG: 120, carbsG: 170, fatG: 55 } }),
+  );
+  expect(custom.targets).toEqual({ kcal: 1700, protein: 120, carbs: 170, fat: 55, custom: true });
+  const keptCustom = toolPayload(await callTool("update_profile", { activityLevel: "active" }));
+  expect(keptCustom).toMatchObject({ activityLevel: "active", targets: { kcal: 1700, custom: true } });
+  const computed = toolPayload(await callTool("update_profile", { customTargets: null }));
+  expect(computed.targets.custom).toBe(false);
+  expect(computed.targets.kcal).not.toBe(1700);
+  expect((await callTool("apply_suggested_targets", {})).isError).toBe(true);
+
+  const removed = toolPayload(await callTool("delete_measurement", { measurementId: weighIn.measurementId }));
+  expect(removed).toMatchObject({ deleted: { day: today, weightKg: 70.2 }, trend: null });
 });

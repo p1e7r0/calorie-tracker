@@ -3,14 +3,18 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { database } from "@/db";
-import { diaryEntry, measurement } from "@/db/schema";
+import { type diaryEntry, measurement } from "@/db/schema";
 import {
   connectorInstructions,
   describeDay,
   describeEntry,
   describeFoodCandidate,
+  describeFoodDetail,
+  describeMeasurement,
+  describeProfile,
   describeProgress,
   describeRecipeCandidate,
+  describeRecipeDetail,
   describeSavedMeal,
   describeWeightTrend,
 } from "@/lib/claude-connector";
@@ -24,19 +28,36 @@ import { normalizeBarcode } from "@/lib/open-food-facts";
 import { nameMatchesQuery } from "@/lib/search";
 import { getAdaptiveGoal } from "./adaptive-goal";
 import { getDailyTargets, getDiaryDay } from "./diary";
-import { copyMealEntries, type EntryItem, entryItemSchema, insertDiaryEntries } from "./diary-entries";
-import { insertFood } from "./food-writes";
-import { getLoggableFood, recentFoods, searchFoods } from "./foods";
-import { listIncompleteDays } from "./incomplete-days";
-import { listMeasurements } from "./measurements";
+import {
+  copyMealEntries,
+  editDiaryEntry,
+  type EntryItem,
+  entryItemSchema,
+  insertDiaryEntries,
+  removeDiaryEntries,
+} from "./diary-entries";
+import { archiveOwnFood, editFood, insertFood, markFoodFavorite } from "./food-writes";
+import { getFoodDetail, getLoggableFood, recentFoods, searchFoods, visibleFoodIdsByRequested } from "./foods";
+import { listIncompleteDays, setIncompleteDay } from "./incomplete-days";
+import { listMeasurements, type MeasurementInput, removeMeasurement, writeMeasurement } from "./measurements";
 import {
   fetchOpenFoodFactsProduct,
   findVisibleFoodByBarcode,
   importOpenFoodFactsCandidate,
 } from "./open-food-facts";
-import { insertRecipe } from "./recipe-writes";
-import { getLoggableRecipe, listLoggableRecipes } from "./recipes";
-import { getSavedMeal, listSavedMealViews, markSavedMealUsed, savedMealEntryItems } from "./saved-meals";
+import { getProfileWithLatestWeight } from "./profile";
+import { applyAdaptiveTargets, writeProfile } from "./profile-writes";
+import { archiveOwnRecipe, editRecipe, insertRecipe, markRecipeFavorite } from "./recipe-writes";
+import { getLoggableRecipe, getRecipeForEditing, listLoggableRecipes } from "./recipes";
+import {
+  editSavedMeal,
+  getSavedMeal,
+  listSavedMealViews,
+  markSavedMealUsed,
+  removeSavedMeal,
+  saveMealFromEntries,
+  savedMealEntryItems,
+} from "./saved-meals";
 import { getDailyTotals } from "./statistics";
 
 const daySchema = z
@@ -52,11 +73,41 @@ const mealSchema = z
     "breakfast, lunch, dinner or snack. Defaults to the meal of the first saved meal logged, otherwise to the meal that fits the current time in Italy.",
   );
 
-const weightRange = bodyMetrics.find((metric) => metric.key === "weightKg")!;
-const bodyFatRange = bodyMetrics.find((metric) => metric.key === "bodyFatPercent")!;
+function metricSchema(key: (typeof bodyMetrics)[number]["key"], description: string) {
+  const metric = bodyMetrics.find((candidate) => candidate.key === key)!;
+  return z.number().min(metric.minimum).max(metric.maximum).describe(description);
+}
+
+const otherMeasurementsSchema = z
+  .object({
+    bodyFatPercent: metricSchema("bodyFatPercent", "Body fat percentage, when the scale measures it."),
+    musclePercent: metricSchema("musclePercent", "Muscle mass percentage."),
+    visceralFat: metricSchema("visceralFat", "Visceral fat rating."),
+    bodyWaterPercent: metricSchema("bodyWaterPercent", "Body water percentage."),
+    boneMassKg: metricSchema("boneMassKg", "Bone mass in kg."),
+    waistCm: metricSchema("waistCm", "Waist circumference in cm."),
+    hipCm: metricSchema("hipCm", "Hip circumference in cm."),
+    note: z.string().trim().max(200),
+  })
+  .partial();
 
 const per100 = (nutrient: string) => z.number().min(0).max(1000).describe(`${nutrient} per 100 g (or 100 ml).`);
 const optionalPer100 = (nutrient: string) => per100(nutrient).optional();
+const clearablePer100 = (nutrient: string) => per100(nutrient).nullable().optional();
+
+const portionsSchema = z
+  .array(z.object({ label: z.string().trim().min(1).max(40), grams: z.number().positive().max(5000) }))
+  .max(10);
+
+const ingredientsSchema = z
+  .array(
+    z.object({
+      foodId: z.uuid().describe("foodId returned by search_foods, recent_foods or create_food."),
+      grams: z.number().positive().max(20_000).describe("Raw weight in grams (or ml)."),
+    }),
+  )
+  .min(1)
+  .max(60);
 
 const logItemSchema = z.discriminatedUnion("type", [
   z.object({
@@ -108,6 +159,44 @@ async function describeLoggableFood(userId: string, foodId: string) {
   const loggable = await getLoggableFood(userId, foodId);
   if (!loggable) throw new Error("Food not found.");
   return describeFoodCandidate(loggable);
+}
+
+function kcalWarnings(values: Parameters<typeof kcalMismatch>[0]) {
+  const mismatch = kcalMismatch(values);
+  return mismatch
+    ? [
+        `${values.kcal} kcal do not match the macros (about ${mismatch.expectedKcal} kcal at 4/4/9 kcal per gram). This is normal for alcohol or polyols; otherwise check the label.`,
+      ]
+    : [];
+}
+
+function entryNutrients(row: typeof diaryEntry.$inferSelect) {
+  return { ...row, nutrients: { kcal: row.kcal, protein: row.protein, carbs: row.carbs, fat: row.fat } };
+}
+
+async function visibleFoodId(userId: string, foodId: string) {
+  return (await visibleFoodIdsByRequested(userId, [foodId])).get(foodId) ?? foodId;
+}
+
+async function foodDetail(userId: string, foodId: string) {
+  const detail = await getFoodDetail(userId, await visibleFoodId(userId, foodId));
+  if (!detail) throw new Error("Food not found.");
+  return detail;
+}
+
+async function recipeDetail(userId: string, recipeId: string) {
+  const [loggable, editable] = await Promise.all([
+    getLoggableRecipe(userId, recipeId),
+    getRecipeForEditing(userId, recipeId),
+  ]);
+  if (!loggable || !editable) throw new Error("Recipe not found.");
+  return describeRecipeDetail(loggable, editable);
+}
+
+function recipeWarnings(hasCookedWeight: boolean) {
+  return hasCookedWeight
+    ? []
+    : ["No cooked weight: per100 refers to the raw weight. Log this recipe by servings, or ask for the cooked weight."];
 }
 
 async function weights(userId: string) {
@@ -211,12 +300,7 @@ export function createClaudeConnectorServer(userId: string) {
         const created = await insertDiaryEntries(userId, targetDay, targetMeal, entries, "connector");
         await Promise.all(savedMealIds.map(markSavedMealUsed));
         return textResult({
-          logged: created.map((row) =>
-            describeEntry({
-              ...row,
-              nutrients: { kcal: row.kcal, protein: row.protein, carbs: row.carbs, fat: row.fat },
-            }),
-          ),
+          logged: created.map((row) => describeEntry(entryNutrients(row))),
           meal: targetMeal,
           summary: await daySummary(userId, targetDay),
         });
@@ -244,21 +328,72 @@ export function createClaudeConnectorServer(userId: string) {
   );
 
   server.registerTool(
-    "delete_entry",
+    "update_entry",
     {
-      title: "Elimina una voce",
-      description: "Delete one entry from the user's food diary. Use the entryId returned by get_day or log_meal.",
-      inputSchema: z.object({ entryId: z.uuid() }),
+      title: "Modifica una voce",
+      description:
+        "Change one entry of the user's food diary: move it to another meal, or change the quantity. Food entries take grams, recipe entries grams (cooked weight) or servings, quick entries kcal (macros scale with it). The values are recomputed from the current food or recipe. Use the entryId and type returned by get_day or log_meal. Returns the updated entry and day.",
+      inputSchema: z.object({
+        entryId: z.uuid(),
+        meal: z.enum(mealTypes).optional().describe("Move the entry to this meal of the same day."),
+        grams: z.number().positive().max(10_000).optional().describe("New quantity in grams for food and recipe entries."),
+        servings: z.number().positive().max(100).optional().describe("New servings for recipe entries, used when grams is missing."),
+        kcal: z.number().min(0).max(20_000).optional().describe("New kcal for quick entries."),
+        portionLabel: z.string().trim().max(80).nullable().optional().describe("Portion name for food entries; null removes it."),
+      }),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
-    async ({ entryId }) => {
+    async ({ entryId, ...changes }) => {
       try {
-        const [deleted] = await database
-          .delete(diaryEntry)
-          .where(and(eq(diaryEntry.id, entryId), eq(diaryEntry.userId, userId)))
-          .returning({ day: diaryEntry.day, label: diaryEntry.label });
-        if (!deleted) throw new Error("Entry not found.");
-        return textResult({ deleted: deleted.label, summary: await daySummary(userId, deleted.day) });
+        if (Object.values(changes).every((value) => value === undefined)) throw new Error("Nothing to change.");
+        const updated = await editDiaryEntry(userId, { id: entryId, ...changes });
+        return textResult({ updated: describeEntry(entryNutrients(updated)), summary: await daySummary(userId, updated.day) });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "delete_entry",
+    {
+      title: "Elimina voci",
+      description:
+        "Delete one or more entries from the user's food diary. Use the entryId values returned by get_day or log_meal. Returns the updated days.",
+      inputSchema: z.object({ entryIds: z.array(z.uuid()).min(1).max(50) }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ entryIds }) => {
+      try {
+        const deleted = await removeDiaryEntries(userId, entryIds);
+        if (deleted.length === 0) throw new Error("Entry not found.");
+        const days = [...new Set(deleted.map((row) => row.day))];
+        return textResult({
+          deleted: deleted.map((row) => row.label),
+          notFound: entryIds.length - deleted.length,
+          summaries: await Promise.all(days.map((day) => daySummary(userId, day))),
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "set_incomplete_day",
+    {
+      title: "Segna un giorno incompleto",
+      description:
+        "Mark a past day or today as incomplete when the user did not log everything they ate, or clear the mark. Incomplete days are left out of averages and of the adaptive estimate, and count as on target in the weekly budget.",
+      inputSchema: z.object({ day: daySchema, incomplete: z.boolean() }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ day, incomplete }) => {
+      try {
+        const targetDay = day ?? todayIsoDate();
+        if (targetDay > todayIsoDate()) throw new Error("The day cannot be in the future.");
+        await setIncompleteDay(userId, targetDay, incomplete);
+        return textResult({ day: targetDay, incomplete });
       } catch (error) {
         return errorResult(error);
       }
@@ -294,12 +429,7 @@ export function createClaudeConnectorServer(userId: string) {
         const created = await copyMealEntries(userId, copy, "connector");
         if (created.length === 0) throw new Error(`There is nothing logged for ${fromMeal} on ${fromDay}.`);
         return textResult({
-          copied: created.map((row) =>
-            describeEntry({
-              ...row,
-              nutrients: { kcal: row.kcal, protein: row.protein, carbs: row.carbs, fat: row.fat },
-            }),
-          ),
+          copied: created.map((row) => describeEntry(entryNutrients(row))),
           meal: targetMeal,
           summary: await daySummary(userId, targetDay),
         });
@@ -357,11 +487,7 @@ export function createClaudeConnectorServer(userId: string) {
         saturatedFat: optionalPer100("Saturated fat in grams"),
         fiber: optionalPer100("Fiber in grams"),
         salt: optionalPer100("Salt in grams"),
-        portions: z
-          .array(z.object({ label: z.string().trim().min(1).max(40), grams: z.number().positive().max(5000) }))
-          .max(10)
-          .optional()
-          .describe("Named portions, e.g. «1 vasetto» of 170 g."),
+        portions: portionsSchema.optional().describe("Named portions, e.g. «1 vasetto» of 170 g."),
       }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
@@ -375,15 +501,10 @@ export function createClaudeConnectorServer(userId: string) {
         }
         const input = { ...values, barcode: code, unit: unit ?? "g", portions: portions ?? [] };
         const foodId = await insertFood(userId, input);
-        const mismatch = kcalMismatch(input);
         return textResult({
           created: true,
           food: await describeLoggableFood(userId, foodId),
-          warnings: mismatch
-            ? [
-                `${input.kcal} kcal do not match the macros (about ${mismatch.expectedKcal} kcal at 4/4/9 kcal per gram). This is normal for alcohol or polyols; otherwise check the label and fix the food in the app.`,
-              ]
-            : [],
+          warnings: kcalWarnings(input),
         });
       } catch (error) {
         return errorResult(error);
@@ -402,15 +523,7 @@ export function createClaudeConnectorServer(userId: string) {
         servings: z.number().int().min(1).max(100).describe("Number of servings the whole dish makes."),
         cookedWeightG: z.number().positive().max(50_000).optional().describe("Weight of the whole cooked dish in grams."),
         notes: z.string().trim().max(2000).optional(),
-        ingredients: z
-          .array(
-            z.object({
-              foodId: z.uuid().describe("foodId returned by search_foods, recent_foods or create_food."),
-              grams: z.number().positive().max(20_000).describe("Raw weight in grams (or ml)."),
-            }),
-          )
-          .min(1)
-          .max(60),
+        ingredients: ingredientsSchema,
       }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
@@ -421,9 +534,7 @@ export function createClaudeConnectorServer(userId: string) {
         if (!created) throw new Error("Recipe not found.");
         return textResult({
           recipe: describeRecipeCandidate(created),
-          warnings: created.hasCookedWeight
-            ? []
-            : ["No cooked weight: per100 refers to the raw weight. Log this recipe by servings, or ask for the cooked weight."],
+          warnings: recipeWarnings(created.hasCookedWeight),
         });
       } catch (error) {
         return errorResult(error);
@@ -436,24 +547,16 @@ export function createClaudeConnectorServer(userId: string) {
     {
       title: "Registra il peso",
       description:
-        "Record a weigh-in of the user. Returns the weight trend. Logging the same weight twice on the same day does nothing.",
-      inputSchema: z.object({
-        weightKg: z.number().min(weightRange.minimum).max(weightRange.maximum),
-        bodyFatPercent: z
-          .number()
-          .min(bodyFatRange.minimum)
-          .max(bodyFatRange.maximum)
-          .optional()
-          .describe("Body fat percentage, when the scale measures it."),
+        "Record a weigh-in of the user, with the other body measurements when the user gives them. Returns the new measurementId and the weight trend. Logging the same weight twice on the same day does nothing.",
+      inputSchema: otherMeasurementsSchema.extend({
+        weightKg: metricSchema("weightKg", "Weight in kg."),
         day: daySchema,
       }),
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
-    async ({ weightKg, bodyFatPercent, day }) => {
+    async ({ day, ...values }) => {
       try {
-        const today = todayIsoDate();
-        const measuredOn = day ?? today;
-        if (measuredOn > today) throw new Error("The day cannot be in the future.");
+        const measuredOn = day ?? todayIsoDate();
         const [duplicate] = await database
           .select({ id: measurement.id })
           .from(measurement)
@@ -461,18 +564,15 @@ export function createClaudeConnectorServer(userId: string) {
             and(
               eq(measurement.userId, userId),
               eq(measurement.measuredOn, measuredOn),
-              eq(measurement.weightKg, weightKg),
+              eq(measurement.weightKg, values.weightKg),
             ),
           );
-        if (!duplicate) {
-          await database
-            .insert(measurement)
-            .values({ userId, measuredOn, weightKg, bodyFatPercent: bodyFatPercent ?? null });
-        }
+        const measurementId = duplicate?.id ?? (await writeMeasurement(userId, { ...values, measuredOn }));
         return textResult({
           logged: !duplicate,
+          measurementId,
           day: measuredOn,
-          weightKg,
+          weightKg: values.weightKg,
           trend: describeWeightTrend(await weights(userId)),
         });
       } catch (error) {
@@ -516,6 +616,459 @@ export function createClaudeConnectorServer(userId: string) {
             suggestedTargetKcal: adaptive.suggestion?.kcal ?? null,
           }),
         );
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_food",
+    {
+      title: "Leggi un alimento",
+      description:
+        "Read every value of a food: name, brand, barcode, unit, energy, macros, sugars, saturated fat, fiber and salt per 100 g (or 100 ml), portions, and whether it is a favorite or the user's own. Use it before update_food.",
+      inputSchema: z.object({ foodId: z.uuid() }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ foodId }) => {
+      try {
+        return textResult(describeFoodDetail(await foodDetail(userId, foodId)));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_food",
+    {
+      title: "Modifica un alimento",
+      description:
+        "Change a food of the catalog. Pass only the fields to change; null clears an optional value, portions replaces every portion. Changing a food of the global catalog creates the user's own copy, which replaces it from then on: use the returned foodId. Past diary entries keep their values. Returns the updated food and warnings about suspicious values.",
+      inputSchema: z.object({
+        foodId: z.uuid(),
+        name: z.string().trim().min(1).max(120).optional(),
+        brand: z.string().trim().max(80).nullable().optional(),
+        barcode: z.string().max(40).nullable().optional().describe("EAN barcode digits."),
+        unit: z.enum(["g", "ml"]).optional(),
+        kcal: per100("Energy in kcal").optional(),
+        protein: per100("Protein in grams").optional(),
+        carbs: per100("Carbohydrates in grams").optional(),
+        fat: per100("Fat in grams").optional(),
+        sugars: clearablePer100("Sugars in grams"),
+        saturatedFat: clearablePer100("Saturated fat in grams"),
+        fiber: clearablePer100("Fiber in grams"),
+        salt: clearablePer100("Salt in grams"),
+        portions: portionsSchema.optional().describe("Every named portion of the food; an empty list removes them."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ foodId, barcode, ...changes }) => {
+      try {
+        const current = await foodDetail(userId, foodId);
+        const code = barcode ? normalizeBarcode(barcode) : barcode;
+        if (barcode && !code) throw new Error("A barcode has 6 to 14 digits.");
+        const input = {
+          name: changes.name ?? current.name,
+          brand: changes.brand === undefined ? current.brand : changes.brand,
+          barcode: code === undefined ? current.barcode : code,
+          unit: changes.unit ?? current.unit,
+          kcal: changes.kcal ?? current.kcal,
+          protein: changes.protein ?? current.protein,
+          carbs: changes.carbs ?? current.carbs,
+          fat: changes.fat ?? current.fat,
+          sugars: changes.sugars === undefined ? current.sugars : changes.sugars,
+          saturatedFat: changes.saturatedFat === undefined ? current.saturatedFat : changes.saturatedFat,
+          fiber: changes.fiber === undefined ? current.fiber : changes.fiber,
+          salt: changes.salt === undefined ? current.salt : changes.salt,
+          portions: changes.portions ?? current.portions,
+        };
+        const updatedId = await editFood(userId, current.id, input);
+        return textResult({
+          food: describeFoodDetail(await foodDetail(userId, updatedId)),
+          copiedFromGlobalCatalog: updatedId !== current.id,
+          warnings: kcalWarnings(input),
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "delete_food",
+    {
+      title: "Elimina un alimento",
+      description:
+        "Delete one of the user's own foods (own: true) from the catalog. Foods of the global catalog cannot be deleted. Past diary entries keep their values; recipes and saved meals that use the food stop showing it.",
+      inputSchema: z.object({ foodId: z.uuid() }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ foodId }) => {
+      try {
+        const archived = await archiveOwnFood(userId, foodId);
+        return textResult({ deleted: archived.name });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "set_favorite",
+    {
+      title: "Preferiti",
+      description: "Add a food or a recipe to the user's favorites, or remove it. Pass foodId or recipeId.",
+      inputSchema: z.object({
+        foodId: z.uuid().optional(),
+        recipeId: z.uuid().optional(),
+        favorite: z.boolean(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ foodId, recipeId, favorite }) => {
+      try {
+        if (Boolean(foodId) === Boolean(recipeId)) throw new Error("Pass either foodId or recipeId.");
+        const marked = foodId
+          ? await markFoodFavorite(userId, await visibleFoodId(userId, foodId), favorite)
+          : await markRecipeFavorite(userId, recipeId!, favorite);
+        return textResult({ name: marked.name, favorite });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_recipe",
+    {
+      title: "Leggi una ricetta",
+      description:
+        "Read a recipe of the user: ingredients with foodId and raw grams, servings, cooked weight, notes and values per 100 g and per serving. Use it before update_recipe.",
+      inputSchema: z.object({ recipeId: z.uuid() }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ recipeId }) => {
+      try {
+        return textResult(await recipeDetail(userId, recipeId));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_recipe",
+    {
+      title: "Modifica una ricetta",
+      description:
+        "Change a recipe of the user. Pass only the fields to change; ingredients replaces the whole list, so call get_recipe first and send every ingredient to keep. cookedWeightG null removes the cooked weight. Past diary entries keep their values. Returns the updated recipe.",
+      inputSchema: z.object({
+        recipeId: z.uuid(),
+        name: z.string().trim().min(1).max(120).optional(),
+        servings: z.number().int().min(1).max(100).optional(),
+        cookedWeightG: z.number().positive().max(50_000).nullable().optional().describe("Weight of the whole cooked dish in grams."),
+        notes: z.string().trim().max(2000).nullable().optional(),
+        ingredients: ingredientsSchema.optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ recipeId, ...changes }) => {
+      try {
+        const current = await getRecipeForEditing(userId, recipeId);
+        if (!current) throw new Error("Recipe not found.");
+        const input = {
+          name: changes.name ?? current.name,
+          servings: changes.servings ?? current.servings,
+          cookedWeightG: changes.cookedWeightG === undefined ? current.cookedWeightG : changes.cookedWeightG,
+          notes: changes.notes === undefined ? current.notes : changes.notes,
+          ingredients:
+            changes.ingredients ??
+            current.ingredients.map((ingredient) => ({ foodId: ingredient.foodId, grams: ingredient.grams })),
+        };
+        await editRecipe(userId, recipeId, input);
+        return textResult({ recipe: await recipeDetail(userId, recipeId), warnings: recipeWarnings(Boolean(input.cookedWeightG)) });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "delete_recipe",
+    {
+      title: "Elimina una ricetta",
+      description:
+        "Delete a recipe of the user. Past diary entries keep their values; saved meals that use the recipe stop showing it.",
+      inputSchema: z.object({ recipeId: z.uuid() }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ recipeId }) => {
+      try {
+        const archived = await archiveOwnRecipe(userId, recipeId);
+        return textResult({ deleted: archived.name });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "save_meal",
+    {
+      title: "Salva un pasto",
+      description:
+        "Save the foods and recipes logged in a meal of a day as a saved meal, to log them again later in one step. Quick entries are not saved. Returns the saved meal.",
+      inputSchema: z.object({
+        day: daySchema,
+        meal: z.enum(mealTypes).describe("Meal to save: breakfast, lunch, dinner or snack."),
+        name: z.string().trim().min(1).max(80).describe("Short Italian name, e.g. «Colazione solita»."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ day, meal, name }) => {
+      try {
+        const saved = await saveMealFromEntries(userId, { day: day ?? todayIsoDate(), meal, name });
+        const view = await getSavedMeal(userId, saved.id);
+        if (!view) throw new Error("Saved meal not found.");
+        return textResult({ savedMeal: describeSavedMeal(view), skippedQuickEntries: saved.skippedCount });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_saved_meal",
+    {
+      title: "Modifica un pasto salvato",
+      description:
+        "Rename a saved meal or remove some of its items. Use the savedMealId and itemId values returned by search_foods or recent_foods. Returns the updated saved meal.",
+      inputSchema: z.object({
+        savedMealId: z.uuid(),
+        name: z.string().trim().min(1).max(80).optional(),
+        removeItemIds: z.array(z.uuid()).max(100).optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ savedMealId, name, removeItemIds }) => {
+      try {
+        const current = await getSavedMeal(userId, savedMealId);
+        if (!current) throw new Error("Saved meal not found.");
+        await editSavedMeal(userId, {
+          savedMealId,
+          name: name ?? current.name,
+          removedItemIds: removeItemIds ?? [],
+        });
+        const updated = await getSavedMeal(userId, savedMealId);
+        return textResult({ savedMeal: updated && describeSavedMeal(updated) });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "delete_saved_meal",
+    {
+      title: "Elimina un pasto salvato",
+      description: "Delete a saved meal. The foods, recipes and diary entries stay.",
+      inputSchema: z.object({ savedMealId: z.uuid() }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ savedMealId }) => {
+      try {
+        const deleted = await removeSavedMeal(userId, savedMealId);
+        return textResult({ deleted: deleted.name });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_measurements",
+    {
+      title: "Elenca le misurazioni",
+      description:
+        "List the user's weigh-ins and body measurements, newest first, with their measurementId for update_measurement and delete_measurement.",
+      inputSchema: z.object({
+        days: z.number().int().min(1).max(730).optional().describe("Number of days to read, today included. Defaults to 30."),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async ({ days }) => {
+      try {
+        const fromDay = addDays(todayIsoDate(), -((days ?? 30) - 1));
+        const measurements = await listMeasurements(userId);
+        return textResult({
+          fromDay,
+          measurements: measurements
+            .filter((row) => row.measuredOn >= fromDay)
+            .reverse()
+            .map(describeMeasurement),
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_measurement",
+    {
+      title: "Modifica una misurazione",
+      description:
+        "Change a weigh-in or body measurement. Pass only the fields to change; null clears an optional value. Returns the updated measurement.",
+      inputSchema: z.object({
+        measurementId: z.uuid(),
+        day: daySchema.describe("New ISO date (yyyy-mm-dd) of the measurement."),
+        weightKg: metricSchema("weightKg", "Weight in kg.").optional(),
+        clear: z
+          .array(otherMeasurementsSchema.keyof())
+          .optional()
+          .describe("Optional values to remove from the measurement."),
+        ...otherMeasurementsSchema.shape,
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ measurementId, day, weightKg, clear, ...changes }) => {
+      try {
+        const current = (await listMeasurements(userId)).find((row) => row.id === measurementId);
+        if (!current) throw new Error("Measurement not found.");
+        const input: MeasurementInput = {
+          ...current,
+          ...changes,
+          ...Object.fromEntries((clear ?? []).map((key) => [key, null])),
+          measuredOn: day ?? current.measuredOn,
+          weightKg: weightKg ?? current.weightKg,
+        };
+        await writeMeasurement(userId, input);
+        const updated = (await listMeasurements(userId)).find((row) => row.id === measurementId);
+        return textResult({ measurement: updated && describeMeasurement(updated) });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "delete_measurement",
+    {
+      title: "Elimina una misurazione",
+      description: "Delete a weigh-in or body measurement. Returns the weight trend.",
+      inputSchema: z.object({ measurementId: z.uuid() }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ measurementId }) => {
+      try {
+        const deleted = await removeMeasurement(userId, measurementId);
+        return textResult({
+          deleted: { day: deleted.measuredOn, weightKg: deleted.weightKg },
+          trend: describeWeightTrend(await weights(userId)),
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "get_profile",
+    {
+      title: "Leggi il profilo",
+      description:
+        "Read the user's profile: sex, birth date, height, latest weight, activity level, goal (lose, maintain, gain), weekly rate, target weight and daily targets (custom: true when set by hand or from the adaptive estimate).",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => {
+      try {
+        const { profile, latestWeight } = await getProfileWithLatestWeight(userId);
+        return textResult(describeProfile(profile, latestWeight));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_profile",
+    {
+      title: "Modifica profilo e obiettivi",
+      description:
+        "Change the user's profile and daily targets. Pass only the fields to change. Targets are computed from sex, age, height, latest weight, activity, goal and weekly rate, unless they are custom: customTargets sets them by hand, null goes back to the computed ones, and when omitted custom targets stay as they are. Record the weight with log_weight, not here. Returns the updated profile.",
+      inputSchema: z.object({
+        sex: z.enum(["male", "female"]).optional(),
+        birthDate: z.string().refine(isIsoDate, "Use an ISO date such as 1990-05-01.").optional(),
+        heightCm: z.number().min(100).max(250).optional(),
+        activityLevel: z.enum(["sedentary", "light", "moderate", "active", "very_active"]).optional(),
+        goal: z.enum(["lose", "maintain", "gain"]).optional(),
+        weeklyRateKg: z.number().min(0.1).max(1).optional().describe("Kg per week to lose or gain."),
+        targetWeightKg: z.number().min(30).max(300).nullable().optional(),
+        customTargets: z
+          .object({
+            kcal: z.number().int().min(800).max(6000),
+            proteinG: z.number().int().min(0).max(500),
+            carbsG: z.number().int().min(0).max(1000),
+            fatG: z.number().int().min(0).max(400),
+          })
+          .nullable()
+          .optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async (changes) => {
+      try {
+        const { profile } = await getProfileWithLatestWeight(userId);
+        const sex = changes.sex ?? profile?.sex;
+        const birthDate = changes.birthDate ?? profile?.birthDate;
+        const heightCm = changes.heightCm ?? profile?.heightCm;
+        if (!sex || !birthDate || !heightCm) throw new Error("The profile is incomplete: pass sex, birthDate and heightCm.");
+        const savedTargets =
+          profile?.targetsCustomized && profile.targetKcal
+            ? {
+                kcal: profile.targetKcal,
+                proteinG: profile.targetProteinG ?? 0,
+                carbsG: profile.targetCarbsG ?? 0,
+                fatG: profile.targetFatG ?? 0,
+              }
+            : null;
+        await writeProfile(userId, {
+          sex,
+          birthDate,
+          heightCm,
+          activityLevel: changes.activityLevel ?? profile?.activityLevel ?? "light",
+          goal: changes.goal ?? profile?.goal ?? "maintain",
+          weeklyRateKg: changes.weeklyRateKg ?? profile?.weeklyRateKg ?? 0.5,
+          targetWeightKg: changes.targetWeightKg === undefined ? profile?.targetWeightKg : changes.targetWeightKg,
+          customTargets: changes.customTargets === undefined ? savedTargets : changes.customTargets,
+        });
+        const updated = await getProfileWithLatestWeight(userId);
+        return textResult(describeProfile(updated.profile, updated.latestWeight));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "apply_suggested_targets",
+    {
+      title: "Applica l'obiettivo suggerito",
+      description:
+        "Replace the daily targets with the ones suggested by the adaptive estimate of maintenance kcal (maintenance.suggestedTargetKcal in get_progress), keeping the user's goal and weekly rate. Ask the user before calling it. Returns the new and the previous targets.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async () => {
+      try {
+        const { applied, previous } = await applyAdaptiveTargets(userId);
+        return textResult({
+          targets: { kcal: applied.kcal, protein: applied.proteinG, carbs: applied.carbsG, fat: applied.fatG },
+          previous: { kcal: previous.kcal, protein: previous.proteinG, carbs: previous.carbsG, fat: previous.fatG },
+        });
       } catch (error) {
         return errorResult(error);
       }

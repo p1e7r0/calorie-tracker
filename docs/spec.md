@@ -36,7 +36,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 | Q18 | Unità | Grammi/ml più porzioni con nome per alimento |
 | Q19 | Navigazione | Barra in basso: Oggi, Cibo, "+", Progressi, Profilo |
 | Q20 | Statistiche | Kcal 7/30 giorni con obiettivo, media macro settimanale, peso vs kcal medie; aggiornato: budget settimanale su Oggi e fabbisogno stimato settimana per settimana in Progressi |
-| Q21 | Fuori scope | Acqua, attività, integrazioni salute, digiuno, modalità offline; aggiornato: AI (T27), promemoria push (T31), connettore per Claude (T32, T35, T37) e Siri (T36) implementati su richiesta dell'utente |
+| Q21 | Fuori scope | Acqua, attività, integrazioni salute, digiuno, modalità offline; aggiornato: AI (T27), promemoria push (T31), connettore per Claude (T32, T35, T37, T38) e Siri (T36) implementati su richiesta dell'utente |
 | Q22 | Account | Email/password senza verifica; Google pronto ma attivo con le variabili; reset password via email implementato in T26 (attivo con Resend) |
 | Q23 | Stile | Neutro e compatto, un accento lime per le kcal, colori distinti per P/C/G, numeri tabellari |
 | Q24 | Qualità | Vitest sulla logica, Playwright smoke, `tsc`/`eslint`/`next build` puliti, controllo visivo mobile chiaro/scuro |

@@ -1,8 +1,10 @@
 import "server-only";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { z } from "zod";
 import { database } from "@/db";
-import { food, savedMeal, savedMealItem } from "@/db/schema";
-import type { MealType } from "@/lib/nutrition/meals";
+import { diaryEntry, food, savedMeal, savedMealItem } from "@/db/schema";
+import { isIsoDate } from "@/lib/nutrition/days";
+import { type MealType, mealTypes } from "@/lib/nutrition/meals";
 import { multiplyNutrients, type Nutrients, scaleNutrients, sumNutrients } from "@/lib/nutrition/nutrients";
 import type { EntryItem } from "./diary-entries";
 import { listLoggableRecipes } from "./recipes";
@@ -133,4 +135,80 @@ export function savedMealEntryItems(saved: SavedMealView): EntryItem[] {
 
 export async function markSavedMealUsed(savedMealId: string) {
   await database.update(savedMeal).set({ updatedAt: new Date() }).where(eq(savedMeal.id, savedMealId));
+}
+
+const savedMealName = z.string().trim().min(1, "Dai un nome al pasto.").max(80);
+
+const saveFromDiarySchema = z.object({
+  day: z.string().refine(isIsoDate, "Data non valida"),
+  meal: z.enum(mealTypes),
+  name: savedMealName,
+});
+
+export type SaveMealFromDiaryInput = z.input<typeof saveFromDiarySchema>;
+
+export async function saveMealFromEntries(userId: string, input: SaveMealFromDiaryInput) {
+  const { day, meal, name } = saveFromDiarySchema.parse(input);
+  const entries = await database
+    .select()
+    .from(diaryEntry)
+    .where(and(eq(diaryEntry.userId, userId), eq(diaryEntry.day, day), eq(diaryEntry.meal, meal)))
+    .orderBy(diaryEntry.createdAt);
+  const items = entries.filter(
+    (entry) => (entry.kind === "food" && entry.foodId) || (entry.kind === "recipe" && entry.recipeId),
+  );
+  if (items.length === 0) throw new Error("Questo pasto non ha alimenti da salvare.");
+
+  const id = await database.transaction(async (transaction) => {
+    const [created] = await transaction
+      .insert(savedMeal)
+      .values({ userId, name, defaultMeal: meal })
+      .returning({ id: savedMeal.id });
+    await transaction.insert(savedMealItem).values(
+      items.map((entry, position) => ({
+        savedMealId: created.id,
+        foodId: entry.kind === "food" ? entry.foodId : null,
+        recipeId: entry.kind === "recipe" ? entry.recipeId : null,
+        grams: entry.grams,
+        servings: entry.servings,
+        position,
+      })),
+    );
+    return created.id;
+  });
+  return { id, itemCount: items.length, skippedCount: entries.length - items.length };
+}
+
+const updateSavedMealSchema = z.object({
+  savedMealId: z.uuid(),
+  name: savedMealName,
+  removedItemIds: z.array(z.uuid()).max(100),
+});
+
+export type SavedMealUpdate = z.input<typeof updateSavedMealSchema>;
+
+export async function editSavedMeal(userId: string, input: SavedMealUpdate) {
+  const { savedMealId, name, removedItemIds } = updateSavedMealSchema.parse(input);
+  await database.transaction(async (transaction) => {
+    const updated = await transaction
+      .update(savedMeal)
+      .set({ name })
+      .where(and(eq(savedMeal.id, savedMealId), eq(savedMeal.userId, userId)))
+      .returning({ id: savedMeal.id });
+    if (updated.length === 0) throw new Error("Pasto salvato non trovato.");
+    if (removedItemIds.length > 0) {
+      await transaction
+        .delete(savedMealItem)
+        .where(and(eq(savedMealItem.savedMealId, savedMealId), inArray(savedMealItem.id, removedItemIds)));
+    }
+  });
+}
+
+export async function removeSavedMeal(userId: string, savedMealId: string) {
+  const [deleted] = await database
+    .delete(savedMeal)
+    .where(and(eq(savedMeal.id, z.uuid().parse(savedMealId)), eq(savedMeal.userId, userId)))
+    .returning({ id: savedMeal.id, name: savedMeal.name });
+  if (!deleted) throw new Error("Pasto salvato non trovato.");
+  return deleted;
 }

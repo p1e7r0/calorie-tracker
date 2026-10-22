@@ -1,8 +1,8 @@
 import "server-only";
-import { and, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { database } from "@/db";
-import { food, recipe, recipeIngredient } from "@/db/schema";
+import { favoriteRecipe, food, recipe, recipeIngredient } from "@/db/schema";
 import { visibleFoodCondition } from "./foods";
 
 export const recipeInputSchema = z.object({
@@ -50,4 +50,49 @@ export async function insertRecipe(userId: string, input: RecipeInput) {
       .values(parsed.ingredients.map((ingredient, position) => ({ ...ingredient, position, recipeId: created.id })));
     return created.id;
   });
+}
+
+export async function editRecipe(userId: string, recipeId: string, input: RecipeInput) {
+  const parsed = recipeInputSchema.parse(input);
+  const id = z.uuid().parse(recipeId);
+  await assertIngredientsVisible(userId, parsed.ingredients.map((ingredient) => ingredient.foodId));
+  await database.transaction(async (transaction) => {
+    const updated = await transaction
+      .update(recipe)
+      .set(toRecipeValues(parsed))
+      .where(and(eq(recipe.id, id), eq(recipe.ownerId, userId), isNull(recipe.archivedAt)))
+      .returning({ id: recipe.id });
+    if (updated.length === 0) throw new Error("Ricetta non trovata.");
+    await transaction.delete(recipeIngredient).where(eq(recipeIngredient.recipeId, id));
+    await transaction
+      .insert(recipeIngredient)
+      .values(parsed.ingredients.map((ingredient, position) => ({ ...ingredient, position, recipeId: id })));
+  });
+  return id;
+}
+
+export async function archiveOwnRecipe(userId: string, recipeId: string) {
+  const [archived] = await database
+    .update(recipe)
+    .set({ archivedAt: new Date() })
+    .where(and(eq(recipe.id, z.uuid().parse(recipeId)), eq(recipe.ownerId, userId), isNull(recipe.archivedAt)))
+    .returning({ id: recipe.id, name: recipe.name });
+  if (!archived) throw new Error("Ricetta non trovata.");
+  return archived;
+}
+
+export async function markRecipeFavorite(userId: string, recipeId: string, favorite: boolean) {
+  const [owned] = await database
+    .select({ id: recipe.id, name: recipe.name })
+    .from(recipe)
+    .where(and(eq(recipe.id, z.uuid().parse(recipeId)), eq(recipe.ownerId, userId), isNull(recipe.archivedAt)));
+  if (!owned) throw new Error("Ricetta non trovata.");
+  if (favorite) {
+    await database.insert(favoriteRecipe).values({ userId, recipeId: owned.id }).onConflictDoNothing();
+  } else {
+    await database
+      .delete(favoriteRecipe)
+      .where(and(eq(favoriteRecipe.userId, userId), eq(favoriteRecipe.recipeId, owned.id)));
+  }
+  return owned;
 }
