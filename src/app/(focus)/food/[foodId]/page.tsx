@@ -7,12 +7,13 @@ import { BackHeader } from "@/components/app-shell/back-header";
 import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { ArchiveFoodButton } from "@/components/food/archive-food-button";
 import { FavoriteButton } from "@/components/food/favorite-button";
+import { FreezeButton } from "@/components/freezer/freeze-button";
 import { buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
 import { formatDecimal, formatGrams, formatKcal } from "@/lib/nutrition/format";
 import { micronutrientGroups, micronutrientInfo } from "@/lib/nutrition/micronutrients";
-import { getFoodDetail } from "@/server/foods";
+import { getFoodDetail, getLoggableFood } from "@/server/foods";
 
 export const metadata: Metadata = { title: "Alimento" };
 
@@ -39,7 +40,10 @@ export default function FoodDetailPage({ params }: PageProps<"/food/[foodId]">) 
 async function FoodDetail({ params }: Pick<PageProps<"/food/[foodId]">, "params">) {
   const user = await getCurrentUser();
   const { foodId } = await params;
-  const food = /^[0-9a-f-]{36}$/.test(foodId) ? await getFoodDetail(user.id, foodId) : null;
+  const isIdentifier = /^[0-9a-f-]{36}$/.test(foodId);
+  const [food, loggableFood] = isIdentifier
+    ? await Promise.all([getFoodDetail(user.id, foodId), getLoggableFood(user.id, foodId)])
+    : [null, null];
   if (!food) notFound();
 
   const rows: { label: string; value: number | null; unit: string; indent?: boolean }[] = [
@@ -61,6 +65,7 @@ async function FoodDetail({ params }: Pick<PageProps<"/food/[foodId]">, "params"
         actions={
           <>
             <FavoriteButton type="food" id={food.id} isFavorite={food.isFavorite} />
+            {loggableFood ? <FreezeButton item={loggableFood} /> : null}
             {food.isOwn ? <ArchiveFoodButton foodId={food.id} name={food.name} /> : null}
           </>
         }

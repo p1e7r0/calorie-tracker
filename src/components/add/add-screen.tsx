@@ -8,6 +8,7 @@ import {
   PlusIcon,
   ScanBarcodeIcon,
   SearchIcon,
+  SnowflakeIcon,
   SparklesIcon,
   StarIcon,
   XIcon,
@@ -16,7 +17,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { logFreezerBatchPortion } from "@/app/actions/freezer";
 import { lookupBarcode } from "@/app/actions/open-food-facts";
+import { addedToMealMessage, toastWithUndo } from "@/components/diary/toast-with-undo";
 import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { MealPicker } from "@/components/diary/meal-picker";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -24,7 +27,8 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDecimal, formatGrams, formatKcal } from "@/lib/nutrition/format";
-import { mealTypes, type MealType } from "@/lib/nutrition/meals";
+import { describeFrozenAge, describePortion } from "@/lib/nutrition/freezer";
+import { mealLabels, mealTypes, type MealType } from "@/lib/nutrition/meals";
 import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableItem, LoggableRecipe } from "@/server/loggable";
 import { LogItemDrawer } from "./log-item-drawer";
@@ -34,6 +38,7 @@ import { OpenFoodFactsResults } from "./open-food-facts-results";
 import { DescribeMealDrawer } from "./describe-meal-drawer";
 import { QuickKcalDrawer } from "./quick-kcal-drawer";
 import { LogSavedMealDrawer } from "@/components/saved-meals/log-saved-meal-drawer";
+import type { FreezerBatchView } from "@/server/freezer";
 import type { SavedMealView } from "@/server/saved-meals";
 import { type SearchResults, useFoodSearch } from "@/components/food/use-food-search";
 
@@ -45,6 +50,8 @@ type AddScreenProperties = {
   favoriteFoods: LoggableFood[];
   recipes: LoggableRecipe[];
   savedMeals: SavedMealView[];
+  freezerBatches: FreezerBatchView[];
+  today: string;
   initialItem: LoggableItem | null;
   initialSavedMealId: string | null;
   backHref: string;
@@ -67,6 +74,8 @@ function AddScreenContent({
   favoriteFoods,
   recipes,
   savedMeals,
+  freezerBatches,
+  today,
   initialItem,
   initialSavedMealId,
   backHref,
@@ -85,7 +94,9 @@ function AddScreenContent({
   const [loggedCount, setLoggedCount] = useState(0);
   const [tab, setTab] = useState(() => {
     if (selectedSavedMeal) return "meals";
-    return mealTypes.some((mealType) => suggestions[mealType].length > 0) ? "suggested" : "favorites";
+    return freezerBatches.length > 0 || mealTypes.some((mealType) => suggestions[mealType].length > 0)
+      ? "suggested"
+      : "favorites";
   });
   const search = useFoodSearch(query);
   const trimmedQuery = query.trim();
@@ -93,6 +104,19 @@ function AddScreenContent({
   const createHref = `/food/new?name=${encodeURIComponent(trimmedQuery)}&next=${encodeURIComponent(addHref)}`;
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isLookingUp, startLookup] = useTransition();
+  const [isLoggingFromFreezer, startFreezerLog] = useTransition();
+
+  function logFromFreezer(batch: FreezerBatchView) {
+    startFreezerLog(async () => {
+      const result = await logFreezerBatchPortion({ batchId: batch.id, day, meal });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toastWithUndo(addedToMealMessage(mealLabels[meal], batch.label), [result.data.id], () => handleUndone());
+      handleLogged();
+    });
+  }
 
   function handleBarcode(barcode: string) {
     startLookup(async () => {
@@ -204,11 +228,21 @@ function AddScreenContent({
               ) : null}
             </div>
             <TabsContent value="suggested">
+              {freezerBatches.length > 0 ? (
+                <FreezerSection
+                  batches={freezerBatches}
+                  today={today}
+                  disabled={isLoggingFromFreezer}
+                  onLog={logFromFreezer}
+                />
+              ) : null}
               <ItemList
                 items={suggestions[meal]}
                 onSelect={setSelectedItem}
                 onQuickAdd={quickAdd}
-                emptyMessage="Qui troverai quello che registri più spesso in questo pasto."
+                emptyMessage={
+                  freezerBatches.length > 0 ? "" : "Qui troverai quello che registri più spesso in questo pasto."
+                }
               />
             </TabsContent>
             <TabsContent value="favorites">
@@ -356,6 +390,51 @@ function AddScreenContent({
         />
       ) : null}
     </>
+  );
+}
+
+function FreezerSection({
+  batches,
+  today,
+  disabled,
+  onLog,
+}: {
+  batches: FreezerBatchView[];
+  today: string;
+  disabled: boolean;
+  onLog: (batch: FreezerBatchView) => void;
+}) {
+  return (
+    <section aria-labelledby="add-freezer-heading" className="mt-2 mb-3">
+      <h2 id="add-freezer-heading" className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+        <SnowflakeIcon className="size-4" aria-hidden="true" />
+        Dal congelatore
+      </h2>
+      <ul className="divide-y">
+        {batches.map((batch) => (
+          <li key={batch.id} className="flex items-center gap-1">
+            <div className="min-w-0 flex-1 px-1 py-2.5">
+              <span className="block truncate">{batch.label}</span>
+              <span className="block truncate text-sm text-muted-foreground">
+                {describePortion(batch)}, {formatKcal(batch.perPortion.kcal)} kcal.{" "}
+                {batch.portionsLeft === 1 ? "Ultima porzione" : `Ne restano ${batch.portionsLeft}`},{" "}
+                {describeFrozenAge(batch.frozenOn, today)}
+              </span>
+            </div>
+            <Button
+              variant="secondary"
+              size="icon"
+              className="touch-target"
+              disabled={disabled}
+              aria-label={`Aggiungi una porzione di ${batch.label} dal congelatore`}
+              onClick={() => onLog(batch)}
+            >
+              <PlusIcon />
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

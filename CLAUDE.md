@@ -88,6 +88,7 @@ Versioni esatte in `package.json`.
 ### Diario
 - `diary_entry` salva uno snapshot dei nutrienti (kcal, proteine, carboidrati, grassi + extra fibre, zuccheri, grassi saturi, sale) calcolato da `resolveEntryValues`; `food_id`/`recipe_id` sono `ON DELETE SET NULL`. Non ricalcolare lo storico dai valori attuali.
 - Tipi di voce: `food`, `recipe`, `quick` ("Kcal veloci"). Porzione ricetta in grammi (peso cotto) oppure in porzioni.
+- Congelatore: `freezer_batch` salva lo snapshot di una porzione; `logFreezerPortion` (`src/server/freezer.ts`) scala una porzione e crea la voce con `freezer_batch_id`. Per eliminare voci usa `deleteDiaryEntriesById` (`src/server/diary-entries.ts`), che restituisce le porzioni; `updateDiaryEntry` scala lo snapshot delle voci del congelatore invece di ricalcolarlo.
 - `diary_entry.source` dice chi ha creato la voce: `app` (default), `connector` (Claude) o `shortcut` (Siri); `insertDiaryEntries` e `copyMealEntries` lo ricevono come ultimo parametro.
 - Valori nutrizionali dei cibi per 100 g/ml.
 - Giorni come stringhe ISO `yyyy-mm-dd`, fuso fisso `Europe/Rome` (`todayIsoDate()` in `src/lib/nutrition/days.ts`).

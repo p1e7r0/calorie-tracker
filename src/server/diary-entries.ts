@@ -1,8 +1,8 @@
 import "server-only";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
-import { database } from "@/db";
-import { diaryEntry } from "@/db/schema";
+import { type Database, database } from "@/db";
+import { diaryEntry, freezerBatch } from "@/db/schema";
 import type { MealCopy } from "@/lib/nutrition/copy-meal";
 import {
   emptyExtraNutrients,
@@ -11,6 +11,7 @@ import {
   roundExtras,
   scaleExtras,
 } from "@/lib/nutrition/extra-nutrients";
+import { countPortionsByBatch } from "@/lib/nutrition/freezer";
 import type { MealType } from "@/lib/nutrition/meals";
 import { multiplyNutrients, type Nutrients, roundNutrients, scaleNutrients } from "@/lib/nutrition/nutrients";
 import { recipePortionNutrients, type RecipeNutrition } from "@/lib/nutrition/recipe";
@@ -185,4 +186,42 @@ export async function copyMealEntries(
       })),
     )
     .returning();
+}
+
+type Executor = Database | Parameters<Parameters<Database["transaction"]>[0]>[0];
+
+export async function returnFreezerPortions(
+  executor: Executor,
+  userId: string,
+  entries: readonly { freezerBatchId: string | null }[],
+) {
+  for (const [batchId, count] of countPortionsByBatch(entries)) {
+    await executor
+      .update(freezerBatch)
+      .set({
+        portionsLeft: sql`${freezerBatch.portionsLeft} + ${count}`,
+        portions: sql`greatest(${freezerBatch.portions}, ${freezerBatch.portionsLeft} + ${count})`,
+      })
+      .where(and(eq(freezerBatch.id, batchId), eq(freezerBatch.userId, userId)));
+  }
+}
+
+export async function takeFreezerPortion(executor: Executor, userId: string, batchId: string) {
+  const [batch] = await executor
+    .update(freezerBatch)
+    .set({ portionsLeft: sql`${freezerBatch.portionsLeft} - 1` })
+    .where(and(eq(freezerBatch.id, batchId), eq(freezerBatch.userId, userId), sql`${freezerBatch.portionsLeft} > 0`))
+    .returning();
+  return batch ?? null;
+}
+
+export async function deleteDiaryEntriesById(userId: string, entryIds: readonly string[]) {
+  return database.transaction(async (transaction) => {
+    const deleted = await transaction
+      .delete(diaryEntry)
+      .where(and(eq(diaryEntry.userId, userId), inArray(diaryEntry.id, [...entryIds])))
+      .returning();
+    await returnFreezerPortions(transaction, userId, deleted);
+    return deleted;
+  });
 }

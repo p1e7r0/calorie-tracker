@@ -3,7 +3,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { database } from "@/db";
-import { diaryEntry, measurement } from "@/db/schema";
+import { measurement } from "@/db/schema";
 import {
   connectorInstructions,
   describeDay,
@@ -24,7 +24,13 @@ import { normalizeBarcode } from "@/lib/open-food-facts";
 import { nameMatchesQuery } from "@/lib/search";
 import { getAdaptiveGoal } from "./adaptive-goal";
 import { getDailyTargets, getDiaryDay } from "./diary";
-import { copyMealEntries, type EntryItem, entryItemSchema, insertDiaryEntries } from "./diary-entries";
+import {
+  copyMealEntries,
+  deleteDiaryEntriesById,
+  type EntryItem,
+  entryItemSchema,
+  insertDiaryEntries,
+} from "./diary-entries";
 import { insertFood } from "./food-writes";
 import { getLoggableFood, recentFoods, searchFoods } from "./foods";
 import { listIncompleteDays } from "./incomplete-days";
@@ -253,10 +259,7 @@ export function createClaudeConnectorServer(userId: string) {
     },
     async ({ entryId }) => {
       try {
-        const [deleted] = await database
-          .delete(diaryEntry)
-          .where(and(eq(diaryEntry.id, entryId), eq(diaryEntry.userId, userId)))
-          .returning({ day: diaryEntry.day, label: diaryEntry.label });
+        const [deleted] = await deleteDiaryEntriesById(userId, [entryId]);
         if (!deleted) throw new Error("Entry not found.");
         return textResult({ deleted: deleted.label, summary: await daySummary(userId, deleted.day) });
       } catch (error) {

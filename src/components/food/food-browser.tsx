@@ -1,19 +1,31 @@
 "use client";
 
-import { ChefHatIcon, ChevronRightIcon, PlusIcon, ScanBarcodeIcon, SearchIcon, StarIcon, XIcon } from "lucide-react";
+import {
+  ChefHatIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  ScanBarcodeIcon,
+  SearchIcon,
+  SnowflakeIcon,
+  StarIcon,
+  XIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { lookupBarcode } from "@/app/actions/open-food-facts";
 import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
+import { FreezerBatchDrawer } from "@/components/freezer/freezer-batch-drawer";
 import { buttonVariants } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatKcal } from "@/lib/nutrition/format";
+import { describeFrozenAge, describePortionsLeft } from "@/lib/nutrition/freezer";
 import { cn } from "@/lib/utils";
+import type { FreezerBatchView } from "@/server/freezer";
 import type { LoggableFood, LoggableRecipe } from "@/server/loggable";
 import { BarcodeScanner } from "./barcode-scanner";
 import { useFoodSearch } from "./use-food-search";
@@ -26,6 +38,8 @@ export function FoodBrowser({
   mostUsedFoods,
   recipes,
   savedMeals,
+  freezerBatches,
+  today,
   initialTab,
 }: {
   ownFoods: LoggableFood[];
@@ -33,6 +47,8 @@ export function FoodBrowser({
   mostUsedFoods: LoggableFood[];
   recipes: LoggableRecipe[];
   savedMeals: SavedMealSummary[];
+  freezerBatches: FreezerBatchView[];
+  today: string;
   initialTab: string;
 }) {
   const router = useRouter();
@@ -40,6 +56,8 @@ export function FoodBrowser({
   const search = useFoodSearch(query);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [isLookingUp, startLookup] = useTransition();
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const selectedBatch = freezerBatches.find((batch) => batch.id === selectedBatchId) ?? null;
   const foodFilters = [
     { value: "used", label: "Più usati", items: mostUsedFoods, empty: "Qui compaiono gli alimenti che registri più spesso." },
     { value: "favorites", label: "Preferiti", items: favoriteFoods, empty: "Tocca la stella su un alimento per vederlo qui." },
@@ -154,6 +172,43 @@ export function FoodBrowser({
                 </ul>
               ) : null}
             </TabsContent>
+            <TabsContent value="freezer" className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">
+                Hai cucinato in quantità? Apri la ricetta o l&apos;alimento e tocca{" "}
+                <SnowflakeIcon className="inline size-4 align-text-bottom" aria-label="Metti in congelatore" /> per
+                mettere le porzioni in congelatore.
+              </p>
+              {freezerBatches.length > 0 ? (
+                <ul className="divide-y">
+                  {freezerBatches.map((batch) => (
+                    <li key={batch.id}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedBatchId(batch.id)}
+                        className="flex w-full items-center gap-3 py-2.5 text-left outline-none focus-visible:bg-muted/60"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-1.5">
+                            {batch.kind === "recipe" ? (
+                              <ChefHatIcon className="size-4 shrink-0 text-muted-foreground" aria-label="Ricetta" />
+                            ) : null}
+                            <span className="truncate">{batch.label}</span>
+                          </span>
+                          <span className="block truncate text-sm text-muted-foreground">
+                            {describePortionsLeft(batch.portionsLeft, batch.portions)},{" "}
+                            {formatKcal(batch.perPortion.kcal)} kcal a porzione
+                          </span>
+                          <span className="block text-xs text-muted-foreground">
+                            {describeFrozenAge(batch.frozenOn, today)}
+                          </span>
+                        </span>
+                        <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </TabsContent>
           </ScreenBody>
         </Tabs>
       )}
@@ -162,6 +217,15 @@ export function FoodBrowser({
       </ScreenFooter>
       {scannerOpen ? (
         <BarcodeScanner isLookingUp={isLookingUp} onDetected={handleBarcode} onClose={() => setScannerOpen(false)} />
+      ) : null}
+      {selectedBatch ? (
+        <FreezerBatchDrawer
+          key={selectedBatch.id}
+          batch={selectedBatch}
+          onOpenChange={(open) => {
+            if (!open) setSelectedBatchId(null);
+          }}
+        />
       ) : null}
     </>
   );
@@ -207,7 +271,8 @@ function FoodTabsList() {
     <TabsList className="mb-3 w-full shrink-0">
       <TabsTrigger value="foods">Alimenti</TabsTrigger>
       <TabsTrigger value="recipes">Ricette</TabsTrigger>
-      <TabsTrigger value="meals">Pasti salvati</TabsTrigger>
+      <TabsTrigger value="meals">Pasti</TabsTrigger>
+      <TabsTrigger value="freezer">Congelatore</TabsTrigger>
     </TabsList>
   );
 }

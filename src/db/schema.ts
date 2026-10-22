@@ -208,12 +208,46 @@ export const diaryEntry = pgTable(
     saturatedFat: real(),
     salt: real(),
     source: diaryEntrySourceEnum().notNull().default("app"),
+    freezerBatchId: uuid().references(() => freezerBatch.id, { onDelete: "set null" }),
     ...timestamps,
   },
   (table) => [
     index("diary_entry_user_day_index").on(table.userId, table.day),
     index("diary_entry_user_food_index").on(table.userId, table.foodId),
     check("diary_entry_kcal_non_negative", sql`${table.kcal} >= 0`),
+  ],
+);
+
+export const freezerBatch = pgTable(
+  "freezer_batch",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    kind: diaryEntryKindEnum().notNull(),
+    foodId: uuid().references(() => food.id, { onDelete: "set null" }),
+    recipeId: uuid().references(() => recipe.id, { onDelete: "set null" }),
+    label: text().notNull(),
+    grams: real(),
+    servings: real(),
+    kcal: real().notNull(),
+    protein: real().notNull().default(0),
+    carbs: real().notNull().default(0),
+    fat: real().notNull().default(0),
+    fiber: real(),
+    sugars: real(),
+    saturatedFat: real(),
+    salt: real(),
+    portions: integer().notNull(),
+    portionsLeft: integer().notNull(),
+    frozenOn: date({ mode: "string" }).notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("freezer_batch_user_index").on(table.userId),
+    check("freezer_batch_kind", sql`${table.kind} <> 'quick'`),
+    check("freezer_batch_portions_left", sql`${table.portionsLeft} >= 0 and ${table.portionsLeft} <= ${table.portions}`),
   ],
 );
 

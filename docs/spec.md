@@ -31,7 +31,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 | Q13 | Pasti condivisi | No: ognuno registra la propria porzione (ricetta + peso da cotto) |
 | Q14 | Nutrienti | Colonne: kcal, proteine, carboidrati, zuccheri, grassi, saturi, fibre, sale (per 100 g/ml). Vitamine e minerali in `jsonb` |
 | Q15 | Misure | Peso obbligatorio; facoltativi % grasso, % muscolo, grasso viscerale, % acqua, massa ossea, vita, fianchi. Grafici con media mobile 7 giorni |
-| Q16 | Ricorrenti | Preferiti, recenti/frequenti, pasti salvati, copia pasto da un altro giorno |
+| Q16 | Ricorrenti | Preferiti, recenti/frequenti, pasti salvati, copia pasto da un altro giorno; scorta del congelatore (2026-10-22) |
 | Q17 | Nuovo alimento | "Crea «testo»" dalla ricerca vuota, modulo compatto; più "kcal veloci" senza alimento |
 | Q18 | Unità | Grammi/ml più porzioni con nome per alimento |
 | Q19 | Navigazione | Barra in basso: Oggi, Cibo, "+", Progressi, Profilo |
@@ -68,3 +68,4 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 - Intestazioni, tab e barra in basso restano fisse e scorre solo il contenuto; il campo di ricerca sta in basso, sopra la tastiera, come in Safari.
 - Colori dei grafici e dei macronutrienti validati per daltonismo e contrasto in entrambi i temi.
 - Siri (T36): endpoint dedicato invece del server MCP, perché Comandi rapidi non gestisce OAuth. Autenticazione con un token personale (`blc_` + 32 byte casuali, salvato solo come hash SHA-256, uno per utente, mostrato una volta) valido solo per registrare e annullare pasti da Siri; revocato al reset della password. Interpretazione in due chiamate fisse a Haiku (testo → voci con ricette e pasti salvati per codice; candidati del catalogo → scelta e grammi), non un ciclo libero di strumenti, per avere latenza e costo prevedibili. Le voci create portano `source = 'shortcut'`.
+- Scorta del congelatore (2026-10-22): un lotto (`freezer_batch`) salva i valori di una porzione al momento del congelamento, come uno snapshot del diario, così modificare la ricetta dopo non cambia le porzioni già congelate. Ogni registrazione dal congelatore crea una voce con `freezer_batch_id` e scala una porzione; eliminare la voce (anche con «Annulla») la restituisce, ripristinarla la riprende se ne restano. Duplicare o copiare una voce non tocca la scorta. Le porzioni sono intere; un lotto finito resta nel database ma sparisce dalle liste. Nessun avviso di scadenza.

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { database } from "@/db";
@@ -19,10 +19,12 @@ import { recipePortionNutrients } from "@/lib/nutrition/recipe";
 import { extrasFromRow, multiplyExtras, roundExtras, scaleExtras } from "@/lib/nutrition/extra-nutrients";
 import {
   copyMealEntries,
+  deleteDiaryEntriesById,
   entryItemSchema,
   insertDiaryEntries,
   recipeNutritionFromLoggable,
   recipePortionExtras,
+  takeFreezerPortion,
 } from "@/server/diary-entries";
 import { getVisibleFood } from "@/server/foods";
 import { setIncompleteDay } from "@/server/incomplete-days";
@@ -99,7 +101,7 @@ export async function updateDiaryEntry(input: UpdateEntryInput): Promise<ActionR
         extras = entry.kcal > 0 ? multiplyExtras(extras, update.kcal / entry.kcal) : extras;
       }
     } else if (entry.kind === "food" && update.grams) {
-      const foodRow = entry.foodId ? await getVisibleFood(userId, entry.foodId) : null;
+      const foodRow = entry.foodId && !entry.freezerBatchId ? await getVisibleFood(userId, entry.foodId) : null;
       nutrients = foodRow
         ? scaleNutrients(foodRow, update.grams)
         : multiplyNutrients(snapshot, entry.grams ? update.grams / entry.grams : 1);
@@ -110,7 +112,7 @@ export async function updateDiaryEntry(input: UpdateEntryInput): Promise<ActionR
       else if (update.grams !== entry.grams) portionLabel = null;
       grams = update.grams;
     } else if (entry.kind === "recipe" && (update.grams || update.servings)) {
-      const recipe = entry.recipeId ? await getLoggableRecipe(userId, entry.recipeId) : null;
+      const recipe = entry.recipeId && !entry.freezerBatchId ? await getLoggableRecipe(userId, entry.recipeId) : null;
       const portion = update.grams ? { grams: update.grams } : { servings: update.servings! };
       if (recipe) {
         nutrients = recipePortionNutrients(recipeNutritionFromLoggable(recipe), portion);
@@ -142,10 +144,7 @@ export async function deleteDiaryEntry(id: string): Promise<ActionResult<Deleted
   try {
     const userId = await requireUserId();
     const entryId = z.uuid().parse(id);
-    const [deleted] = await database
-      .delete(diaryEntry)
-      .where(and(eq(diaryEntry.id, entryId), eq(diaryEntry.userId, userId)))
-      .returning();
+    const [deleted] = await deleteDiaryEntriesById(userId, [entryId]);
     if (!deleted) throw new Error("Voce non trovata.");
     refresh();
     return { ok: true, data: deleted };
@@ -158,10 +157,7 @@ export async function deleteDiaryEntries(ids: string[]): Promise<ActionResult<{ 
   try {
     const userId = await requireUserId();
     const entryIds = z.array(z.uuid()).min(1).max(100).parse(ids);
-    const deleted = await database
-      .delete(diaryEntry)
-      .where(and(eq(diaryEntry.userId, userId), inArray(diaryEntry.id, entryIds)))
-      .returning({ id: diaryEntry.id });
+    const deleted = await deleteDiaryEntriesById(userId, entryIds);
     if (deleted.length === 0) throw new Error("Voci non trovate.");
     refresh();
     return { ok: true, data: { deleted: deleted.length } };
@@ -175,26 +171,31 @@ export async function restoreDiaryEntry(entry: DeletedEntry): Promise<ActionResu
     const userId = await requireUserId();
     const day = isoDate.parse(entry.day);
     const mealType = meal.parse(entry.meal);
-    await database
-      .insert(diaryEntry)
-      .values({
-        userId,
-        day,
-        meal: mealType,
-        kind: z.enum(["food", "recipe", "quick"]).parse(entry.kind),
-        foodId: entry.foodId ? z.uuid().parse(entry.foodId) : null,
-        recipeId: entry.recipeId ? z.uuid().parse(entry.recipeId) : null,
-        label: z.string().max(200).parse(entry.label),
-        grams: entry.grams,
-        servings: entry.servings,
-        portionLabel: entry.portionLabel,
-        kcal: z.number().min(0).parse(entry.kcal),
-        protein: entry.protein,
-        carbs: entry.carbs,
-        fat: entry.fat,
-        ...extrasFromRow(entry),
-      })
-      .onConflictDoNothing();
+    const freezerBatchId = entry.freezerBatchId ? z.uuid().parse(entry.freezerBatchId) : null;
+    await database.transaction(async (transaction) => {
+      const batch = freezerBatchId ? await takeFreezerPortion(transaction, userId, freezerBatchId) : null;
+      await transaction
+        .insert(diaryEntry)
+        .values({
+          userId,
+          day,
+          meal: mealType,
+          kind: z.enum(["food", "recipe", "quick"]).parse(entry.kind),
+          foodId: entry.foodId ? z.uuid().parse(entry.foodId) : null,
+          recipeId: entry.recipeId ? z.uuid().parse(entry.recipeId) : null,
+          label: z.string().max(200).parse(entry.label),
+          grams: entry.grams,
+          servings: entry.servings,
+          portionLabel: entry.portionLabel,
+          kcal: z.number().min(0).parse(entry.kcal),
+          protein: entry.protein,
+          carbs: entry.carbs,
+          fat: entry.fat,
+          ...extrasFromRow(entry),
+          freezerBatchId: batch?.id ?? null,
+        })
+        .onConflictDoNothing();
+    });
     refresh();
     return { ok: true, data: undefined };
   } catch (error) {
