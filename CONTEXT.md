@@ -96,7 +96,7 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - **Macro**: P/C/G = proteine, carboidrati, grassi.
 
 ## Stato attuale
-Aggiornato al 2026-10-23. Per lo stato reale usa `git log` e `git status`.
+Aggiornato al 2026-10-25. Per lo stato reale usa `git log` e `git status`.
 - Tutti i task T01-T37 sono completati e in produzione; T01-T32 dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
 - Ultimi merge in `main`: `fix/cookware-test-format`, `fix/preview-deployments` (PR #8), `feature/connector-full-editing` (T38, PR #5), `feature/cookware-tare` (PR #4), `fix/keyboard-covers-overlays` (PR #3, drawer e dialog sopra la tastiera su iOS, da verificare su iPhone).
 - T33 (pull-to-refresh su Oggi e Progressi) in produzione dal 2026-10-17.
@@ -142,6 +142,7 @@ Aggiornato al 2026-10-23. Per lo stato reale usa `git log` e `git status`.
 - **2026-10-22, pentole**: tabella `cookware` (migrazione 0014) con gestione in Profilo › Impostazioni › Pentole; nell'editor della ricetta «Pesa con la pentola» apre un drawer che sottrae la tara dal peso totale e ricorda l'ultima pentola usata nel browser; i pesi accettano il punto delle migliaia («1.250», `parseWeightGrams` in `src/lib/nutrition/cookware.ts`).
 - **2026-10-22, T38**: il connettore per Claude fa quasi tutto quello che si fa dall'app: modifica ed eliminazione di voci (anche più insieme), alimenti, ricette, pasti salvati e misure, preferiti, giorno incompleto, profilo e obiettivi, obiettivo suggerito; la logica di scrittura delle action è passata in `src/server/*` (`diary-entries`, `food-writes`, `recipe-writes`, `saved-meals`, `measurements`, nuovo `profile-writes`), condivisa da app e connettore; `get_day` dice tipo e alimento o ricetta di ogni voce, i pasti salvati espongono l'id delle voci.
 - **2026-10-23, migrazione 0014 dimenticata**: le pentole erano in produzione ma la tabella `cookware` mancava sia su dev sia su main, quindi la scheda Impostazioni del profilo cadeva con «relation "cookware" does not exist»; applicata `0014` a entrambi i branch. Corretto lo spec delle pentole, che si aspettava «1.250 g» invece di «1250 g».
+- **2026-10-25, «Annulla» solo per più voci**: il toast dopo l'aggiunta di una singola voce (alimento, ricetta, Kcal veloci, anche in un tocco dai Suggeriti) non ha più «Annulla», giudicato superfluo; resta per pasto salvato, «Descrivi» e copia di un pasto, dove eliminare a mano costerebbe una voce alla volta.
 
 ## Riferimenti
 - `docs/spec.md`: stack, tabella decisioni Q1-Q24, regole di dominio (nutrienti per 100 g, ricette con peso da cotto, snapshot nel diario, Mifflin-St Jeor, macro predefinite), infrastruttura.

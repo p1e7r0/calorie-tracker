@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { addDiaryEntry } from "@/app/actions/diary";
-import { toastWithUndo } from "@/components/diary/toast-with-undo";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -23,13 +22,11 @@ export function QuickKcalDrawer({
   meal,
   onOpenChange,
   onLogged,
-  onUndone,
 }: {
   day: string;
   meal: MealType;
   onOpenChange: (open: boolean) => void;
   onLogged: () => void;
-  onUndone?: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
   const [values, setValues] = useState({ label: "", kcal: "", protein: "", carbs: "", fat: "" });
@@ -58,11 +55,7 @@ export function QuickKcalDrawer({
         toast.error(result.error);
         return;
       }
-      toastWithUndo(
-        `Aggiunte ${formatKcal(kcal)} kcal a ${mealLabels[meal].toLowerCase()}`,
-        [result.data.id],
-        onUndone,
-      );
+      toast.success(`Aggiunte ${formatKcal(kcal)} kcal a ${mealLabels[meal].toLowerCase()}`);
       onLogged();
     });
   }

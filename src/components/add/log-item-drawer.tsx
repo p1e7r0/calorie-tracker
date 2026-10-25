@@ -29,22 +29,20 @@ export function LogItemDrawer({
   meal,
   onOpenChange,
   onLogged,
-  onUndone,
 }: {
   item: LoggableItem;
   day: string;
   meal: MealType;
   onOpenChange: (open: boolean) => void;
   onLogged: () => void;
-  onUndone?: () => void;
 }) {
   return (
     <Drawer open onOpenChange={onOpenChange}>
       <DrawerContent>
         {item.type === "food" ? (
-          <FoodQuantity food={item} day={day} meal={meal} onLogged={onLogged} onUndone={onUndone} />
+          <FoodQuantity food={item} day={day} meal={meal} onLogged={onLogged} />
         ) : (
-          <RecipeQuantity recipe={item} day={day} meal={meal} onLogged={onLogged} onUndone={onUndone} />
+          <RecipeQuantity recipe={item} day={day} meal={meal} onLogged={onLogged} />
         )}
       </DrawerContent>
     </Drawer>
@@ -56,18 +54,16 @@ function FoodQuantity({
   day,
   meal,
   onLogged,
-  onUndone,
 }: {
   food: LoggableFood;
   day: string;
   meal: MealType;
   onLogged: () => void;
-  onUndone?: () => void;
 }) {
   const defaultGrams = food.lastGrams ?? food.portions[0]?.grams ?? 100;
   const [quantity, setQuantity] = useState(() => toInputValue(defaultGrams));
   const [portionLabel, setPortionLabel] = useState<string | null>(null);
-  const { isPending, log } = useLogEntry(onLogged, onUndone);
+  const { isPending, log } = useLogEntry(onLogged);
   const grams = parseDecimal(quantity);
   const preview = scaleNutrients(food.per100, grams ?? 0);
   const canLog = !isPending && grams !== null && grams > 0;
@@ -144,13 +140,11 @@ function RecipeQuantity({
   day,
   meal,
   onLogged,
-  onUndone,
 }: {
   recipe: LoggableRecipe;
   day: string;
   meal: MealType;
   onLogged: () => void;
-  onUndone?: () => void;
 }) {
   const [mode, setMode] = useState<"servings" | "grams">(() => {
     if (recipe.lastServings) return "servings";
@@ -161,7 +155,7 @@ function RecipeQuantity({
     if (mode === "servings") return toInputValue(recipe.lastServings ?? 1);
     return toInputValue(recipe.lastGrams ?? Math.round(recipe.finalWeightG / recipe.servings));
   });
-  const { isPending, log } = useLogEntry(onLogged, onUndone);
+  const { isPending, log } = useLogEntry(onLogged);
   const amount = parseDecimal(quantity);
   const preview =
     mode === "servings"

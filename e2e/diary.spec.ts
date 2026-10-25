@@ -57,16 +57,8 @@ test("logs quick kcal", async ({ page }) => {
   await expect(page.getByRole("region", { name: "Spuntini" }).getByText("Aperitivo")).toBeVisible();
 });
 
-test("undoes quick kcal and a meal copied from yesterday", async ({ page }) => {
+test("undoes a meal copied from yesterday", async ({ page }) => {
   await registerUser(page);
-  await page.goto("/add?meal=snack");
-  await page.getByRole("button", { name: "Kcal veloci" }).click();
-  await page.getByLabel("Kcal", { exact: true }).fill("350");
-  await page.getByRole("button", { name: "Aggiungi a spuntini" }).click();
-  await expect(page.getByText("1 voce aggiunta")).toBeVisible();
-  await page.locator("[data-sonner-toast]").filter({ hasText: "Aggiunte 350 kcal a spuntini" }).getByRole("button", { name: "Annulla" }).click();
-  await expect(page.getByText("1 voce aggiunta")).toBeHidden();
-
   await page.goto(`/add?date=${isoDay(-1)}&meal=lunch`);
   await page.getByRole("button", { name: "Kcal veloci" }).click();
   await page.getByLabel("Kcal", { exact: true }).fill("600");
@@ -75,7 +67,6 @@ test("undoes quick kcal and a meal copied from yesterday", async ({ page }) => {
   await expect(page.getByText("1 voce aggiunta")).toBeVisible();
 
   await page.goto("/");
-  await expect(page.getByRole("region", { name: "Spuntini" }).getByText("Niente ancora.")).toBeVisible();
   const lunch = page.getByRole("region", { name: "Pranzo" });
   await lunch.getByRole("button", { name: "Altre azioni per pranzo" }).click();
   await page.getByRole("menuitem", { name: "Copia da ieri" }).click();
@@ -84,7 +75,7 @@ test("undoes quick kcal and a meal copied from yesterday", async ({ page }) => {
   await expect(lunch.getByText("Niente ancora.")).toBeVisible();
 });
 
-test("adds a recent food in one tap with the last quantity and undoes it", async ({ page }) => {
+test("adds a recent food in one tap with the last quantity", async ({ page }) => {
   await registerUser(page);
   await page.goto("/add?meal=breakfast");
   await page.getByRole("searchbox", { name: "Cerca un alimento o una ricetta" }).fill("banana cruda");
@@ -98,12 +89,11 @@ test("adds a recent food in one tap with the last quantity and undoes it", async
   await expect(page.getByText("Ultima volta 120 g, 114 kcal")).toBeVisible();
   await page.getByRole("button", { name: "Aggiungi 120 g di Banana, cruda" }).click();
   await expect(page.getByText("2 voci aggiunte")).toBeVisible();
-  await page.locator("[data-sonner-toast]").first().getByRole("button", { name: "Annulla" }).click();
-  await expect(page.getByText("1 voce aggiunta")).toBeVisible();
+  await expect(page.locator("[data-sonner-toast]").first().getByRole("button", { name: "Annulla" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Fatto" }).click();
   const breakfast = page.getByRole("region", { name: "Colazione" });
-  await expect(breakfast.getByText("Banana, cruda")).toHaveCount(1);
+  await expect(breakfast.getByText("Banana, cruda")).toHaveCount(2);
 });
 
 test("edits an entry with ten gram steps and quick quantities", async ({ page }) => {

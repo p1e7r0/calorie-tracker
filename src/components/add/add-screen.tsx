@@ -127,10 +127,7 @@ function AddScreenContent({
     setLoggedCount((current) => Math.max(0, current - count));
   }
 
-  const quickLog = useLogEntry(
-    () => handleLogged(),
-    () => handleUndone(),
-  );
+  const quickLog = useLogEntry(() => handleLogged());
 
   function quickAdd(item: LoggableItem) {
     if (item.type === "food") {
@@ -315,7 +312,6 @@ function AddScreenContent({
           day={day}
           meal={meal}
           onLogged={() => handleLogged()}
-          onUndone={() => handleUndone()}
           onOpenChange={(open) => {
             if (!open) setSelectedItem(null);
           }}
@@ -351,7 +347,6 @@ function AddScreenContent({
           day={day}
           meal={meal}
           onLogged={() => handleLogged()}
-          onUndone={() => handleUndone()}
           onOpenChange={(open) => setQuickKcalOpen(open)}
         />
       ) : null}

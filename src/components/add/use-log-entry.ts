@@ -3,10 +3,10 @@
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { type AddEntryInput, addDiaryEntry } from "@/app/actions/diary";
-import { addedToMealMessage, toastWithUndo } from "@/components/diary/toast-with-undo";
+import { addedToMealMessage } from "@/components/diary/toast-with-undo";
 import { mealLabels, type MealType } from "@/lib/nutrition/meals";
 
-export function useLogEntry(onLogged: () => void, onUndone?: () => void) {
+export function useLogEntry(onLogged: () => void) {
   const [isPending, startTransition] = useTransition();
 
   function log(input: AddEntryInput, label: string) {
@@ -16,7 +16,7 @@ export function useLogEntry(onLogged: () => void, onUndone?: () => void) {
         toast.error(result.error);
         return;
       }
-      toastWithUndo(addedToMealMessage(mealLabels[input.meal as MealType], label), [result.data.id], onUndone);
+      toast.success(addedToMealMessage(mealLabels[input.meal as MealType], label));
       onLogged();
     });
   }
