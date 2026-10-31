@@ -74,3 +74,5 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] `fix/keyboard-covers-overlays`: su iOS la tastiera non copre più la quantità nella scheda dell'alimento e della ricetta; drawer, dialog, scanner barcode e selettore degli ingredienti seguono il visual viewport (`--keyboard-inset`)
 - [x] `fix/preview-deployments`: i preview di Vercel usano Neon dev e permettono il login (URL base di better-auth da `VERCEL_BRANCH_URL`/`VERCEL_URL` quando manca `BETTER_AUTH_URL`)
 - [x] `feature/cookware-tare`: pentole salvate con il peso a vuoto (Profilo › Impostazioni › Pentole, migrazione 0014) e «Pesa con la pentola» nell'editor della ricetta, che toglie la tara dal peso totale
+- [x] `fix/cookware-test-format`: Profilo › Impostazioni andava in errore in produzione perché la migrazione 0014 non era mai stata applicata (né a dev né a main); applicata a entrambi. Corretto `e2e/cookware.spec.ts`, che si aspettava «1.250 g» mentre `formatGrams` non raggruppa le 4 cifre («1250 g»)
+- [x] `chore/agent-permissions`: CLAUDE.md, spec e CONTEXT.md registrano il permesso permanente di fare push, migrazioni e deploy senza conferma

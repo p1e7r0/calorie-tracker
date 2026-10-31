@@ -14,7 +14,7 @@ Contesto di prodotto e di progetto per le prossime sessioni. Le istruzioni opera
 L'utente ha scelto sempre l'opzione raccomandata.
 - Q1 multiutente con Better Auth: email/password + Google (Google attivo solo con le variabili OAuth); dati separati per `userId`.
 - Q2 migrazione legacy: tutti gli alimenti (1080 del dataset svizzero come catalogo globale + 261 personali), 5 ricette, 90 alimenti "priority" come preferiti, l'unica misura; pasti storici esclusi.
-- Q3 Neon creato con `neonctl`, branch `dev` e `main`; deploy Vercel solo dopo conferma.
+- Q3 Neon creato con `neonctl`, branch `dev` e `main`; dal 2026-10-31 push, migrazioni e deploy in produzione senza chiedere conferma.
 - Q4 Drizzle ORM.
 - Q5 solo italiano (numeri e date it-IT, fuso `Europe/Rome`).
 - Q6 quattro pasti fissi: Colazione, Pranzo, Cena, Spuntini.
@@ -99,15 +99,14 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - **Macro**: P/C/G = proteine, carboidrati, grassi.
 
 ## Stato attuale
-Aggiornato al 2026-10-22. Per lo stato reale usa `git log` e `git status`.
+Aggiornato al 2026-10-23. Per lo stato reale usa `git log` e `git status`.
 - Tutti i task T01-T37 sono completati e in produzione; T01-T32 dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
-- Ultimo merge in `main`: `feature/connector-full-editing` (PR #5, T38); prima `feature/cookware-tare` (PR #4) e `fix/keyboard-covers-overlays` (PR #3, drawer e dialog sopra la tastiera su iOS, da verificare su iPhone). In sospeso: `feature/stored-meals` (T39, migrazione `0015_stored_meals` da applicare a main prima del deploy).
+- Ultimi merge in `main`: `fix/cookware-test-format`, `fix/preview-deployments` (PR #8), `feature/connector-full-editing` (T38, PR #5), `feature/cookware-tare` (PR #4), `fix/keyboard-covers-overlays` (PR #3, drawer e dialog sopra la tastiera su iOS, da verificare su iPhone). In sospeso: `feature/stored-meals` (T39, migrazione `0015_stored_meals` da applicare a main prima del deploy).
 - T33 (pull-to-refresh su Oggi e Progressi) in produzione dal 2026-10-17.
 - `fix/logging-flow-friction`, `feature/meal-suggestions` e `feature/weekly-check-in` (migliorie dall'analisi del 2026-10-17) in produzione dal 2026-10-17, verificati con uno smoke test (ricerca e aggiunta con Invio, suggerimenti con l'ultima quantità, grafico del fabbisogno, impostazioni dei promemoria).
 - `feature/quick-undo-and-editing` in produzione dal 2026-10-17, verificato con uno smoke test (annullamento di Kcal veloci e del pasto salvato, ±10 g nell'editor della voce, «Aggiungi al diario» dal dettaglio del pasto salvato, conferma prima di eliminarlo).
 - T34-T37, i branch del 2026-10-18 e `fix/open-food-facts-not-found` in produzione dal 2026-10-21 (primo deploy partito dal push di `main`), verificati con uno smoke test (peso obiettivo nel profilo e in Progressi, aggiunta dal catalogo, copia da un altro giorno, giorno incompleto, scanner con codice sconosciuto che apre «Nuovo alimento»). Non provati in produzione: Siri (nascosto senza `ANTHROPIC_API_KEY`) e i nuovi strumenti del connettore.
-- Migrazioni fino a `0013_siri_shortcut` applicate sia a dev sia a main (`0013` è nata come `0010_siri_shortcut` sul branch ed è stata rinumerata nel merge).
-- `feature/cookware-tare` (pentole e peso da cotto al netto della tara, migrazione `0014_cookware`) unito a `main` con la PR #4: verificare che `0014` sia applicata a main.
+- Migrazioni fino a `0014_cookware` applicate sia a dev sia a main (`0013` è nata come `0010_siri_shortcut` sul branch ed è stata rinumerata nel merge; `0014` è stata applicata solo il 2026-10-23, dopo che Profilo › Impostazioni era andato in errore in produzione).
 - Siri (T36): pipeline provata con un finto server Anthropic (`ANTHROPIC_BASE_URL`), mai con Haiku reale né con un iPhone.
 - Connettore per Claude: verificato con claude.ai reale (Claude Desktop, credenziali da Profilo › Impostazioni › Claude); il client usa `client_secret_post` perché claude.ai (SDK MCP Python) invia il segreto nel corpo della richiesta; con `client_secret_basic` lo scambio del token rispondeva 400 `invalid_client`.
 - Funzioni AI nascoste in produzione finché manca `ANTHROPIC_API_KEY`; link "Password dimenticata" nascosto finché mancano `RESEND_API_KEY` ed `EMAIL_FROM`; login Google assente senza credenziali OAuth.
@@ -147,6 +146,8 @@ Aggiornato al 2026-10-22. Per lo stato reale usa `git log` e `git status`.
 - **2026-10-22, pentole**: tabella `cookware` (migrazione 0014) con gestione in Profilo › Impostazioni › Pentole; nell'editor della ricetta «Pesa con la pentola» apre un drawer che sottrae la tara dal peso totale e ricorda l'ultima pentola usata nel browser; i pesi accettano il punto delle migliaia («1.250», `parseWeightGrams` in `src/lib/nutrition/cookware.ts`).
 - **2026-10-22, T38**: il connettore per Claude fa quasi tutto quello che si fa dall'app: modifica ed eliminazione di voci (anche più insieme), alimenti, ricette, pasti salvati e misure, preferiti, giorno incompleto, profilo e obiettivi, obiettivo suggerito; la logica di scrittura delle action è passata in `src/server/*` (`diary-entries`, `food-writes`, `recipe-writes`, `saved-meals`, `measurements`, nuovo `profile-writes`), condivisa da app e connettore; `get_day` dice tipo e alimento o ricetta di ogni voce, i pasti salvati espongono l'id delle voci.
 - **2026-10-22, T39**: pasti messi da parte in frigo o congelatore (tabelle `stored_meal` e `stored_meal_item`, migrazione 0015): voci di una porzione salvate come snapshot, porzioni che calano a ogni registrazione, «Annulla» che restituisce la porzione, avviso di scadenza; creazione da zero (selettore di alimenti e ricette che riusa le schede quantità di Aggiungi, ora `ItemQuantity`) o dal diario; strumenti del connettore.
+- **2026-10-23, migrazione 0014 dimenticata**: le pentole erano in produzione ma la tabella `cookware` mancava sia su dev sia su main, quindi la scheda Impostazioni del profilo cadeva con «relation "cookware" does not exist»; applicata `0014` a entrambi i branch. Corretto lo spec delle pentole, che si aspettava «1.250 g» invece di «1250 g».
+- **2026-10-31, permessi dell'agente**: l'utente autorizza in modo permanente push (anche di `main`), merge, migrazioni su dev e main e deploy senza conferma; CLAUDE.md e decisione Q3 aggiornati.
 
 ## Riferimenti
 - `docs/spec.md`: stack, tabella decisioni Q1-Q24, regole di dominio (nutrienti per 100 g, ricette con peso da cotto, snapshot nel diario, Mifflin-St Jeor, macro predefinite), infrastruttura.

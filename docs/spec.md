@@ -18,7 +18,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 |---|------|-----------|
 | Q1 | Utenti | Multi-utente, dati separati per utente |
 | Q2 | Migrazione | Alimenti (1341), 5 ricette, l'unica misurazione; preferiti dai 90 `priority`. Pasti storici esclusi |
-| Q3 | Neon | Progetto creato con `neonctl`, branch `dev` e `main`. Deploy Vercel solo dopo conferma dell'utente; aggiornato: si fa un deploy per ogni blocco di lavoro confermato, non più solo alla fine; dal 2026-10-21 il deploy parte dal push di `main` su GitHub |
+| Q3 | Neon | Progetto creato con `neonctl`, branch `dev` e `main`. Deploy Vercel solo dopo conferma dell'utente; aggiornato: si fa un deploy per ogni blocco di lavoro confermato, non più solo alla fine; dal 2026-10-21 il deploy parte dal push di `main` su GitHub; dal 2026-10-31 push, migrazioni e deploy senza chiedere conferma |
 | Q4 | ORM | Drizzle |
 | Q5 | Lingua | Solo italiano |
 | Q6 | Giornata | 4 pasti fissi: colazione, pranzo, cena, spuntini |
