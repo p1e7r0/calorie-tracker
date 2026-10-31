@@ -46,6 +46,7 @@ Ogni task ha il suo branch, viene verificato (`tsc`, `eslint`, test, build, cont
 - [x] T36 Siri: `POST /api/shortcuts/meal` registra un pasto dettato (alimenti, ricette, pasti salvati) con due chiamate AI fisse; `DELETE` annulla l'ultimo; token personale con un solo permesso dal profilo
 - [x] T37 Connettore per Claude: `copy_meal` copia un pasto da un giorno qualsiasi (ripreso da `feature/claude-connector-tools`, i cui `log_weight` e `get_summary` erano già coperti da T35)
 - [x] T38 Connettore per Claude: modifica ed eliminazione di voci, alimenti, ricette, pasti salvati e misure, preferiti, giorno incompleto, profilo e obiettivi (logica di scrittura condivisa con le action in `src/server/*`)
+- [x] T39 Pasti messi da parte: pasti in frigo o congelatore composti da alimenti e ricette, a porzioni (ogni registrazione ne toglie una, a zero spariscono), con data di preparazione e avviso oltre 3 giorni in frigo o 90 in congelatore; creazione da zero o dal menu ⋯ di un pasto del diario; registrazione da Aggiungi › Pasti con «Annulla» che restituisce la porzione; strumenti `store_meal`, `update_stored_meal`, `delete_stored_meal` e voce `storedMeal` di `log_meal` nel connettore (migrazione 0015)
 
 ## Fix successivi
 

@@ -34,6 +34,7 @@ export const activityLevelEnum = pgEnum("activity_level", [
 export const goalTypeEnum = pgEnum("goal_type", ["lose", "maintain", "gain"]);
 export const diaryEntryKindEnum = pgEnum("diary_entry_kind", ["food", "recipe", "quick"]);
 export const diaryEntrySourceEnum = pgEnum("diary_entry_source", ["app", "connector", "shortcut"]);
+export const storageLocationEnum = pgEnum("storage_location", ["fridge", "freezer"]);
 export const aiRequestKindEnum = pgEnum("ai_request_kind", ["nutrition_label", "meal_description", "shortcut_meal"]);
 
 const timestamps = {
@@ -251,6 +252,52 @@ export const savedMealItem = pgTable(
       sql`(${table.foodId} is null) <> (${table.recipeId} is null)`,
     ),
   ],
+);
+
+export const storedMeal = pgTable(
+  "stored_meal",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    location: storageLocationEnum().notNull(),
+    preparedOn: date({ mode: "string" }).notNull(),
+    portions: integer().notNull(),
+    ...timestamps,
+  },
+  (table) => [
+    index("stored_meal_user_index").on(table.userId),
+    check("stored_meal_portions_non_negative", sql`${table.portions} >= 0`),
+  ],
+);
+
+export const storedMealItem = pgTable(
+  "stored_meal_item",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    storedMealId: uuid()
+      .notNull()
+      .references(() => storedMeal.id, { onDelete: "cascade" }),
+    kind: diaryEntryKindEnum().notNull(),
+    foodId: uuid().references(() => food.id, { onDelete: "set null" }),
+    recipeId: uuid().references(() => recipe.id, { onDelete: "set null" }),
+    label: text().notNull(),
+    grams: real(),
+    servings: real(),
+    portionLabel: text(),
+    kcal: real().notNull(),
+    protein: real().notNull().default(0),
+    carbs: real().notNull().default(0),
+    fat: real().notNull().default(0),
+    fiber: real(),
+    sugars: real(),
+    saturatedFat: real(),
+    salt: real(),
+    position: integer().notNull().default(0),
+  },
+  (table) => [index("stored_meal_item_stored_meal_index").on(table.storedMealId)],
 );
 
 export const cookware = pgTable(

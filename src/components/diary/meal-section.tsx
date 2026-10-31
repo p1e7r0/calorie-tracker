@@ -1,6 +1,6 @@
 "use client";
 
-import { BookmarkPlusIcon, CalendarDaysIcon, CopyIcon, EllipsisIcon, PlusIcon } from "lucide-react";
+import { BookmarkPlusIcon, CalendarDaysIcon, CopyIcon, EllipsisIcon, PlusIcon, RefrigeratorIcon } from "lucide-react";
 import Link from "next/link";
 import { useLayoutEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import { formatKcal } from "@/lib/nutrition/format";
 import { mealLabels } from "@/lib/nutrition/meals";
 import type { DiaryEntryView, DiaryMeal } from "@/server/diary";
 import { SaveMealDrawer } from "@/components/saved-meals/save-meal-drawer";
+import { StoreMealDrawer } from "@/components/stored-meals/store-meal-drawer";
 import { CopyMealDrawer } from "./copy-meal-drawer";
 import { EntryEditor } from "./entry-editor";
 import { SwipeableRow } from "./swipeable-row";
@@ -39,6 +40,7 @@ export function MealSection({
   const [editingEntry, setEditingEntry] = useState<DiaryEntryView | null>(null);
   const [saveMealOpen, setSaveMealOpen] = useState(false);
   const [copyMealOpen, setCopyMealOpen] = useState(false);
+  const [storeMealOpen, setStoreMealOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
   const entryActions = useEntryActions();
   const label = mealLabels[meal.meal];
@@ -48,6 +50,7 @@ export function MealSection({
       setEditingEntry(null);
       setSaveMealOpen(false);
       setCopyMealOpen(false);
+      setStoreMealOpen(false);
     };
   }, []);
   const addHref = `/add?date=${day}&meal=${meal.meal}`;
@@ -108,6 +111,12 @@ export function MealSection({
                 Salva come pasto
               </DropdownMenuItem>
             ) : null}
+            {meal.entries.length > 0 ? (
+              <DropdownMenuItem onClick={() => setStoreMealOpen(true)}>
+                <RefrigeratorIcon />
+                Metti da parte…
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
         <Link
@@ -153,6 +162,9 @@ export function MealSection({
       )}
 
       {saveMealOpen ? <SaveMealDrawer day={day} meal={meal.meal} onOpenChange={setSaveMealOpen} /> : null}
+      {storeMealOpen ? (
+        <StoreMealDrawer day={day} today={today} meal={meal.meal} onOpenChange={setStoreMealOpen} />
+      ) : null}
       {copyMealOpen ? (
         <CopyMealDrawer
           day={day}

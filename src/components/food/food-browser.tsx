@@ -1,6 +1,15 @@
 "use client";
 
-import { ChefHatIcon, ChevronRightIcon, PlusIcon, ScanBarcodeIcon, SearchIcon, StarIcon, XIcon } from "lucide-react";
+import {
+  ChefHatIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  RefrigeratorIcon,
+  ScanBarcodeIcon,
+  SearchIcon,
+  StarIcon,
+  XIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -15,6 +24,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatKcal } from "@/lib/nutrition/format";
 import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableRecipe } from "@/server/loggable";
+import type { StoredMealView } from "@/server/stored-meals";
+import { StoredMealSummary } from "@/components/stored-meals/stored-meal-summary";
 import { BarcodeScanner } from "./barcode-scanner";
 import { useFoodSearch } from "./use-food-search";
 
@@ -26,6 +37,8 @@ export function FoodBrowser({
   mostUsedFoods,
   recipes,
   savedMeals,
+  storedMeals,
+  today,
   initialTab,
 }: {
   ownFoods: LoggableFood[];
@@ -33,6 +46,8 @@ export function FoodBrowser({
   mostUsedFoods: LoggableFood[];
   recipes: LoggableRecipe[];
   savedMeals: SavedMealSummary[];
+  storedMeals: StoredMealView[];
+  today: string;
   initialTab: string;
 }) {
   const router = useRouter();
@@ -132,27 +147,57 @@ export function FoodBrowser({
               </Link>
               <BrowserList items={recipes} emptyMessage="Crea una ricetta: pesi gli ingredienti, l'app calcola il resto." />
             </TabsContent>
-            <TabsContent value="meals" className="flex flex-col gap-4">
-              <p className="text-sm text-muted-foreground">
-                Salva un pasto dal diario con il menu ⋯ e aggiungilo in un tocco la prossima volta.
-              </p>
-              {savedMeals.length > 0 ? (
-                <ul className="divide-y">
-                  {savedMeals.map((savedMeal) => (
-                    <li key={savedMeal.id}>
-                      <Link href={`/meals/${savedMeal.id}`} className="flex items-center gap-3 py-2.5">
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate">{savedMeal.name}</span>
-                          <span className="block text-sm text-muted-foreground">
-                            {savedMeal.itemCount} {savedMeal.itemCount === 1 ? "voce" : "voci"}, {formatKcal(savedMeal.kcal)} kcal
+            <TabsContent value="meals" className="flex flex-col gap-6">
+              <section aria-labelledby="stored-meals-heading" className="flex flex-col gap-2">
+                <h2 id="stored-meals-heading" className="font-heading text-lg font-semibold tracking-tight">
+                  In frigo e congelatore
+                </h2>
+                <Link href="/stored-meals/new" className={buttonVariants({ variant: "outline", size: "lg" })}>
+                  <RefrigeratorIcon />
+                  Metti da parte un pasto
+                </Link>
+                {storedMeals.length > 0 ? (
+                  <ul className="divide-y">
+                    {storedMeals.map((storedMeal) => (
+                      <li key={storedMeal.id}>
+                        <Link href={`/stored-meals/${storedMeal.id}`} className="flex items-center gap-3 py-2.5">
+                          <StoredMealSummary storedMeal={storedMeal} today={today} />
+                          <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Hai cucinato per più giorni? Metti da parte le porzioni e registrale quando le mangi.
+                  </p>
+                )}
+              </section>
+              <section aria-labelledby="saved-meals-heading" className="flex flex-col gap-2">
+                <h2 id="saved-meals-heading" className="font-heading text-lg font-semibold tracking-tight">
+                  Pasti salvati
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Salva un pasto dal diario con il menu ⋯ e aggiungilo in un tocco la prossima volta.
+                </p>
+                {savedMeals.length > 0 ? (
+                  <ul className="divide-y">
+                    {savedMeals.map((savedMeal) => (
+                      <li key={savedMeal.id}>
+                        <Link href={`/meals/${savedMeal.id}`} className="flex items-center gap-3 py-2.5">
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate">{savedMeal.name}</span>
+                            <span className="block text-sm text-muted-foreground">
+                              {savedMeal.itemCount} {savedMeal.itemCount === 1 ? "voce" : "voci"}, {formatKcal(savedMeal.kcal)} kcal
+                            </span>
                           </span>
-                        </span>
-                        <ChevronRightIcon className="size-4 text-muted-foreground" />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+                          <ChevronRightIcon className="size-4 text-muted-foreground" />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </section>
             </TabsContent>
           </ScreenBody>
         </Tabs>
@@ -207,7 +252,7 @@ function FoodTabsList() {
     <TabsList className="mb-3 w-full shrink-0">
       <TabsTrigger value="foods">Alimenti</TabsTrigger>
       <TabsTrigger value="recipes">Ricette</TabsTrigger>
-      <TabsTrigger value="meals">Pasti salvati</TabsTrigger>
+      <TabsTrigger value="meals">Pasti</TabsTrigger>
     </TabsList>
   );
 }

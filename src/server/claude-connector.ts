@@ -16,6 +16,7 @@ import {
   describeRecipeCandidate,
   describeRecipeDetail,
   describeSavedMeal,
+  describeStoredMeal,
   describeWeightTrend,
 } from "@/lib/claude-connector";
 import { bodyMetrics } from "@/lib/nutrition/body-metrics";
@@ -24,6 +25,7 @@ import { addDays, currentHour, daysBetween, isIsoDate, todayIsoDate } from "@/li
 import { kcalMismatch } from "@/lib/nutrition/food-checks";
 import { type MealType, mealTypes, suggestMeal } from "@/lib/nutrition/meals";
 import { weekStart } from "@/lib/nutrition/weeks";
+import { maximumStoredPortions, storageLocations } from "@/lib/nutrition/stored-meals";
 import { normalizeBarcode } from "@/lib/open-food-facts";
 import { nameMatchesQuery } from "@/lib/search";
 import { getAdaptiveGoal } from "./adaptive-goal";
@@ -59,6 +61,15 @@ import {
   savedMealEntryItems,
 } from "./saved-meals";
 import { getDailyTotals } from "./statistics";
+import {
+  createStoredMeal,
+  editStoredMeal,
+  getStoredMeal,
+  listStoredMeals,
+  logStoredMealPortion,
+  removeStoredMeal,
+  storeMealFromDiary,
+} from "./stored-meals";
 
 const daySchema = z
   .string()
@@ -134,7 +145,24 @@ const logItemSchema = z.discriminatedUnion("type", [
     type: z.literal("savedMeal"),
     savedMealId: z.uuid().describe("savedMealId returned by search_foods or recent_foods. Logs every food of the meal."),
   }),
+  z.object({
+    type: z.literal("storedMeal"),
+    storedMealId: z
+      .uuid()
+      .describe("storedMealId returned by search_foods or recent_foods. Logs one portion and removes it from the stored meal."),
+  }),
 ]);
+
+const storedMealItemSchema = z.discriminatedUnion("type", [
+  logItemSchema.options[0],
+  logItemSchema.options[1],
+  logItemSchema.options[2],
+]);
+
+async function storedMealsSummary(userId: string) {
+  const today = todayIsoDate();
+  return (await listStoredMeals(userId)).map((storedMeal) => describeStoredMeal(storedMeal, today));
+}
 
 function textResult(value: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(value) }] };
@@ -212,7 +240,7 @@ export function createClaudeConnectorServer(userId: string) {
     {
       title: "Cerca alimenti",
       description:
-        "Search the user's food catalog, recipes and saved meals. Nutrition values are per 100 g (or 100 ml). Returns foods with portions, the last quantity the user logged and whether the food is a favorite or the user's own, plus matching recipes and saved meals.",
+        "Search the user's food catalog, recipes, saved meals and meals stored in the fridge or freezer. Nutrition values are per 100 g (or 100 ml). Returns foods with portions, the last quantity the user logged and whether the food is a favorite or the user's own, plus matching recipes, saved meals and stored meals.",
       inputSchema: z.object({
         query: z.string().trim().min(2).max(80).describe("Short Italian food name, e.g. «yogurt greco»."),
       }),
@@ -225,9 +253,10 @@ export function createClaudeConnectorServer(userId: string) {
           const shorterQuery = query.split(/\s+/).slice(0, 2).join(" ");
           if (shorterQuery !== query) foods = await searchFoods(userId, shorterQuery, 8);
         }
-        const [recipes, savedMeals] = await Promise.all([
+        const [recipes, savedMeals, storedMeals] = await Promise.all([
           listLoggableRecipes(userId, query),
           listSavedMealViews(userId),
+          storedMealsSummary(userId),
         ]);
         return textResult({
           foods: foods.map(describeFoodCandidate),
@@ -236,6 +265,7 @@ export function createClaudeConnectorServer(userId: string) {
             .filter((savedMeal) => nameMatchesQuery(savedMeal.name, query))
             .slice(0, 3)
             .map(describeSavedMeal),
+          storedMeals: storedMeals.filter((storedMeal) => nameMatchesQuery(storedMeal.name, query)),
         });
       } catch (error) {
         return errorResult(error);
@@ -248,16 +278,21 @@ export function createClaudeConnectorServer(userId: string) {
     {
       title: "Alimenti recenti",
       description:
-        "List the foods the user logged most recently, with the last quantity used, and the user's saved meals. Useful for «the usual».",
+        "List the foods the user logged most recently, with the last quantity used, the user's saved meals and every meal stored in the fridge or freezer. Useful for «the usual» and «what do I have in the freezer?».",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async () => {
       try {
-        const [foods, savedMeals] = await Promise.all([recentFoods(userId, 20), listSavedMealViews(userId)]);
+        const [foods, savedMeals, storedMeals] = await Promise.all([
+          recentFoods(userId, 20),
+          listSavedMealViews(userId),
+          storedMealsSummary(userId),
+        ]);
         return textResult({
           foods: foods.map(describeFoodCandidate),
           savedMeals: savedMeals.slice(0, 10).map(describeSavedMeal),
+          storedMeals,
         });
       } catch (error) {
         return errorResult(error);
@@ -270,7 +305,7 @@ export function createClaudeConnectorServer(userId: string) {
     {
       title: "Registra nel diario",
       description:
-        "Add one or more items to a meal of the user's food diary. Each item is a catalog food with grams, a recipe with grams or servings, a saved meal, or a quick item with estimated kcal and macros. Returns the created entries and the updated day.",
+        "Add one or more items to a meal of the user's food diary. Each item is a catalog food with grams, a recipe with grams or servings, a saved meal, one portion of a stored meal, or a quick item with estimated kcal and macros. Returns the created entries and the updated day.",
       inputSchema: z.object({
         day: daySchema,
         meal: mealSchema,
@@ -283,8 +318,14 @@ export function createClaudeConnectorServer(userId: string) {
         const targetDay = day ?? todayIsoDate();
         const entries: EntryItem[] = [];
         const savedMealIds: string[] = [];
+        const storedMealIds: string[] = [];
         let savedMealDefault: MealType | null = null;
         for (const item of items) {
+          if (item.type === "storedMeal") {
+            if (!(await getStoredMeal(userId, item.storedMealId))) throw new Error("Stored meal not found or finished.");
+            storedMealIds.push(item.storedMealId);
+            continue;
+          }
           if (item.type !== "savedMeal") {
             entries.push(entryItemSchema.parse(item));
             continue;
@@ -299,8 +340,19 @@ export function createClaudeConnectorServer(userId: string) {
         const targetMeal = meal ?? savedMealDefault ?? suggestMeal(currentHour());
         const created = await insertDiaryEntries(userId, targetDay, targetMeal, entries, "connector");
         await Promise.all(savedMealIds.map(markSavedMealUsed));
+        const storedPortions = [];
+        for (const storedMealId of storedMealIds) {
+          const portion = await logStoredMealPortion(
+            userId,
+            { storedMealId, day: targetDay, meal: targetMeal },
+            "connector",
+          );
+          created.push(...portion.entries);
+          storedPortions.push({ storedMealId, name: portion.name, portionsLeft: portion.remainingPortions });
+        }
         return textResult({
           logged: created.map((row) => describeEntry(entryNutrients(row))),
+          ...(storedPortions.length > 0 ? { storedMeals: storedPortions } : {}),
           meal: targetMeal,
           summary: await daySummary(userId, targetDay),
         });
@@ -880,6 +932,103 @@ export function createClaudeConnectorServer(userId: string) {
     async ({ savedMealId }) => {
       try {
         const deleted = await removeSavedMeal(userId, savedMealId);
+        return textResult({ deleted: deleted.name });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "store_meal",
+    {
+      title: "Metti da parte un pasto",
+      description:
+        "Store a meal the user cooked and put in the fridge or freezer, to log it later one portion at a time. Pass the foods and recipes of ONE portion in items, or fromMeal to copy a meal already logged in the diary (one portion as logged). Returns the stored meal.",
+      inputSchema: z.object({
+        name: z.string().trim().min(1).max(80).describe("Short Italian name, e.g. «Lasagna»."),
+        location: z.enum(storageLocations).describe("fridge or freezer."),
+        portions: z.number().int().min(1).max(maximumStoredPortions).describe("Number of identical portions stored."),
+        preparedOn: daySchema.describe("ISO date the meal was cooked. Defaults to today."),
+        items: z
+          .array(storedMealItemSchema)
+          .min(1)
+          .max(30)
+          .optional()
+          .describe("Foods, recipes or quick items of one portion. Recipes with cooked grams or servings."),
+        fromMeal: z
+          .object({ day: daySchema, meal: z.enum(mealTypes) })
+          .optional()
+          .describe("A logged meal to copy as one portion, instead of items."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ name, location, portions, preparedOn, items, fromMeal }) => {
+      try {
+        if (!items === !fromMeal) throw new Error("Pass either items or fromMeal.");
+        const stored = { name, location, portions, preparedOn: preparedOn ?? todayIsoDate() };
+        const id = items
+          ? await createStoredMeal(userId, { ...stored, items: items.map((item) => entryItemSchema.parse(item)) })
+          : (await storeMealFromDiary(userId, { ...stored, day: fromMeal!.day ?? todayIsoDate(), meal: fromMeal!.meal }))
+              .id;
+        const view = await getStoredMeal(userId, id);
+        if (!view) throw new Error("Stored meal not found.");
+        return textResult({ storedMeal: describeStoredMeal(view, todayIsoDate()) });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_stored_meal",
+    {
+      title: "Modifica un pasto messo da parte",
+      description:
+        "Change a stored meal: name, fridge or freezer, preparation date, portions left, items of one portion to remove or add. Pass only the fields to change. Use the storedMealId and itemId values returned by search_foods or recent_foods.",
+      inputSchema: z.object({
+        storedMealId: z.uuid(),
+        name: z.string().trim().min(1).max(80).optional(),
+        location: z.enum(storageLocations).optional(),
+        preparedOn: daySchema.describe("ISO date the meal was cooked."),
+        portionsLeft: z.number().int().min(1).max(maximumStoredPortions).optional(),
+        removeItemIds: z.array(z.uuid()).max(100).optional(),
+        addItems: z.array(storedMealItemSchema).max(30).optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ storedMealId, name, location, preparedOn, portionsLeft, removeItemIds, addItems }) => {
+      try {
+        const current = await getStoredMeal(userId, storedMealId);
+        if (!current) throw new Error("Stored meal not found or finished.");
+        await editStoredMeal(userId, {
+          storedMealId,
+          name: name ?? current.name,
+          location: location ?? current.location,
+          preparedOn: preparedOn ?? current.preparedOn,
+          portions: portionsLeft ?? current.portions,
+          removedItemIds: removeItemIds ?? [],
+          addedItems: (addItems ?? []).map((item) => entryItemSchema.parse(item)),
+        });
+        const updated = await getStoredMeal(userId, storedMealId);
+        return textResult({ storedMeal: updated && describeStoredMeal(updated, todayIsoDate()) });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "delete_stored_meal",
+    {
+      title: "Elimina un pasto messo da parte",
+      description: "Delete a stored meal, for example because the user threw it away. Diary entries already logged stay.",
+      inputSchema: z.object({ storedMealId: z.uuid() }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ storedMealId }) => {
+      try {
+        const deleted = await removeStoredMeal(userId, storedMealId);
         return textResult({ deleted: deleted.name });
       } catch (error) {
         return errorResult(error);
