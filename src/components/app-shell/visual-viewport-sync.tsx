@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
+import { visualViewportMetrics } from "@/lib/visual-viewport";
 
-const keyboardThreshold = 0.75;
 const statusBarFallbackPixels = 54;
+const settleDelays = [100, 300, 600];
 
 function standaloneStatusBarFallback(root: HTMLElement) {
   const isStandalone =
@@ -27,6 +28,7 @@ export function VisualViewportSync() {
     root.style.setProperty("--status-bar-fallback", `${standaloneStatusBarFallback(root)}px`);
     let tallestHeight = 0;
     let lastWidth = 0;
+    let settleTimers: number[] = [];
 
     function update() {
       if (!visualViewport) return;
@@ -37,23 +39,45 @@ export function VisualViewportSync() {
         tallestHeight = layoutHeight;
       }
       tallestHeight = Math.max(tallestHeight, layoutHeight);
-      root.style.setProperty("--viewport-height", `${visualViewport.height}px`);
-      root.style.setProperty("--viewport-offset-top", `${visualViewport.offsetTop}px`);
-      const keyboardInset = Math.max(0, window.innerHeight - visualViewport.height - visualViewport.offsetTop);
-      root.style.setProperty("--keyboard-inset", `${Math.round(keyboardInset)}px`);
-      if (visualViewport.height < tallestHeight * keyboardThreshold) {
+      const metrics = visualViewportMetrics({
+        innerHeight: window.innerHeight,
+        height: visualViewport.height,
+        offsetTop: visualViewport.offsetTop,
+        tallestHeight,
+      });
+      root.style.setProperty("--viewport-height", `${metrics.height}px`);
+      root.style.setProperty("--viewport-offset-top", `${metrics.offsetTop}px`);
+      root.style.setProperty("--keyboard-inset", `${metrics.keyboardInset}px`);
+      if (metrics.keyboardOpen) {
         root.dataset.keyboardOpen = "";
       } else {
         delete root.dataset.keyboardOpen;
       }
     }
 
+    function updateUntilSettled() {
+      update();
+      settleTimers.forEach((timer) => window.clearTimeout(timer));
+      settleTimers = settleDelays.map((delay) => window.setTimeout(update, delay));
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") updateUntilSettled();
+    }
+
     update();
-    visualViewport.addEventListener("resize", update);
+    visualViewport.addEventListener("resize", updateUntilSettled);
     visualViewport.addEventListener("scroll", update);
+    window.addEventListener("focusout", updateUntilSettled);
+    window.addEventListener("pageshow", updateUntilSettled);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
-      visualViewport.removeEventListener("resize", update);
+      settleTimers.forEach((timer) => window.clearTimeout(timer));
+      visualViewport.removeEventListener("resize", updateUntilSettled);
       visualViewport.removeEventListener("scroll", update);
+      window.removeEventListener("focusout", updateUntilSettled);
+      window.removeEventListener("pageshow", updateUntilSettled);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       root.style.removeProperty("--viewport-height");
       root.style.removeProperty("--viewport-offset-top");
       root.style.removeProperty("--keyboard-inset");
