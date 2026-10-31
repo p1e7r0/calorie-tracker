@@ -14,7 +14,7 @@ Contesto di prodotto e di progetto per le prossime sessioni. Le istruzioni opera
 L'utente ha scelto sempre l'opzione raccomandata.
 - Q1 multiutente con Better Auth: email/password + Google (Google attivo solo con le variabili OAuth); dati separati per `userId`.
 - Q2 migrazione legacy: tutti gli alimenti (1080 del dataset svizzero come catalogo globale + 261 personali), 5 ricette, 90 alimenti "priority" come preferiti, l'unica misura; pasti storici esclusi.
-- Q3 Neon creato con `neonctl`, branch `dev` e `main`; deploy Vercel solo dopo conferma.
+- Q3 Neon creato con `neonctl`, branch `dev` e `main`; dal 2026-10-31 push, migrazioni e deploy in produzione senza chiedere conferma.
 - Q4 Drizzle ORM.
 - Q5 solo italiano (numeri e date it-IT, fuso `Europe/Rome`).
 - Q6 quattro pasti fissi: Colazione, Pranzo, Cena, Spuntini.
@@ -142,6 +142,7 @@ Aggiornato al 2026-10-23. Per lo stato reale usa `git log` e `git status`.
 - **2026-10-22, pentole**: tabella `cookware` (migrazione 0014) con gestione in Profilo › Impostazioni › Pentole; nell'editor della ricetta «Pesa con la pentola» apre un drawer che sottrae la tara dal peso totale e ricorda l'ultima pentola usata nel browser; i pesi accettano il punto delle migliaia («1.250», `parseWeightGrams` in `src/lib/nutrition/cookware.ts`).
 - **2026-10-22, T38**: il connettore per Claude fa quasi tutto quello che si fa dall'app: modifica ed eliminazione di voci (anche più insieme), alimenti, ricette, pasti salvati e misure, preferiti, giorno incompleto, profilo e obiettivi, obiettivo suggerito; la logica di scrittura delle action è passata in `src/server/*` (`diary-entries`, `food-writes`, `recipe-writes`, `saved-meals`, `measurements`, nuovo `profile-writes`), condivisa da app e connettore; `get_day` dice tipo e alimento o ricetta di ogni voce, i pasti salvati espongono l'id delle voci.
 - **2026-10-23, migrazione 0014 dimenticata**: le pentole erano in produzione ma la tabella `cookware` mancava sia su dev sia su main, quindi la scheda Impostazioni del profilo cadeva con «relation "cookware" does not exist»; applicata `0014` a entrambi i branch. Corretto lo spec delle pentole, che si aspettava «1.250 g» invece di «1250 g».
+- **2026-10-31, permessi dell'agente**: l'utente autorizza in modo permanente push (anche di `main`), merge, migrazioni su dev e main e deploy senza conferma; CLAUDE.md e decisione Q3 aggiornati.
 
 ## Riferimenti
 - `docs/spec.md`: stack, tabella decisioni Q1-Q24, regole di dominio (nutrienti per 100 g, ricette con peso da cotto, snapshot nel diario, Mifflin-St Jeor, macro predefinite), infrastruttura.
