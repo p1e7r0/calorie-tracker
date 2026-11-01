@@ -150,11 +150,11 @@ function RecipeQuantity({
   const [mode, setMode] = useState<"servings" | "grams">(() => {
     if (recipe.lastServings) return "servings";
     if (recipe.lastGrams) return "grams";
-    return recipe.servings > 1 || !recipe.hasCookedWeight ? "servings" : "grams";
+    return recipe.servings > 1 || recipe.hasServingWeight || !recipe.hasCookedWeight ? "servings" : "grams";
   });
   const [quantity, setQuantity] = useState(() => {
     if (mode === "servings") return toInputValue(recipe.lastServings ?? 1);
-    return toInputValue(recipe.lastGrams ?? Math.round(recipe.finalWeightG / recipe.servings));
+    return toInputValue(recipe.lastGrams ?? Math.round(recipe.servingWeightG));
   });
   const amount = parseDecimal(quantity);
   const preview =
@@ -184,15 +184,17 @@ function RecipeQuantity({
           { label: "1½", value: 1.5 },
           { label: "2", value: 2 },
         ]
-      : [gramsShortcut("1 porzione", Math.round(recipe.finalWeightG / recipe.servings), "g")];
+      : [gramsShortcut("1 porzione", Math.round(recipe.servingWeightG), "g")];
 
   return (
     <>
       <DrawerHeader>
         <DrawerTitle className="text-lg leading-snug">{recipe.name}</DrawerTitle>
         <DrawerDescription>
-          Ricetta da {recipe.servings} {recipe.servings === 1 ? "porzione" : "porzioni"},{" "}
-          {formatKcal(recipe.perServing.kcal)} kcal a porzione
+          {recipe.hasServingWeight
+            ? `Porzione da ${formatGrams(recipe.servingWeightG)} g`
+            : `Ricetta da ${recipe.servings} ${recipe.servings === 1 ? "porzione" : "porzioni"}`}
+          {`, ${formatKcal(recipe.perServing.kcal)} kcal a porzione`}
         </DrawerDescription>
       </DrawerHeader>
       <form
@@ -211,7 +213,7 @@ function RecipeQuantity({
             if (!selected || selected === mode) return;
             setMode(selected as "servings" | "grams");
             setQuantity(
-              selected === "servings" ? "1" : toInputValue(Math.round(recipe.finalWeightG / recipe.servings)),
+              selected === "servings" ? "1" : toInputValue(Math.round(recipe.servingWeightG)),
             );
           }}
           className="w-full"

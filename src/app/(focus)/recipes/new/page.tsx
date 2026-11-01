@@ -39,7 +39,7 @@ async function NewRecipe() {
     <RecipeEditor
       suggestions={suggestions}
       cookware={cookware}
-      initialValues={{ name: "", servings: 4, cookedWeight: "", ingredients: [] }}
+      initialValues={{ name: "", servings: 4, cookedWeight: "", servingMode: "count", servingWeight: "", ingredients: [] }}
     />
   );
 }

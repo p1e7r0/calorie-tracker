@@ -42,7 +42,8 @@ export async function logShortcutMeal(userId: string, text: string, now = new Da
     recipes: recipeReferences.map(({ ref, recipe }) => ({
       ref,
       name: recipe.name,
-      servings: recipe.servings,
+      servings: Math.round(recipe.servings * 10) / 10,
+      servingWeightG: Math.round(recipe.servingWeightG),
       cookedWeightG: Math.round(recipe.finalWeightG),
     })),
     savedMeals: savedMealReferences.map(({ ref, meal }) => ({ ref, name: meal.name })),
