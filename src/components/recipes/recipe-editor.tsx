@@ -1,6 +1,6 @@
 "use client";
 
-import { MinusIcon, PlusIcon, ScaleIcon, XIcon } from "lucide-react";
+import { HashIcon, MinusIcon, PlusIcon, ScaleIcon, WeightIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -31,6 +31,8 @@ export type RecipeEditorValues = {
   name: string;
   servings: number;
   cookedWeight: string;
+  servingMode: "count" | "weight";
+  servingWeight: string;
   ingredients: EditableIngredient[];
 };
 
@@ -60,22 +62,43 @@ export function RecipeEditor({
     ...ingredient,
     gramsValue: parseDecimal(ingredient.grams) ?? 0,
   }));
+  const servingGrams = values.servingMode === "weight" ? parseDecimal(values.servingWeight) : null;
   const nutrition = computeRecipeNutrition({
     ingredients: parsedIngredients.map((ingredient) => ({ grams: ingredient.gramsValue, per100: ingredient.per100 })),
     cookedWeightG: parseDecimal(values.cookedWeight),
     servings: values.servings,
+    servingGrams,
   });
+  const roundedServings = Math.min(100, Math.max(1, Math.round(nutrition.servings)));
 
   function update<Key extends keyof RecipeEditorValues>(field: Key, value: RecipeEditorValues[Key]) {
     setValues((current) => ({ ...current, [field]: value }));
   }
 
+  function switchToServingWeight() {
+    setValues((current) => ({
+      ...current,
+      servingMode: "weight",
+      servingWeight:
+        current.servingWeight || (nutrition.finalWeightG > 0 ? String(Math.round(nutrition.servingWeightG)) : ""),
+    }));
+  }
+
+  function switchToServingCount() {
+    setValues((current) => ({ ...current, servingMode: "count", servings: roundedServings }));
+  }
+
   function save() {
     setErrorMessage(null);
+    if (values.servingMode === "weight" && !(servingGrams && servingGrams > 0)) {
+      setErrorMessage("Scrivi il peso della porzione.");
+      return;
+    }
     const input: RecipeInput = {
       name: values.name,
-      servings: values.servings,
+      servings: values.servingMode === "weight" ? roundedServings : values.servings,
       cookedWeightG: parseDecimal(values.cookedWeight),
+      servingGrams,
       ingredients: parsedIngredients
         .filter((ingredient) => ingredient.gramsValue > 0)
         .map((ingredient) => ({ foodId: ingredient.foodId, grams: ingredient.gramsValue })),
@@ -187,32 +210,59 @@ export function RecipeEditor({
               Pesa con la pentola
             </Button>
           </Field>
-          <Field>
-            <FieldLabel id="recipe-servings-label">Porzioni</FieldLabel>
-            <div className="flex h-10 items-center justify-between rounded-lg border" role="group" aria-labelledby="recipe-servings-label">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Una porzione in meno"
-                disabled={values.servings <= 1}
-                onClick={() => update("servings", Math.max(1, values.servings - 1))}
-              >
-                <MinusIcon />
+          {values.servingMode === "weight" ? (
+            <Field>
+              <FieldLabel htmlFor="recipe-serving-weight">Peso porzione</FieldLabel>
+              <div className="relative">
+                <Input
+                  id="recipe-serving-weight"
+                  inputMode="decimal"
+                  placeholder={formatGrams(nutrition.servingWeightG)}
+                  value={values.servingWeight}
+                  className="pr-7"
+                  onChange={(event) => update("servingWeight", event.target.value)}
+                />
+                <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 text-sm text-muted-foreground">
+                  g
+                </span>
+              </div>
+              <Button variant="link" className="h-9 justify-start px-0 text-xs" onClick={switchToServingCount}>
+                <HashIcon />
+                Imposta il numero
               </Button>
-              <span className="font-medium" aria-live="polite">
-                {values.servings}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Una porzione in più"
-                disabled={values.servings >= 100}
-                onClick={() => update("servings", Math.min(100, values.servings + 1))}
-              >
-                <PlusIcon />
+            </Field>
+          ) : (
+            <Field>
+              <FieldLabel id="recipe-servings-label">Porzioni</FieldLabel>
+              <div className="flex h-10 items-center justify-between rounded-lg border" role="group" aria-labelledby="recipe-servings-label">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Una porzione in meno"
+                  disabled={values.servings <= 1}
+                  onClick={() => update("servings", Math.max(1, values.servings - 1))}
+                >
+                  <MinusIcon />
+                </Button>
+                <span className="font-medium" aria-live="polite">
+                  {values.servings}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Una porzione in più"
+                  disabled={values.servings >= 100}
+                  onClick={() => update("servings", Math.min(100, values.servings + 1))}
+                >
+                  <PlusIcon />
+                </Button>
+              </div>
+              <Button variant="link" className="h-9 justify-start px-0 text-xs" onClick={switchToServingWeight}>
+                <WeightIcon />
+                Imposta i grammi
               </Button>
-            </div>
-          </Field>
+            </Field>
+          )}
         </section>
 
         <section aria-label="Valori della ricetta" className="rounded-2xl bg-card p-4 ring-1 ring-border">
@@ -225,7 +275,9 @@ export function RecipeEditor({
           <p className="mt-2 text-xs text-muted-foreground">
             Peso finale {formatGrams(nutrition.finalWeightG)} g
             {parseDecimal(values.cookedWeight) ? ` (crudo ${formatGrams(nutrition.rawWeightG)} g)` : ", uguale al crudo"}.
-            Una porzione pesa {formatDecimal(nutrition.finalWeightG / nutrition.servings)} g.
+            {values.servingMode === "weight"
+              ? ` Circa ${formatDecimal(nutrition.servings)} ${nutrition.servings === 1 ? "porzione" : "porzioni"} da ${formatGrams(nutrition.servingWeightG)} g.`
+              : ` Una porzione pesa ${formatDecimal(nutrition.servingWeightG)} g.`}
           </p>
         </section>
       </ScreenBody>

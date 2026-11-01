@@ -42,6 +42,39 @@ test("creates a recipe with cooked weight and logs a weighed portion", async ({ 
   await expect(page.getByText("2 voci aggiunte")).toBeVisible();
 });
 
+test("creates a recipe with a fixed serving weight and logs one serving", async ({ page }) => {
+  test.setTimeout(60_000);
+  await registerUser(page);
+  await page.goto("/recipes/new");
+  await page.getByLabel("Nome").fill("Pollo e albicocche a peso");
+  await addIngredient(page, "pollo petto senza pelle", /Pollo, petto senza pelle, crudo/, "400");
+  await addIngredient(page, "albicocca cruda", /Albicocca, cruda/, "250");
+  await page.getByLabel("Peso da cotto").fill("500");
+
+  await page.getByRole("button", { name: "Imposta i grammi" }).click();
+  await page.getByLabel("Peso porzione").fill("200");
+  const summary = page.getByRole("region", { name: "Valori della ricetta" });
+  await expect(summary.getByText("219")).toBeVisible();
+  await expect(summary.getByText("Circa 2,5 porzioni da 200 g.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Crea ricetta" }).click();
+  await expect(page).toHaveURL(/\/recipes\/[0-9a-f-]{36}$/);
+  await expect(page.getByText("Porzioni da 200 g (circa 2,5), 500 g da cotto")).toBeVisible();
+
+  await page.getByRole("link", { name: "Aggiungi al diario" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Porzione da 200 g, 219 kcal a porzione")).toBeVisible();
+  await expect(dialog.getByText(/^219\s*kcal$/)).toBeVisible();
+  await dialog.getByRole("button", { name: /^Aggiungi a / }).click();
+  await expect(page.getByText("1 voce aggiunta")).toBeVisible();
+
+  await page.goBack();
+  await page.getByRole("link", { name: "Modifica" }).click();
+  await expect(page.getByLabel("Peso porzione")).toHaveValue("200");
+  await page.getByRole("button", { name: "Imposta il numero" }).click();
+  await expect(page.getByRole("group", { name: "Porzioni" })).toContainText("3");
+});
+
 test("shows a recipe read-only, scales the ingredients, edits and duplicates it", async ({ page }) => {
   test.setTimeout(60_000);
   await registerUser(page);

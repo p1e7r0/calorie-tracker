@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { database } from "@/db";
 import { diaryEntry, favoriteRecipe, food, recipe, recipeIngredient } from "@/db/schema";
 import { extrasFromRow, scaleExtras, sumExtras } from "@/lib/nutrition/extra-nutrients";
-import { computeRecipeNutrition } from "@/lib/nutrition/recipe";
+import { computeRecipeNutrition, recipeServingCount } from "@/lib/nutrition/recipe";
 import { allowedTypos, searchWords } from "@/lib/search";
 import type { LoggableRecipe } from "./loggable";
 
@@ -39,6 +39,7 @@ type RecipeRow = {
   name: string;
   servings: number;
   cookedWeightG: number | null;
+  servingGrams: number | null;
 };
 
 async function toLoggableRecipes(userId: string, rows: RecipeRow[]): Promise<LoggableRecipe[]> {
@@ -78,6 +79,7 @@ async function toLoggableRecipes(userId: string, rows: RecipeRow[]): Promise<Log
         })),
       cookedWeightG: row.cookedWeightG,
       servings: row.servings,
+      servingGrams: row.servingGrams,
     });
     return {
       type: "recipe",
@@ -87,7 +89,9 @@ async function toLoggableRecipes(userId: string, rows: RecipeRow[]): Promise<Log
       perServing: nutrition.perServing,
       servings: nutrition.servings,
       finalWeightG: nutrition.finalWeightG,
+      servingWeightG: nutrition.servingWeightG,
       hasCookedWeight: Boolean(row.cookedWeightG),
+      hasServingWeight: Boolean(row.servingGrams),
       lastServings: lastQuantityByRecipe.get(row.id)?.servings ?? null,
       lastGrams: lastQuantityByRecipe.get(row.id)?.grams ?? null,
       isFavorite: favoriteIds.has(row.id),
@@ -100,6 +104,7 @@ const recipeColumns = {
   name: recipe.name,
   servings: recipe.servings,
   cookedWeightG: recipe.cookedWeightG,
+  servingGrams: recipe.servingGrams,
 };
 
 export async function listLoggableRecipes(userId: string, query?: string) {
@@ -161,6 +166,7 @@ export async function getRecipeForEditing(userId: string, recipeId: string) {
     name: row.name,
     servings: row.servings,
     cookedWeightG: row.cookedWeightG,
+    servingGrams: row.servingGrams,
     notes: row.notes,
     isFavorite: favorite.length > 0,
     ingredients: ingredients.map((ingredient) => ({
@@ -177,15 +183,16 @@ export type RecipeForEditing = NonNullable<Awaited<ReturnType<typeof getRecipeFo
 
 export async function getRecipeExtras(recipeId: string) {
   const [row] = await database
-    .select({ servings: recipe.servings, cookedWeightG: recipe.cookedWeightG })
+    .select({ servings: recipe.servings, cookedWeightG: recipe.cookedWeightG, servingGrams: recipe.servingGrams })
     .from(recipe)
     .where(eq(recipe.id, recipeId));
   if (!row) return null;
   const ingredients = await loadRecipeIngredients([recipeId]);
   const rawWeightG = ingredients.reduce((sum, ingredient) => sum + ingredient.grams, 0);
+  const finalWeightG = row.cookedWeightG && row.cookedWeightG > 0 ? row.cookedWeightG : rawWeightG;
   return {
     total: sumExtras(ingredients.map((ingredient) => scaleExtras(extrasFromRow(ingredient), ingredient.grams))),
-    finalWeightG: row.cookedWeightG && row.cookedWeightG > 0 ? row.cookedWeightG : rawWeightG,
-    servings: row.servings,
+    finalWeightG,
+    servings: recipeServingCount({ finalWeightG, servings: row.servings, servingGrams: row.servingGrams }),
   };
 }

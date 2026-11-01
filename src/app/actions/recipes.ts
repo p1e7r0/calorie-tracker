@@ -71,6 +71,7 @@ export async function duplicateRecipe(recipeId: string): Promise<ActionResult<{ 
           name: `${source.name} (copia)`.slice(0, 120),
           servings: source.servings,
           cookedWeightG: source.cookedWeightG,
+          servingGrams: source.servingGrams,
           notes: source.notes,
         })
         .returning({ id: recipe.id });

@@ -133,6 +133,7 @@ export const recipe = pgTable(
     name: text().notNull(),
     servings: integer().notNull().default(1),
     cookedWeightG: real(),
+    servingGrams: real(),
     notes: text(),
     archivedAt: timestamp({ withTimezone: true }),
     ...timestamps,

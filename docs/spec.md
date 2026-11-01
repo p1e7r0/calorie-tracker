@@ -23,7 +23,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 | Q5 | Lingua | Solo italiano |
 | Q6 | Giornata | 4 pasti fissi: colazione, pranzo, cena, spuntini |
 | Q7 | Obiettivi | Calcolati con Mifflin-St Jeor (sesso, età, altezza, attività, obiettivo, ultimo peso), sovrascrivibili; aggiornato: stima adattiva del fabbisogno da introito e trend del peso (T25) e check-in settimanale che propone di aggiornare l'obiettivo |
-| Q8 | Ricette | Ingredienti crudi in grammi + peso da cotto facoltativo + numero di porzioni. Si registra in grammi di cotto o in porzioni |
+| Q8 | Ricette | Ingredienti crudi in grammi + peso da cotto facoltativo + numero di porzioni oppure peso fisso della porzione. Si registra in grammi di cotto o in porzioni |
 | Q9 | Open Food Facts | Ricerca per nome e barcode con fotocamera; il prodotto usato viene salvato nel catalogo globale |
 | Q10 | PWA | Sì, senza offline |
 | Q11 | Git | Un branch per task, commit locali, merge su `main`; aggiornato: l'utente sincronizza `main` su GitHub da VS Code, i branch di task restano locali (le sessioni cloud pushano il proprio branch, che arriva come PR) |
@@ -44,7 +44,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 ## Regole di dominio
 
 - Valori nutrizionali sempre per 100 g (o 100 ml). Nutriente di una voce = `valore * grammi / 100`.
-- Ricetta: totale = somma degli ingredienti. Base per 100 g = peso da cotto se presente, altrimenti somma dei grammi crudi. Porzione = totale / numero di porzioni.
+- Ricetta: totale = somma degli ingredienti. Base per 100 g = peso da cotto se presente, altrimenti somma dei grammi crudi. Porzione = totale / numero di porzioni; se la ricetta ha un peso fisso della porzione (`serving_grams`), il numero di porzioni è peso finale / peso della porzione e può essere decimale.
 - Peso da cotto con la pentola: peso totale meno il peso a vuoto della pentola, arrotondato al grammo; deve restare maggiore di zero.
 - Le voci del diario salvano una copia dei nutrienti calcolati al momento dell'inserimento (la storia non cambia se l'alimento viene corretto); vengono ricalcolate quando la voce viene modificata.
 - Il giorno del diario è una data (`date`) nel fuso dell'utente, non un timestamp.

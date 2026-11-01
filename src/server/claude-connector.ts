@@ -574,6 +574,12 @@ export function createClaudeConnectorServer(userId: string) {
         name: z.string().trim().min(1).max(120).describe("Italian name, e.g. «Lasagne della nonna»."),
         servings: z.number().int().min(1).max(100).describe("Number of servings the whole dish makes."),
         cookedWeightG: z.number().positive().max(50_000).optional().describe("Weight of the whole cooked dish in grams."),
+        servingGrams: z
+          .number()
+          .positive()
+          .max(20_000)
+          .optional()
+          .describe("Fixed weight of one serving in grams. When set, servings follows from the cooked weight."),
         notes: z.string().trim().max(2000).optional(),
         ingredients: ingredientsSchema,
       }),
@@ -797,7 +803,7 @@ export function createClaudeConnectorServer(userId: string) {
     {
       title: "Leggi una ricetta",
       description:
-        "Read a recipe of the user: ingredients with foodId and raw grams, servings, cooked weight, notes and values per 100 g and per serving. Use it before update_recipe.",
+        "Read a recipe of the user: ingredients with foodId and raw grams, servings, fixed serving weight, cooked weight, notes and values per 100 g and per serving. Use it before update_recipe.",
       inputSchema: z.object({ recipeId: z.uuid() }),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -815,12 +821,19 @@ export function createClaudeConnectorServer(userId: string) {
     {
       title: "Modifica una ricetta",
       description:
-        "Change a recipe of the user. Pass only the fields to change; ingredients replaces the whole list, so call get_recipe first and send every ingredient to keep. cookedWeightG null removes the cooked weight. Past diary entries keep their values. Returns the updated recipe.",
+        "Change a recipe of the user. Pass only the fields to change; ingredients replaces the whole list, so call get_recipe first and send every ingredient to keep. cookedWeightG null removes the cooked weight, servingGrams null removes the fixed serving weight. Past diary entries keep their values. Returns the updated recipe.",
       inputSchema: z.object({
         recipeId: z.uuid(),
         name: z.string().trim().min(1).max(120).optional(),
         servings: z.number().int().min(1).max(100).optional(),
         cookedWeightG: z.number().positive().max(50_000).nullable().optional().describe("Weight of the whole cooked dish in grams."),
+        servingGrams: z
+          .number()
+          .positive()
+          .max(20_000)
+          .nullable()
+          .optional()
+          .describe("Fixed weight of one serving in grams; null goes back to counting servings."),
         notes: z.string().trim().max(2000).nullable().optional(),
         ingredients: ingredientsSchema.optional(),
       }),
@@ -834,6 +847,7 @@ export function createClaudeConnectorServer(userId: string) {
           name: changes.name ?? current.name,
           servings: changes.servings ?? current.servings,
           cookedWeightG: changes.cookedWeightG === undefined ? current.cookedWeightG : changes.cookedWeightG,
+          servingGrams: changes.servingGrams === undefined ? current.servingGrams : changes.servingGrams,
           notes: changes.notes === undefined ? current.notes : changes.notes,
           ingredients:
             changes.ingredients ??

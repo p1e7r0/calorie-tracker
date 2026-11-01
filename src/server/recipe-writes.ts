@@ -9,6 +9,7 @@ export const recipeInputSchema = z.object({
   name: z.string().trim().min(1, "Dai un nome alla ricetta.").max(120),
   servings: z.number().int().min(1).max(100),
   cookedWeightG: z.number().positive().max(50_000).nullish(),
+  servingGrams: z.number().positive().max(20_000).nullish(),
   notes: z.string().trim().max(2000).nullish(),
   ingredients: z
     .array(z.object({ foodId: z.uuid(), grams: z.number().positive().max(20_000) }))
@@ -33,6 +34,7 @@ export function toRecipeValues(input: ParsedRecipeInput) {
     name: input.name,
     servings: input.servings,
     cookedWeightG: input.cookedWeightG ?? null,
+    servingGrams: input.servingGrams ?? null,
     notes: input.notes || null,
   };
 }

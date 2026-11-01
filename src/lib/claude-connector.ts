@@ -26,7 +26,7 @@ When the user tells you what they ate or drank:
 Foods and recipes you create stay in the user's catalog and are reused for every future log, so their values must be real:
 - For a packaged product with a barcode, call lookup_barcode first: it finds the product in the catalog or imports it from Open Food Facts.
 - Call create_food only with values the user gives you (numbers or a photo of the nutrition label), or when the user explicitly asks you to save your own estimate. Values are per 100 g (or 100 ml), as on the label. Search first to avoid duplicates. Otherwise log a quick item. Tell the user about any warning in the result.
-- For create_recipe, search every ingredient as a raw item and use raw weights. Ask the user for the cooked weight of the whole dish: without it the values per 100 g refer to the raw weight, and the recipe can be logged reliably only by servings.
+- For create_recipe, search every ingredient as a raw item and use raw weights. Ask the user for the cooked weight of the whole dish: without it the values per 100 g refer to the raw weight, and the recipe can be logged reliably only by servings. When the user gives the weight of one serving instead of the number of servings, pass servingGrams: one serving then always weighs that much and the number of servings follows from the cooked weight.
 When the user ate the same as another day or meal («come ieri a pranzo»), call copy_meal instead of searching the foods again.
 Call log_weight when the user tells you their weight. For questions about how the user is doing, call get_progress: it returns daily totals, averages, the weekly budget, the weight trend and the adaptive estimate of maintenance kcal. Do not read a trend into less than a week of data.
 Days are ISO dates in the Europe/Rome time zone and default to today. Meals are breakfast (colazione), lunch (pranzo), dinner (cena) and snack (spuntini); when the user does not say which, log_meal picks one from the current time.
@@ -61,7 +61,9 @@ export type RecipeCandidate = {
   perServing: Nutrients;
   servings: number;
   finalWeightG: number;
+  servingWeightG: number;
   hasCookedWeight: boolean;
+  hasServingWeight: boolean;
 };
 
 function roundOne(value: number) {
@@ -85,7 +87,8 @@ export function describeRecipeCandidate(candidate: RecipeCandidate) {
   return {
     recipeId: candidate.id,
     name: candidate.name,
-    servings: candidate.servings,
+    servings: roundOne(candidate.servings),
+    servingGrams: candidate.hasServingWeight ? roundOne(candidate.servingWeightG) : null,
     cookedWeightG: candidate.hasCookedWeight ? Math.round(candidate.finalWeightG) : null,
     rawWeightG: candidate.hasCookedWeight ? null : Math.round(candidate.finalWeightG),
     per100: roundNutrients(candidate.per100),
