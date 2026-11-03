@@ -6,6 +6,7 @@ import { database } from "@/db";
 import { type diaryEntry, measurement } from "@/db/schema";
 import {
   connectorInstructions,
+  describeContainer,
   describeDay,
   describeEntry,
   describeFoodCandidate,
@@ -18,6 +19,7 @@ import {
   describeSavedMeal,
   describeStoredMeal,
   describeWeightTrend,
+  subtractContainerWeight,
 } from "@/lib/claude-connector";
 import { bodyMetrics } from "@/lib/nutrition/body-metrics";
 import { isCopyOntoItself } from "@/lib/nutrition/copy-meal";
@@ -29,6 +31,7 @@ import { maximumStoredPortions, storageLocations } from "@/lib/nutrition/stored-
 import { normalizeBarcode } from "@/lib/open-food-facts";
 import { nameMatchesQuery } from "@/lib/search";
 import { getAdaptiveGoal } from "./adaptive-goal";
+import { editCookware, getCookware, insertCookware, listCookware, maximumCookwareCount, removeCookware } from "./cookware";
 import { getDailyTargets, getDiaryDay } from "./diary";
 import {
   copyMealEntries,
@@ -120,27 +123,57 @@ const ingredientsSchema = z
   .min(1)
   .max(60);
 
+const containerIdSchema = z
+  .uuid()
+  .describe("containerId returned by list_containers. Required with grossGrams: the server subtracts the empty weight of this container.");
+
+const grossGramsSchema = z
+  .number()
+  .positive()
+  .max(30_000)
+  .describe(
+    "Weight in grams read on the scale together with a container (pot, pan, bowl, plate) saved with list_containers, instead of grams. Pass it with containerId: the server subtracts the container's empty weight and logs the net quantity.",
+  );
+
+const foodItemSchema = z.object({
+  type: z.literal("food"),
+  foodId: z.uuid().describe("foodId returned by search_foods or recent_foods."),
+  grams: z.number().positive().max(10_000).describe("Eaten quantity in grams (or ml for liquids)."),
+  portionLabel: z.string().max(80).optional().describe("Name of the portion used, e.g. «1 vasetto»."),
+});
+
+const recipeItemSchema = z.object({
+  type: z.literal("recipe"),
+  recipeId: z.uuid().describe("recipeId returned by search_foods."),
+  grams: z.number().positive().max(10_000).optional().describe("Eaten cooked weight in grams."),
+  servings: z.number().positive().max(100).optional().describe("Eaten servings, used when grams is missing."),
+});
+
+const quickItemSchema = z.object({
+  type: z.literal("quick"),
+  label: z.string().trim().min(1).max(80).describe("Short Italian description, e.g. «Pizza margherita»."),
+  kcal: z.number().min(0).max(20_000),
+  protein: z.number().min(0).max(2_000).optional(),
+  carbs: z.number().min(0).max(2_000).optional(),
+  fat: z.number().min(0).max(2_000).optional(),
+});
+
 const logItemSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("food"),
-    foodId: z.uuid().describe("foodId returned by search_foods or recent_foods."),
-    grams: z.number().positive().max(10_000).describe("Eaten quantity in grams (or ml for liquids)."),
-    portionLabel: z.string().max(80).optional().describe("Name of the portion used, e.g. «1 vasetto»."),
+  foodItemSchema.extend({
+    grams: foodItemSchema.shape.grams
+      .optional()
+      .describe("Eaten quantity in grams (or ml for liquids), net of any container. Either grams, or grossGrams with containerId."),
+    grossGrams: grossGramsSchema.optional(),
+    containerId: containerIdSchema.optional(),
   }),
-  z.object({
-    type: z.literal("recipe"),
-    recipeId: z.uuid().describe("recipeId returned by search_foods."),
-    grams: z.number().positive().max(10_000).optional().describe("Eaten cooked weight in grams."),
-    servings: z.number().positive().max(100).optional().describe("Eaten servings, used when grams is missing."),
+  recipeItemSchema.extend({
+    grams: recipeItemSchema.shape.grams.describe(
+      "Eaten cooked weight in grams, net of any container. Either grams, grossGrams with containerId, or servings.",
+    ),
+    grossGrams: grossGramsSchema.optional(),
+    containerId: containerIdSchema.optional(),
   }),
-  z.object({
-    type: z.literal("quick"),
-    label: z.string().trim().min(1).max(80).describe("Short Italian description, e.g. «Pizza margherita»."),
-    kcal: z.number().min(0).max(20_000),
-    protein: z.number().min(0).max(2_000).optional(),
-    carbs: z.number().min(0).max(2_000).optional(),
-    fat: z.number().min(0).max(2_000).optional(),
-  }),
+  quickItemSchema,
   z.object({
     type: z.literal("savedMeal"),
     savedMealId: z.uuid().describe("savedMealId returned by search_foods or recent_foods. Logs every food of the meal."),
@@ -153,11 +186,9 @@ const logItemSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-const storedMealItemSchema = z.discriminatedUnion("type", [
-  logItemSchema.options[0],
-  logItemSchema.options[1],
-  logItemSchema.options[2],
-]);
+type WeighedItem = { grams?: number; grossGrams?: number; containerId?: string };
+
+const storedMealItemSchema = z.discriminatedUnion("type", [foodItemSchema, recipeItemSchema, quickItemSchema]);
 
 async function storedMealsSummary(userId: string) {
   const today = todayIsoDate();
@@ -225,6 +256,43 @@ function recipeWarnings(hasCookedWeight: boolean) {
   return hasCookedWeight
     ? []
     : ["No cooked weight: per100 refers to the raw weight. Log this recipe by servings, or ask for the cooked weight."];
+}
+
+async function containerOrThrow(userId: string, containerId: string) {
+  const container = await getCookware(userId, containerId);
+  if (!container) throw new Error("Container not found: call list_containers for the user's containers.");
+  return container;
+}
+
+type ContainerUse = { containerId: string; container: string; grossGrams: number; netGrams: number };
+
+async function netGrams(userId: string, item: WeighedItem, uses: ContainerUse[]) {
+  if (item.grossGrams === undefined && item.containerId === undefined) return item.grams;
+  if (item.grams !== undefined) throw new Error("Pass either grams or grossGrams with containerId, not both.");
+  if (item.grossGrams === undefined || item.containerId === undefined) {
+    throw new Error("grossGrams and containerId go together: pass both, or grams alone.");
+  }
+  const container = await containerOrThrow(userId, item.containerId);
+  const net = subtractContainerWeight(container, item.grossGrams);
+  uses.push({ containerId: container.id, container: container.name, grossGrams: item.grossGrams, netGrams: net });
+  return net;
+}
+
+async function toEntryItem(
+  userId: string,
+  item: Exclude<z.infer<typeof logItemSchema>, { type: "savedMeal" | "storedMeal" }>,
+  uses: ContainerUse[],
+): Promise<EntryItem> {
+  if (item.type === "quick") return entryItemSchema.parse(item);
+  const grams = await netGrams(userId, item, uses);
+  if (item.type === "food") {
+    if (grams === undefined) throw new Error("A food item needs grams, or grossGrams with containerId.");
+    return entryItemSchema.parse({ type: "food", foodId: item.foodId, grams, portionLabel: item.portionLabel });
+  }
+  if (grams === undefined && item.servings === undefined) {
+    throw new Error("A recipe item needs grams, grossGrams with containerId, or servings.");
+  }
+  return entryItemSchema.parse({ type: "recipe", recipeId: item.recipeId, grams, servings: item.servings });
 }
 
 async function weights(userId: string) {
@@ -305,7 +373,7 @@ export function createClaudeConnectorServer(userId: string) {
     {
       title: "Registra nel diario",
       description:
-        "Add one or more items to a meal of the user's food diary. Each item is a catalog food with grams, a recipe with grams or servings, a saved meal, one portion of a stored meal, or a quick item with estimated kcal and macros. Returns the created entries and the updated day.",
+        "Add one or more items to a meal of the user's food diary. Each item is a catalog food with grams, a recipe with grams or servings, a saved meal, one portion of a stored meal, or a quick item with estimated kcal and macros. When the user weighed a food or a recipe together with a container (a pot, pan, bowl or plate, e.g. «350 g con la ciotola blu»), find the container with list_containers and pass grossGrams with containerId instead of grams: the server subtracts the container's empty weight. Returns the created entries and the updated day.",
       inputSchema: z.object({
         day: daySchema,
         meal: mealSchema,
@@ -319,6 +387,7 @@ export function createClaudeConnectorServer(userId: string) {
         const entries: EntryItem[] = [];
         const savedMealIds: string[] = [];
         const storedMealIds: string[] = [];
+        const containerUses: ContainerUse[] = [];
         let savedMealDefault: MealType | null = null;
         for (const item of items) {
           if (item.type === "storedMeal") {
@@ -327,7 +396,7 @@ export function createClaudeConnectorServer(userId: string) {
             continue;
           }
           if (item.type !== "savedMeal") {
-            entries.push(entryItemSchema.parse(item));
+            entries.push(await toEntryItem(userId, item, containerUses));
             continue;
           }
           const saved = await getSavedMeal(userId, item.savedMealId);
@@ -353,6 +422,7 @@ export function createClaudeConnectorServer(userId: string) {
         return textResult({
           logged: created.map((row) => describeEntry(entryNutrients(row))),
           ...(storedPortions.length > 0 ? { storedMeals: storedPortions } : {}),
+          ...(containerUses.length > 0 ? { containers: containerUses } : {}),
           meal: targetMeal,
           summary: await daySummary(userId, targetDay),
         });
@@ -821,12 +891,30 @@ export function createClaudeConnectorServer(userId: string) {
     {
       title: "Modifica una ricetta",
       description:
-        "Change a recipe of the user. Pass only the fields to change; ingredients replaces the whole list, so call get_recipe first and send every ingredient to keep. cookedWeightG null removes the cooked weight, servingGrams null removes the fixed serving weight. Past diary entries keep their values. Returns the updated recipe.",
+        "Change a recipe of the user. Pass only the fields to change; ingredients replaces the whole list, so call get_recipe first and send every ingredient to keep. cookedWeightG null removes the cooked weight, servingGrams null removes the fixed serving weight. When the user weighed the cooked dish still in its pot or pan (e.g. «2140 g con la pentola colossale»), find the container with list_containers and pass grossWeightG with containerId instead of cookedWeightG: the server subtracts the container's empty weight. Past diary entries keep their values. Returns the updated recipe.",
       inputSchema: z.object({
         recipeId: z.uuid(),
         name: z.string().trim().min(1).max(120).optional(),
         servings: z.number().int().min(1).max(100).optional(),
-        cookedWeightG: z.number().positive().max(50_000).nullable().optional().describe("Weight of the whole cooked dish in grams."),
+        cookedWeightG: z
+          .number()
+          .positive()
+          .max(50_000)
+          .nullable()
+          .optional()
+          .describe("Weight of the whole cooked dish in grams, net of any container. Either cookedWeightG, or grossWeightG with containerId."),
+        grossWeightG: z
+          .number()
+          .positive()
+          .max(70_000)
+          .optional()
+          .describe(
+            "Weight in grams of the whole cooked dish read on the scale together with its container (pot, pan, dish) from list_containers. Pass it with containerId: the server stores cookedWeightG = grossWeightG minus the container's empty weight.",
+          ),
+        containerId: z
+          .uuid()
+          .optional()
+          .describe("containerId returned by list_containers. Required with grossWeightG."),
         servingGrams: z
           .number()
           .positive()
@@ -843,10 +931,23 @@ export function createClaudeConnectorServer(userId: string) {
       try {
         const current = await getRecipeForEditing(userId, recipeId);
         if (!current) throw new Error("Recipe not found.");
+        let cookedWeightG = changes.cookedWeightG === undefined ? current.cookedWeightG : changes.cookedWeightG;
+        let container: ContainerUse | null = null;
+        if (changes.grossWeightG !== undefined || changes.containerId !== undefined) {
+          if (changes.cookedWeightG !== undefined) {
+            throw new Error("Pass either cookedWeightG or grossWeightG with containerId, not both.");
+          }
+          if (changes.grossWeightG === undefined || changes.containerId === undefined) {
+            throw new Error("grossWeightG and containerId go together: pass both, or cookedWeightG alone.");
+          }
+          const found = await containerOrThrow(userId, changes.containerId);
+          cookedWeightG = subtractContainerWeight(found, changes.grossWeightG);
+          container = { containerId: found.id, container: found.name, grossGrams: changes.grossWeightG, netGrams: cookedWeightG };
+        }
         const input = {
           name: changes.name ?? current.name,
           servings: changes.servings ?? current.servings,
-          cookedWeightG: changes.cookedWeightG === undefined ? current.cookedWeightG : changes.cookedWeightG,
+          cookedWeightG,
           servingGrams: changes.servingGrams === undefined ? current.servingGrams : changes.servingGrams,
           notes: changes.notes === undefined ? current.notes : changes.notes,
           ingredients:
@@ -854,7 +955,11 @@ export function createClaudeConnectorServer(userId: string) {
             current.ingredients.map((ingredient) => ({ foodId: ingredient.foodId, grams: ingredient.grams })),
         };
         await editRecipe(userId, recipeId, input);
-        return textResult({ recipe: await recipeDetail(userId, recipeId), warnings: recipeWarnings(Boolean(input.cookedWeightG)) });
+        return textResult({
+          recipe: await recipeDetail(userId, recipeId),
+          ...(container ? { container } : {}),
+          warnings: recipeWarnings(Boolean(input.cookedWeightG)),
+        });
       } catch (error) {
         return errorResult(error);
       }
@@ -1131,6 +1236,103 @@ export function createClaudeConnectorServer(userId: string) {
           deleted: { day: deleted.measuredOn, weightKg: deleted.weightKg },
           trend: describeWeightTrend(await weights(userId)),
         });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "list_containers",
+    {
+      title: "Elenca i contenitori",
+      description:
+        "List the user's containers: pots, pans, bowls and plates saved with their empty weight in grams (the tare), each with the containerId for log_meal (grossGrams), update_recipe (grossWeightG), update_container and delete_container. Call it whenever the user mentions weighing something with a container or names one («con la pentola colossale», «nella ciotola blu», «col piatto fondo»), and match the name yourself.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => {
+      try {
+        const containers = (await listCookware(userId)).map(describeContainer);
+        return textResult({
+          containers,
+          ...(containers.length === 0
+            ? { note: "No containers yet: ask the user for the empty weight of the container and save it with create_container." }
+            : {}),
+        });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "create_container",
+    {
+      title: "Crea un contenitore",
+      description:
+        "Save a container (pot, pan, bowl, plate, lunch box) with its empty weight in grams, so that from then on the user can give weights read with the container on the scale. Call list_containers first to avoid duplicates. Returns the created container with its containerId.",
+      inputSchema: z.object({
+        name: z.string().trim().min(1).max(80).describe("Short Italian name as the user calls it, e.g. «Pentola colossale», «Ciotola blu»."),
+        weightG: z.number().positive().max(20_000).describe("Empty weight of the container in grams (the tare)."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ name, weightG }) => {
+      try {
+        const existing = await listCookware(userId);
+        if (existing.length >= maximumCookwareCount) {
+          throw new Error(`The user can save at most ${maximumCookwareCount} containers: delete one first.`);
+        }
+        return textResult({ container: describeContainer(await insertCookware(userId, { name, weightG })) });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "update_container",
+    {
+      title: "Modifica un contenitore",
+      description:
+        "Rename a container or change its empty weight. Pass only the fields to change, with the containerId returned by list_containers. Recipes and diary entries already weighed with it keep their values. Returns the updated container.",
+      inputSchema: z.object({
+        containerId: z.uuid(),
+        name: z.string().trim().min(1).max(80).optional(),
+        weightG: z.number().positive().max(20_000).optional().describe("New empty weight in grams."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ containerId, name, weightG }) => {
+      try {
+        if (name === undefined && weightG === undefined) throw new Error("Nothing to change.");
+        const current = await containerOrThrow(userId, containerId);
+        const updated = await editCookware(userId, containerId, {
+          name: name ?? current.name,
+          weightG: weightG ?? current.weightG,
+        });
+        return textResult({ container: describeContainer(updated) });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "delete_container",
+    {
+      title: "Elimina un contenitore",
+      description:
+        "Delete a container from the user's list. Recipes and diary entries already weighed with it keep their values.",
+      inputSchema: z.object({ containerId: z.uuid() }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ containerId }) => {
+      try {
+        await containerOrThrow(userId, containerId);
+        const deleted = await removeCookware(userId, containerId);
+        return textResult({ deleted: deleted.name });
       } catch (error) {
         return errorResult(error);
       }
