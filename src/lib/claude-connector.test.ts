@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  describeContainer,
   describeDay,
   describeFoodCandidate,
   describeFoodDetail,
@@ -11,7 +12,34 @@ import {
   describeSavedMeal,
   describeStoredMeal,
   describeWeightTrend,
+  subtractContainerWeight,
 } from "./claude-connector";
+
+describe("describeContainer", () => {
+  it("exposes the containerId and rounds the empty weight", () => {
+    expect(describeContainer({ id: "cookware-1", name: "Pentola colossale", weightG: 1250.04 })).toEqual({
+      containerId: "cookware-1",
+      name: "Pentola colossale",
+      weightG: 1250,
+    });
+  });
+});
+
+describe("subtractContainerWeight", () => {
+  const container = { id: "cookware-1", name: "Pentola colossale", weightG: 1250 };
+
+  it("returns the net weight rounded to whole grams", () => {
+    expect(subtractContainerWeight(container, 2140)).toBe(890);
+    expect(subtractContainerWeight(container, 2140.6)).toBe(891);
+  });
+
+  it("refuses a gross weight that does not exceed the container", () => {
+    expect(() => subtractContainerWeight(container, 1250)).toThrow(
+      "The weight read with the container (1250 g) does not exceed the empty weight of «Pentola colossale» (1250 g).",
+    );
+    expect(() => subtractContainerWeight(container, 900)).toThrow(/does not exceed/);
+  });
+});
 
 describe("describeFoodCandidate", () => {
   it("joins name and brand and rounds the values", () => {

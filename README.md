@@ -117,14 +117,15 @@ La registrazione dinamica dei client è disattivata. Per collegare Claude:
 | Strumento | Cosa fa |
 |---|---|
 | `search_foods`, `recent_foods` | Cerca alimenti, ricette e pasti salvati; elenca quelli usati di recente con l'ultima quantità |
-| `log_meal` | Registra alimenti, ricette, pasti salvati o kcal veloci in un pasto |
+| `log_meal` | Registra alimenti, ricette, pasti salvati o kcal veloci in un pasto; accetta il peso letto con un contenitore (`grossGrams` + `containerId`) |
 | `get_day`, `update_entry`, `delete_entry` | Legge il diario di un giorno, sposta una voce in un altro pasto o ne cambia la quantità, elimina una o più voci |
 | `set_incomplete_day` | Segna un giorno come incompleto o toglie il segno |
 | `copy_meal` | Copia un pasto da un giorno qualsiasi in un altro pasto o giorno |
 | `lookup_barcode` | Trova un prodotto per codice a barre nel catalogo o lo importa da Open Food Facts |
 | `create_food`, `create_recipe` | Crea alimenti (solo con valori forniti dall'utente) e ricette |
 | `get_food`, `update_food`, `delete_food` | Legge tutti i valori di un alimento, li modifica (copia personale se è del catalogo globale), elimina un alimento personale |
-| `get_recipe`, `update_recipe`, `delete_recipe` | Legge ingredienti e valori di una ricetta, la modifica, la elimina |
+| `get_recipe`, `update_recipe`, `delete_recipe` | Legge ingredienti e valori di una ricetta, la modifica (anche con il peso da cotto letto con la pentola: `grossWeightG` + `containerId`), la elimina |
+| `list_containers`, `create_container`, `update_container`, `delete_container` | Gestisce pentole, ciotole e piatti con il loro peso a vuoto (le pentole di Profilo › Impostazioni) |
 | `set_favorite` | Aggiunge o toglie un alimento o una ricetta dai preferiti |
 | `save_meal`, `update_saved_meal`, `delete_saved_meal` | Salva un pasto registrato, lo rinomina o ne toglie voci, lo elimina |
 | `log_weight` | Registra una pesata, con le altre misure corporee se fornite |

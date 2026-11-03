@@ -524,3 +524,98 @@ test("Claude edits and deletes foods, recipes, entries, saved meals, measurement
   const removed = toolPayload(await callTool("delete_measurement", { measurementId: weighIn.measurementId }));
   expect(removed).toMatchObject({ deleted: { day: today, weightKg: 70.2 }, trend: null });
 });
+
+test("Claude manages containers and weighs with them", async ({ page, browser, request }) => {
+  test.setTimeout(180_000);
+  const { tokens } = await connectClaude(page, browser, request);
+  let requestId = 10;
+  const callTool = (name: string, toolArguments: object) =>
+    callMcp(request, tokens.access_token, "tools/call", { name, arguments: toolArguments }, requestId++);
+  const suffix = Date.now();
+
+  const tools = await callMcp(request, tokens.access_token, "tools/list", {}, 2);
+  expect(tools.tools.map((tool: { name: string }) => tool.name)).toEqual(
+    expect.arrayContaining(["list_containers", "create_container", "update_container", "delete_container"]),
+  );
+
+  expect(toolPayload(await callTool("list_containers", {}))).toMatchObject({ containers: [], note: expect.any(String) });
+  const pot = toolPayload(await callTool("create_container", { name: "Pentola colossale", weightG: 1250 })).container;
+  expect(pot).toMatchObject({ containerId: expect.any(String), name: "Pentola colossale", weightG: 1250 });
+  const bowl = toolPayload(await callTool("create_container", { name: "Ciotola blu", weightG: 310.5 })).container;
+  expect(toolPayload(await callTool("list_containers", {}))).toEqual({
+    containers: [pot, { containerId: bowl.containerId, name: "Ciotola blu", weightG: 310.5 }],
+  });
+  const renamed = toolPayload(await callTool("update_container", { containerId: bowl.containerId, name: "Ciotola grande" }));
+  expect(renamed.container).toEqual({ containerId: bowl.containerId, name: "Ciotola grande", weightG: 310.5 });
+  expect((await callTool("update_container", { containerId: bowl.containerId, name: "" })).isError).toBe(true);
+
+  const rice = toolPayload(
+    await callTool("create_food", { name: `Riso integrale ${suffix}`, kcal: 350, protein: 8, carbs: 77, fat: 1 }),
+  ).food;
+  const recipe = toolPayload(
+    await callTool("create_recipe", {
+      name: `Riso bollito ${suffix}`,
+      servings: 2,
+      ingredients: [{ foodId: rice.foodId, grams: 200 }],
+    }),
+  ).recipe;
+  const weighed = toolPayload(
+    await callTool("update_recipe", { recipeId: recipe.recipeId, grossWeightG: 1810, containerId: pot.containerId }),
+  );
+  expect(weighed).toMatchObject({
+    recipe: { cookedWeightG: 560, per100: { kcal: 125 } },
+    container: { containerId: pot.containerId, container: "Pentola colossale", grossGrams: 1810, netGrams: 560 },
+    warnings: [],
+  });
+  const tooLight = await callTool("update_recipe", { recipeId: recipe.recipeId, grossWeightG: 1200, containerId: pot.containerId });
+  expect(tooLight.isError).toBe(true);
+  expect(tooLight.content[0].text).toContain("does not exceed");
+  const bothWeights = await callTool("update_recipe", {
+    recipeId: recipe.recipeId,
+    cookedWeightG: 500,
+    grossWeightG: 1810,
+    containerId: pot.containerId,
+  });
+  expect(bothWeights.isError).toBe(true);
+  const missingContainer = await callTool("update_recipe", { recipeId: recipe.recipeId, grossWeightG: 1810 });
+  expect(missingContainer.isError).toBe(true);
+
+  const logged = toolPayload(
+    await callTool("log_meal", {
+      meal: "lunch",
+      items: [
+        { type: "recipe", recipeId: recipe.recipeId, grossGrams: 1530, containerId: pot.containerId },
+        { type: "food", foodId: rice.foodId, grossGrams: 390.5, containerId: bowl.containerId },
+      ],
+    }),
+  );
+  expect(logged.logged).toEqual([
+    expect.objectContaining({ type: "recipe", grams: 280, kcal: 350 }),
+    expect.objectContaining({ type: "food", grams: 80, kcal: 280 }),
+  ]);
+  expect(logged.containers).toEqual([
+    { containerId: pot.containerId, container: "Pentola colossale", grossGrams: 1530, netGrams: 280 },
+    { containerId: bowl.containerId, container: "Ciotola grande", grossGrams: 390.5, netGrams: 80 },
+  ]);
+  const bothGrams = await callTool("log_meal", {
+    items: [{ type: "food", foodId: rice.foodId, grams: 80, grossGrams: 390.5, containerId: bowl.containerId }],
+  });
+  expect(bothGrams.isError).toBe(true);
+  const noGrams = await callTool("log_meal", { items: [{ type: "food", foodId: rice.foodId }] });
+  expect(noGrams.isError).toBe(true);
+  const unknownContainer = await callTool("log_meal", {
+    items: [{ type: "food", foodId: rice.foodId, grossGrams: 390.5, containerId: "00000000-0000-4000-8000-000000000000" }],
+  });
+  expect(unknownContainer.isError).toBe(true);
+  expect(unknownContainer.content[0].text).toContain("list_containers");
+
+  expect(toolPayload(await callTool("delete_container", { containerId: bowl.containerId }))).toEqual({ deleted: "Ciotola grande" });
+  expect(toolPayload(await callTool("list_containers", {})).containers).toEqual([pot]);
+  expect((await callTool("delete_container", { containerId: bowl.containerId })).isError).toBe(true);
+
+  await page.goto("/profile");
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("tab", { name: "Impostazioni" }).click();
+  await expect(page.getByText("Pentola colossale")).toBeVisible();
+  await expect(page.getByText("Ciotola grande")).toHaveCount(0);
+});

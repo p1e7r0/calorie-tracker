@@ -5,6 +5,7 @@ import {
   requiredLoggedDays,
   requiredWeightSpanDays,
 } from "@/lib/nutrition/adaptive";
+import { type CookwareView, netCookedWeight } from "@/lib/nutrition/cookware";
 import { addDays } from "@/lib/nutrition/days";
 import { mealLabels, type MealType } from "@/lib/nutrition/meals";
 import { type Nutrients, roundNutrients, sumNutrients } from "@/lib/nutrition/nutrients";
@@ -38,6 +39,7 @@ You can also change almost everything the user can change in the app:
 - Stored meals are portions the user cooked and put in the fridge or freezer to eat later. store_meal stores them, from the foods and recipes of one portion or from a logged meal; update_stored_meal changes the name, place, preparation date, portions left or items; delete_stored_meal removes a meal the user threw away. When checkBeforeEating is true, tell the user how long it has been stored.
 - Measurements: list_measurements, update_measurement and delete_measurement fix weigh-ins.
 - Profile: get_profile reads goals and daily targets; update_profile changes them; apply_suggested_targets applies the adaptive suggestion of get_progress.
+- Containers are the user's pots, pans, bowls and plates saved with their empty weight (the tare), so that a weight read on the scale with the container still on it can be turned into the net weight. When the user gives a weight «con la pentola», «con la ciotola», «con il piatto» or names a container («la pentola colossale», «la ciotola blu»), call list_containers, match the name and pass the weight as it was read together with the containerId: grossGrams in log_meal (foods and recipes), grossWeightG in update_recipe. The server subtracts the container, never subtract it yourself. create_container, update_container and delete_container manage the list; when the user names a container that is not in the list, ask for its empty weight and create it.
 Change or delete something only when the user asks for it, and say what you changed. Deleting is final for diary entries, saved meals, stored meals and measurements; for foods and recipes it hides them from the catalog.`;
 
 type PortionOption = { label: string; grams: number };
@@ -198,6 +200,20 @@ export function describeStoredMeal(candidate: StoredMealCandidate, today: string
     })),
     perPortion: roundNutrients(candidate.perPortion),
   };
+}
+
+export function describeContainer(container: CookwareView) {
+  return { containerId: container.id, name: container.name, weightG: roundOne(container.weightG) };
+}
+
+export function subtractContainerWeight(container: CookwareView, grossGrams: number) {
+  const net = netCookedWeight(grossGrams, container.weightG);
+  if (net === null) {
+    throw new Error(
+      `The weight read with the container (${roundOne(grossGrams)} g) does not exceed the empty weight of «${container.name}» (${roundOne(container.weightG)} g).`,
+    );
+  }
+  return net;
 }
 
 export type FoodDetailSummary = {
