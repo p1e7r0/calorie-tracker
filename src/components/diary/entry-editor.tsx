@@ -55,10 +55,12 @@ function quantityShortcuts(entry: DiaryEntryView, mode: QuantityMode): QuantityS
 export function EntryEditor({
   entry,
   open,
+  remainingKcal,
   onOpenChange,
 }: {
   entry: DiaryEntryView;
   open: boolean;
+  remainingKcal?: number | null;
   onOpenChange: (open: boolean) => void;
 }) {
   const mode = initialMode(entry);
@@ -74,6 +76,10 @@ export function EntryEditor({
     parsedQuantity !== null && previousQuantity
       ? multiplyNutrients(entry.nutrients, parsedQuantity / previousQuantity)
       : entry.nutrients;
+  const remainingAfter =
+    remainingKcal === null || remainingKcal === undefined
+      ? null
+      : remainingKcal + entry.nutrients.kcal - preview.kcal;
   const isValid = parsedQuantity !== null && (mode === "kcal" ? parsedQuantity >= 0 : parsedQuantity > 0);
 
   function save() {
@@ -110,6 +116,11 @@ export function EntryEditor({
           <DrawerTitle className="text-lg leading-snug">{entry.label}</DrawerTitle>
           <DrawerDescription>
             {formatKcal(preview.kcal)} kcal in {mealLabels[meal].toLowerCase()}
+            {remainingAfter === null
+              ? null
+              : remainingAfter < 0
+                ? ` · ${formatKcal(-remainingAfter)} kcal oltre l'obiettivo`
+                : ` · restano ${formatKcal(remainingAfter)} kcal`}
           </DrawerDescription>
         </DrawerHeader>
         <form

@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
 import { currentHour, formatDayInSentence, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { isMealType, suggestMeal } from "@/lib/nutrition/meals";
+import { getDailyTargets, getDiaryDay } from "@/server/diary";
 import { favoriteFoods, getLoggableFood } from "@/server/foods";
 import { isAiEnabled } from "@/server/ai";
 import { getLoggableRecipe, listLoggableRecipes } from "@/server/recipes";
@@ -30,7 +31,7 @@ async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
   const day = isIsoDate(date) ? date : today;
   const initialMeal = isMealType(meal) ? meal : suggestMeal(currentHour());
   const isIdentifier = (value: unknown): value is string => typeof value === "string" && /^[0-9a-f-]{36}$/.test(value);
-  const [suggestions, favorites, recipes, savedMeals, storedMeals, initialItem] = await Promise.all([
+  const [suggestions, favorites, recipes, savedMeals, storedMeals, initialItem, targets, diary] = await Promise.all([
     mealSuggestions(user.id, today),
     favoriteFoods(user.id),
     listLoggableRecipes(user.id),
@@ -41,7 +42,10 @@ async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
       : isIdentifier(recipe)
         ? getLoggableRecipe(user.id, recipe)
         : null,
+    getDailyTargets(user.id),
+    getDiaryDay(user.id, day),
   ]);
+  const remainingKcal = targets ? targets.kcal - diary.totals.kcal : null;
 
   return (
     <AddScreen
@@ -58,6 +62,7 @@ async function Add({ searchParams }: Pick<PageProps<"/add">, "searchParams">) {
       initialSavedMealId={isIdentifier(savedMeal) ? savedMeal : null}
       initialStoredMealId={isIdentifier(storedMeal) ? storedMeal : null}
       backHref={day === today ? "/" : `/?date=${day}`}
+      remainingKcal={remainingKcal}
       aiEnabled={isAiEnabled}
     />
   );

@@ -17,6 +17,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatDecimal, formatGrams, formatKcal, parseDecimal } from "@/lib/nutrition/format";
 import { mealLabels, type MealType } from "@/lib/nutrition/meals";
 import { multiplyNutrients, type Nutrients, scaleNutrients } from "@/lib/nutrition/nutrients";
+import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableItem, LoggableRecipe } from "@/server/loggable";
 import { useLogEntry } from "./use-log-entry";
 
@@ -28,6 +29,7 @@ export function LogItemDrawer({
   item,
   day,
   meal,
+  remainingKcal,
   onOpenChange,
   onLogged,
   onUndone,
@@ -35,6 +37,7 @@ export function LogItemDrawer({
   item: LoggableItem;
   day: string;
   meal: MealType;
+  remainingKcal?: number | null;
   onOpenChange: (open: boolean) => void;
   onLogged: () => void;
   onUndone?: () => void;
@@ -47,6 +50,7 @@ export function LogItemDrawer({
           item={item}
           submitLabel={`Aggiungi a ${mealLabels[meal].toLowerCase()}`}
           isPending={isPending}
+          remainingKcal={remainingKcal}
           onSubmit={(entryItem) => log({ day, meal, item: entryItem }, item.name)}
         />
       </DrawerContent>
@@ -59,6 +63,7 @@ export type QuantityItem = AddEntryInput["item"];
 type QuantityProperties = {
   submitLabel: string;
   isPending: boolean;
+  remainingKcal?: number | null;
   onSubmit: (item: QuantityItem, nutrients: Nutrients) => void;
 };
 
@@ -70,7 +75,13 @@ export function ItemQuantity({ item, ...properties }: QuantityProperties & { ite
   );
 }
 
-function FoodQuantity({ food, submitLabel, isPending, onSubmit }: QuantityProperties & { food: LoggableFood }) {
+function FoodQuantity({
+  food,
+  submitLabel,
+  isPending,
+  remainingKcal,
+  onSubmit,
+}: QuantityProperties & { food: LoggableFood }) {
   const defaultGrams = food.lastGrams ?? food.portions[0]?.grams ?? 100;
   const [quantity, setQuantity] = useState(() => toInputValue(defaultGrams));
   const [portionLabel, setPortionLabel] = useState<string | null>(null);
@@ -127,7 +138,7 @@ function FoodQuantity({ food, submitLabel, isPending, onSubmit }: QuantityProper
             setPortionLabel(shortcut?.isPortion ? shortcut.label : null);
           }}
         />
-        <Preview kcal={preview.kcal}>
+        <Preview kcal={preview.kcal} remainingKcal={remainingKcal}>
           <MacroLine nutrients={preview} />
         </Preview>
         <button type="submit" hidden />
@@ -145,6 +156,7 @@ function RecipeQuantity({
   recipe,
   submitLabel,
   isPending,
+  remainingKcal,
   onSubmit,
 }: QuantityProperties & { recipe: LoggableRecipe }) {
   const [mode, setMode] = useState<"servings" | "grams">(() => {
@@ -234,7 +246,7 @@ function RecipeQuantity({
           shortcuts={shortcuts}
           onValueChange={(value) => setQuantity(value)}
         />
-        <Preview kcal={preview.kcal}>
+        <Preview kcal={preview.kcal} remainingKcal={remainingKcal}>
           <MacroLine nutrients={preview} />
         </Preview>
         <button type="submit" hidden />
@@ -248,13 +260,32 @@ function RecipeQuantity({
   );
 }
 
-function Preview({ kcal, children }: { kcal: number; children: React.ReactNode }) {
+function Preview({
+  kcal,
+  remainingKcal,
+  children,
+}: {
+  kcal: number;
+  remainingKcal?: number | null;
+  children: React.ReactNode;
+}) {
+  const after = remainingKcal === null || remainingKcal === undefined ? null : remainingKcal - kcal;
   return (
-    <div className="flex items-center justify-between rounded-xl bg-muted/60 px-3 py-2.5">
-      {children}
-      <span className="font-heading text-xl font-semibold">
-        {formatKcal(kcal)} <span className="text-sm font-medium text-muted-foreground">kcal</span>
-      </span>
+    <div className="rounded-xl bg-muted/60 px-3 py-2.5">
+      <div className="flex items-center justify-between">
+        {children}
+        <span className="font-heading text-xl font-semibold">
+          {formatKcal(kcal)} <span className="text-sm font-medium text-muted-foreground">kcal</span>
+        </span>
+      </div>
+      {after === null ? null : (
+        <p className="mt-1.5 border-t pt-1.5 text-xs text-muted-foreground">
+          Dopo averlo aggiunto{" "}
+          <span className={cn("font-medium", after < 0 ? "text-over-text" : "text-foreground")}>
+            {after < 0 ? `${formatKcal(-after)} kcal oltre l'obiettivo` : `restano ${formatKcal(after)} kcal`}
+          </span>
+        </p>
+      )}
     </div>
   );
 }

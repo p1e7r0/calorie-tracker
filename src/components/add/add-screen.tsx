@@ -54,6 +54,7 @@ type AddScreenProperties = {
   initialSavedMealId: string | null;
   initialStoredMealId: string | null;
   backHref: string;
+  remainingKcal: number | null;
   aiEnabled: boolean;
 };
 
@@ -79,6 +80,7 @@ function AddScreenContent({
   initialSavedMealId,
   initialStoredMealId,
   backHref,
+  remainingKcal,
   aiEnabled,
 }: AddScreenProperties) {
   const router = useRouter();
@@ -162,7 +164,11 @@ function AddScreenContent({
     <>
       <header className="-ml-2 flex h-14 shrink-0 items-center gap-1">
         <h1 className="sr-only">Aggiungi al diario</h1>
-        <Link href={backHref} aria-label="Torna al diario" className={buttonVariants({ variant: "ghost", size: "icon" })}>
+        <Link
+          href={backHref}
+          aria-label="Torna al diario"
+          className={buttonVariants({ variant: "ghost", size: "icon-lg" })}
+        >
           <ArrowLeftIcon />
         </Link>
         <MealPicker value={meal} onValueChange={setMeal} className="flex-1" />
@@ -359,6 +365,7 @@ function AddScreenContent({
           item={selectedItem}
           day={day}
           meal={meal}
+          remainingKcal={remainingKcal}
           onLogged={() => handleLogged()}
           onUndone={() => handleUndone()}
           onOpenChange={(open) => {

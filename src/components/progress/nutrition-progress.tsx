@@ -37,7 +37,7 @@ const macroRows = [
   { key: "fat", target: "fatG", label: "Grassi", colorClass: "bg-fat" },
 ] as const;
 
-const weekdayFormatter = new Intl.DateTimeFormat("it-IT", { weekday: "narrow", timeZone: "UTC" });
+const weekdayFormatter = new Intl.DateTimeFormat("it-IT", { weekday: "short", timeZone: "UTC" });
 
 export function NutritionProgress({
   dailyTotals,
@@ -122,8 +122,8 @@ export function NutritionProgress({
               <span className="ml-1 text-sm font-medium text-muted-foreground">kcal di media</span>
             </p>
             <p className="text-sm text-muted-foreground">
-              {loggedDays.length} {loggedDays.length === 1 ? "giorno registrato" : "giorni registrati"} su {rangeDays - 1}, oggi
-              escluso
+              Media di {loggedDays.length} {loggedDays.length === 1 ? "giorno" : "giorni"} su {rangeDays - 1}: la barra
+              di oggi non conta
               {excludedInRange > 0
                 ? `. ${excludedInRange === 1 ? "Un giorno incompleto non conta" : `${excludedInRange} giorni incompleti non contano`} nelle medie`
                 : ""}
@@ -131,20 +131,6 @@ export function NutritionProgress({
               {hasDaysAboveTarget ? ", in arancione i giorni sopra l'obiettivo" : ""}
             </p>
           </div>
-          <ToggleGroup
-            variant="outline"
-            spacing={0}
-            size="sm"
-            value={[String(rangeDays)]}
-            onValueChange={(selected) => {
-              const [value] = selected;
-              if (value === "7" || value === "30") setRangeDays(Number(value) as 7 | 30);
-            }}
-            aria-label="Periodo"
-          >
-            <ToggleGroupItem value="7">7 g</ToggleGroupItem>
-            <ToggleGroupItem value="30">30 g</ToggleGroupItem>
-          </ToggleGroup>
         </div>
         <ChartContainer config={kcalConfig} className="aspect-[16/9] w-full">
           <BarChart data={kcalData} margin={{ top: 16, right: 4, bottom: 0, left: -8 }} barCategoryGap={rangeDays === 7 ? "28%" : "12%"}>
@@ -214,6 +200,25 @@ export function NutritionProgress({
             />
           </BarChart>
         </ChartContainer>
+        <ToggleGroup
+          variant="outline"
+          spacing={0}
+          size="sm"
+          value={[String(rangeDays)]}
+          onValueChange={(selected) => {
+            const [value] = selected;
+            if (value === "7" || value === "30") setRangeDays(Number(value) as 7 | 30);
+          }}
+          aria-label="Periodo"
+          className="w-full"
+        >
+          <ToggleGroupItem value="7" className="flex-1">
+            7 giorni
+          </ToggleGroupItem>
+          <ToggleGroupItem value="30" className="flex-1">
+            30 giorni
+          </ToggleGroupItem>
+        </ToggleGroup>
       </section>
 
       <section aria-labelledby="macro-heading">

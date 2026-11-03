@@ -54,7 +54,7 @@ export function RecipeView({ recipe }: { recipe: RecipeForEditing }) {
             <div className="flex items-center gap-1" role="group" aria-label="Porzioni da preparare">
               <Button
                 variant="outline"
-                size="icon-sm"
+                size="icon-lg"
                 aria-label="Una porzione in meno"
                 disabled={portions <= 1}
                 onClick={() => setPortions((current) => Math.max(1, Math.ceil(current) - 1))}
@@ -66,7 +66,7 @@ export function RecipeView({ recipe }: { recipe: RecipeForEditing }) {
               </span>
               <Button
                 variant="outline"
-                size="icon-sm"
+                size="icon-lg"
                 aria-label="Una porzione in più"
                 disabled={portions >= 100}
                 onClick={() => setPortions((current) => Math.min(100, Math.floor(current) + 1))}
