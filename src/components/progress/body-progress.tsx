@@ -16,8 +16,8 @@ import { BodyMetricChart } from "./body-metric-chart";
 import { MeasurementDrawer } from "./measurement-drawer";
 
 const ranges = [
-  { value: "30", label: "30 g", days: 30 },
-  { value: "90", label: "90 g", days: 90 },
+  { value: "30", label: "30 giorni", days: 30 },
+  { value: "90", label: "90 giorni", days: 90 },
   { value: "365", label: "1 anno", days: 365 },
   { value: "all", label: "Tutto", days: null },
 ] as const;

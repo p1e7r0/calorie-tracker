@@ -60,7 +60,7 @@ test("marks a day as incomplete, undoes it and leaves it out of the averages", a
   await page.goto("/progress");
   await page.getByRole("tab", { name: "Alimentazione" }).click();
   await expect(
-    page.getByText(/^0 giorni registrati su 6, oggi escluso\. Un giorno incompleto non conta nelle medie/),
+    page.getByText(/^Media di 0 giorni su 6: la barra di oggi non conta\. Un giorno incompleto non conta nelle medie/),
   ).toBeVisible();
   await expect(page.getByText("Registra qualche pasto per vedere le medie.")).toBeVisible();
 });
