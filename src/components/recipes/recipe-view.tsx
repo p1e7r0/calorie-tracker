@@ -6,20 +6,20 @@ import { useState } from "react";
 import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
 import { MacroLine } from "@/components/diary/macro-line";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { formatGrams, formatKcal } from "@/lib/nutrition/format";
+import { formatDecimal, formatGrams, formatKcal } from "@/lib/nutrition/format";
 import { multiplyNutrients, scaleNutrients } from "@/lib/nutrition/nutrients";
 import { computeRecipeNutrition } from "@/lib/nutrition/recipe";
 import type { RecipeForEditing } from "@/server/recipes";
 
 export function RecipeView({ recipe }: { recipe: RecipeForEditing }) {
-  const [portions, setPortions] = useState(recipe.servings);
   const nutrition = computeRecipeNutrition({
     ingredients: recipe.ingredients,
     cookedWeightG: recipe.cookedWeightG,
     servings: recipe.servings,
+    servingGrams: recipe.servingGrams,
   });
-  const factor = portions / recipe.servings;
-  const portionWeight = nutrition.finalWeightG / nutrition.servings;
+  const [portions, setPortions] = useState(nutrition.servings);
+  const factor = portions / nutrition.servings;
 
   return (
     <>
@@ -27,7 +27,9 @@ export function RecipeView({ recipe }: { recipe: RecipeForEditing }) {
         <div>
           <h1 className="font-heading text-2xl leading-tight font-semibold tracking-tight">{recipe.name}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {recipe.servings} {recipe.servings === 1 ? "porzione" : "porzioni"} da {formatGrams(portionWeight)} g
+            {recipe.servingGrams
+              ? `Porzioni da ${formatGrams(nutrition.servingWeightG)} g (circa ${formatDecimal(nutrition.servings)})`
+              : `${recipe.servings} ${recipe.servings === 1 ? "porzione" : "porzioni"} da ${formatGrams(nutrition.servingWeightG)} g`}
             {recipe.cookedWeightG ? `, ${formatGrams(nutrition.finalWeightG)} g da cotto` : ""}
           </p>
         </div>
@@ -55,19 +57,19 @@ export function RecipeView({ recipe }: { recipe: RecipeForEditing }) {
                 size="icon-sm"
                 aria-label="Una porzione in meno"
                 disabled={portions <= 1}
-                onClick={() => setPortions((current) => Math.max(1, current - 1))}
+                onClick={() => setPortions((current) => Math.max(1, Math.ceil(current) - 1))}
               >
                 <MinusIcon />
               </Button>
               <span className="min-w-24 text-center text-sm" aria-live="polite">
-                per {portions} {portions === 1 ? "porzione" : "porzioni"}
+                per {formatDecimal(portions)} {portions === 1 ? "porzione" : "porzioni"}
               </span>
               <Button
                 variant="outline"
                 size="icon-sm"
                 aria-label="Una porzione in più"
                 disabled={portions >= 100}
-                onClick={() => setPortions((current) => Math.min(100, current + 1))}
+                onClick={() => setPortions((current) => Math.min(100, Math.floor(current) + 1))}
               >
                 <PlusIcon />
               </Button>
@@ -88,7 +90,7 @@ export function RecipeView({ recipe }: { recipe: RecipeForEditing }) {
               </li>
             ))}
           </ul>
-          {portions !== recipe.servings ? (
+          {portions !== nutrition.servings ? (
             <p className="mt-2 text-sm text-muted-foreground">
               In tutto {formatKcal(multiplyNutrients(nutrition.total, factor).kcal)} kcal. I valori a porzione non
               cambiano.

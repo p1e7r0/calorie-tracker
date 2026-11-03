@@ -115,7 +115,7 @@ export type ShortcutMealContext = {
   text: string;
   todayLabel: string;
   hour: number;
-  recipes: { ref: string; name: string; servings: number; cookedWeightG: number }[];
+  recipes: { ref: string; name: string; servings: number; servingWeightG: number; cookedWeightG: number }[];
   savedMeals: { ref: string; name: string }[];
 };
 
@@ -126,7 +126,8 @@ export async function interpretShortcutMeal(userId: string, context: ShortcutMea
     "Ricette della persona:",
     ...(context.recipes.length > 0
       ? context.recipes.map(
-          (recipe) => `${recipe.ref}: ${recipe.name} (${recipe.servings} porzioni, ${recipe.cookedWeightG} g da cotta)`,
+          (recipe) =>
+            `${recipe.ref}: ${recipe.name} (${recipe.servings} porzioni da ${recipe.servingWeightG} g, ${recipe.cookedWeightG} g da cotta)`,
         )
       : ["nessuna"]),
     "Pasti salvati:",

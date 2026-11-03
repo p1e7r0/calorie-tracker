@@ -21,7 +21,7 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatKcal } from "@/lib/nutrition/format";
+import { formatGrams, formatKcal } from "@/lib/nutrition/format";
 import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableRecipe } from "@/server/loggable";
 import type { StoredMealView } from "@/server/stored-meals";
@@ -313,7 +313,7 @@ function BrowserList({ items, emptyMessage }: { items: (LoggableFood | LoggableR
               </span>
               <span className="block truncate text-sm text-muted-foreground">
                 {item.type === "recipe"
-                  ? `${formatKcal(item.perServing.kcal)} kcal a porzione, ${item.servings} ${item.servings === 1 ? "porzione" : "porzioni"}`
+                  ? `${formatKcal(item.perServing.kcal)} kcal a porzione, ${item.hasServingWeight ? `porzione da ${formatGrams(item.servingWeightG)} g` : `${item.servings} ${item.servings === 1 ? "porzione" : "porzioni"}`}`
                   : [item.brand, `${formatKcal(item.per100.kcal)} kcal per 100 ${item.unit}`].filter(Boolean).join(", ")}
               </span>
             </span>

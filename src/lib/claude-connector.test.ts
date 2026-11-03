@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  describeContainer,
   describeDay,
   describeFoodCandidate,
   describeFoodDetail,
@@ -11,7 +12,34 @@ import {
   describeSavedMeal,
   describeStoredMeal,
   describeWeightTrend,
+  subtractContainerWeight,
 } from "./claude-connector";
+
+describe("describeContainer", () => {
+  it("exposes the containerId and rounds the empty weight", () => {
+    expect(describeContainer({ id: "cookware-1", name: "Pentola colossale", weightG: 1250.04 })).toEqual({
+      containerId: "cookware-1",
+      name: "Pentola colossale",
+      weightG: 1250,
+    });
+  });
+});
+
+describe("subtractContainerWeight", () => {
+  const container = { id: "cookware-1", name: "Pentola colossale", weightG: 1250 };
+
+  it("returns the net weight rounded to whole grams", () => {
+    expect(subtractContainerWeight(container, 2140)).toBe(890);
+    expect(subtractContainerWeight(container, 2140.6)).toBe(891);
+  });
+
+  it("refuses a gross weight that does not exceed the container", () => {
+    expect(() => subtractContainerWeight(container, 1250)).toThrow(
+      "The weight read with the container (1250 g) does not exceed the empty weight of «Pentola colossale» (1250 g).",
+    );
+    expect(() => subtractContainerWeight(container, 900)).toThrow(/does not exceed/);
+  });
+});
 
 describe("describeFoodCandidate", () => {
   it("joins name and brand and rounds the values", () => {
@@ -50,11 +78,14 @@ describe("describeRecipeCandidate", () => {
         perServing: { kcal: 450.4, protein: 22.5, carbs: 37.5, fat: 22.5 },
         servings: 4,
         finalWeightG: 1000.4,
+        servingWeightG: 250.1,
         hasCookedWeight: true,
+        hasServingWeight: false,
       }),
     ).toMatchObject({
       recipeId: "recipe-1",
       servings: 4,
+      servingGrams: null,
       cookedWeightG: 1000,
       rawWeightG: null,
       perServing: { kcal: 450 },
@@ -70,9 +101,27 @@ describe("describeRecipeCandidate", () => {
         perServing: { kcal: 300, protein: 10, carbs: 60, fat: 3 },
         servings: 1,
         finalWeightG: 100,
+        servingWeightG: 100,
         hasCookedWeight: false,
+        hasServingWeight: false,
       }),
     ).toMatchObject({ cookedWeightG: null, rawWeightG: 100 });
+  });
+
+  it("exposes a fixed serving weight with the derived servings count", () => {
+    expect(
+      describeRecipeCandidate({
+        id: "recipe-3",
+        name: "Torta di mele",
+        per100: { kcal: 250, protein: 4, carbs: 35, fat: 10 },
+        perServing: { kcal: 250, protein: 4, carbs: 35, fat: 10 },
+        servings: 1100 / 100,
+        finalWeightG: 1100,
+        servingWeightG: 100,
+        hasCookedWeight: true,
+        hasServingWeight: true,
+      }),
+    ).toMatchObject({ servings: 11, servingGrams: 100, cookedWeightG: 1100 });
   });
 });
 
@@ -221,7 +270,9 @@ describe("describeRecipeDetail", () => {
         perServing: { kcal: 240, protein: 12, carbs: 33, fat: 6 },
         servings: 2,
         finalWeightG: 600,
+        servingWeightG: 300,
         hasCookedWeight: true,
+        hasServingWeight: false,
       },
       {
         notes: null,

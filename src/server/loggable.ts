@@ -23,7 +23,9 @@ export type LoggableRecipe = {
   perServing: Nutrients;
   servings: number;
   finalWeightG: number;
+  servingWeightG: number;
   hasCookedWeight: boolean;
+  hasServingWeight: boolean;
   lastServings: number | null;
   lastGrams: number | null;
   isFavorite: boolean;
