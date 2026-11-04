@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeRecipeNutrition, recipePortionNutrients, recipePortionWeight } from "./recipe";
+import { computeRecipeNutrition, recipePortionNutrients, recipePortionWeight, recipeServingCount } from "./recipe";
 
 const ingredients = [
   { grams: 320, per100: { kcal: 356, protein: 12.5, carbs: 72, fat: 1.5 } },
@@ -28,6 +28,35 @@ describe("computeRecipeNutrition", () => {
     const recipe = computeRecipeNutrition({ ingredients: [] });
     expect(recipe.per100g).toEqual({ kcal: 0, protein: 0, carbs: 0, fat: 0 });
   });
+
+  it("derives the serving weight from the servings count", () => {
+    const recipe = computeRecipeNutrition({ ingredients, cookedWeightG: 1200, servings: 4 });
+    expect(recipe.servingWeightG).toBe(300);
+  });
+
+  it("derives a fractional servings count from a fixed serving weight", () => {
+    const recipe = computeRecipeNutrition({ ingredients, cookedWeightG: 1100, servings: 4, servingGrams: 250 });
+    expect(recipe.servings).toBeCloseTo(4.4, 5);
+    expect(recipe.servingWeightG).toBe(250);
+    expect(recipe.perServing.kcal).toBeCloseTo((1488.9 * 250) / 1100, 5);
+  });
+
+  it("keeps the serving weight when the recipe has no ingredients yet", () => {
+    const recipe = computeRecipeNutrition({ ingredients: [], servings: 4, servingGrams: 250 });
+    expect(recipe.servings).toBe(4);
+    expect(recipe.servingWeightG).toBe(250);
+  });
+});
+
+describe("recipeServingCount", () => {
+  it("prefers the serving weight over the stored count", () => {
+    expect(recipeServingCount({ finalWeightG: 900, servings: 2, servingGrams: 300 })).toBe(3);
+  });
+
+  it("falls back to the stored count, then to one serving", () => {
+    expect(recipeServingCount({ finalWeightG: 900, servings: 2, servingGrams: null })).toBe(2);
+    expect(recipeServingCount({ finalWeightG: 900 })).toBe(1);
+  });
 });
 
 describe("recipe portions", () => {
@@ -40,5 +69,14 @@ describe("recipe portions", () => {
   it("computes a portion counted in servings", () => {
     expect(recipePortionNutrients(recipe, { servings: 0.5 }).kcal).toBeCloseTo(1488.9 / 8, 5);
     expect(recipePortionWeight(recipe, { servings: 0.5 })).toBe(150);
+  });
+
+  it("weighs servings with the fixed serving weight", () => {
+    const fixed = computeRecipeNutrition({ ingredients, cookedWeightG: 1100, servings: 4, servingGrams: 250 });
+    expect(recipePortionWeight(fixed, { servings: 2 })).toBe(500);
+    expect(recipePortionNutrients(fixed, { servings: 1 }).kcal).toBeCloseTo(
+      recipePortionNutrients(fixed, { grams: 250 }).kcal,
+      5,
+    );
   });
 });

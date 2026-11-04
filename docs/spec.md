@@ -23,7 +23,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 | Q5 | Lingua | Solo italiano |
 | Q6 | Giornata | 4 pasti fissi: colazione, pranzo, cena, spuntini |
 | Q7 | Obiettivi | Calcolati con Mifflin-St Jeor (sesso, età, altezza, attività, obiettivo, ultimo peso), sovrascrivibili; aggiornato: stima adattiva del fabbisogno da introito e trend del peso (T25) e check-in settimanale che propone di aggiornare l'obiettivo |
-| Q8 | Ricette | Ingredienti crudi in grammi + peso da cotto facoltativo + numero di porzioni. Si registra in grammi di cotto o in porzioni |
+| Q8 | Ricette | Ingredienti crudi in grammi + peso da cotto facoltativo + numero di porzioni oppure peso fisso della porzione. Si registra in grammi di cotto o in porzioni |
 | Q9 | Open Food Facts | Ricerca per nome e barcode con fotocamera; il prodotto usato viene salvato nel catalogo globale |
 | Q10 | PWA | Sì, senza offline |
 | Q11 | Git | Un branch per task, commit locali, merge su `main`; aggiornato: l'utente sincronizza `main` su GitHub da VS Code, i branch di task restano locali (le sessioni cloud pushano il proprio branch, che arriva come PR) |
@@ -44,8 +44,8 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 ## Regole di dominio
 
 - Valori nutrizionali sempre per 100 g (o 100 ml). Nutriente di una voce = `valore * grammi / 100`.
-- Ricetta: totale = somma degli ingredienti. Base per 100 g = peso da cotto se presente, altrimenti somma dei grammi crudi. Porzione = totale / numero di porzioni.
-- Peso da cotto con la pentola: peso totale meno il peso a vuoto della pentola, arrotondato al grammo; deve restare maggiore di zero.
+- Ricetta: totale = somma degli ingredienti. Base per 100 g = peso da cotto se presente, altrimenti somma dei grammi crudi. Porzione = totale / numero di porzioni; se la ricetta ha un peso fisso della porzione (`serving_grams`), il numero di porzioni è peso finale / peso della porzione e può essere decimale.
+- Peso da cotto con la pentola: peso totale meno il peso a vuoto della pentola, arrotondato al grammo; deve restare maggiore di zero. La stessa regola vale nel connettore per Claude (`grossWeightG`/`grossGrams` + `containerId`), per il peso da cotto di una ricetta e per la quantità di un alimento o di una ricetta registrata nel diario.
 - Le voci del diario salvano una copia dei nutrienti calcolati al momento dell'inserimento (la storia non cambia se l'alimento viene corretto); vengono ricalcolate quando la voce viene modificata.
 - Il giorno del diario è una data (`date`) nel fuso dell'utente, non un timestamp.
 - Giorno incompleto: segnato dall'utente, resta nel diario ma è escluso da medie, stima adattiva e check-in; nel budget settimanale vale come in linea con l'obiettivo. I giorni sotto 600 kcal sono esclusi comunque dalla stima adattiva e dalle medie del connettore.
@@ -68,5 +68,7 @@ Applicazione per misurare le calorie nel modo più semplice e diretto possibile.
 - Ricerca tollerante agli errori di battitura: ogni parola deve comparire nel nome oppure differire da una sua parola di al massimo 1 lettera (parole di 4–5 lettere) o 2 lettere (6 o più); le parole sotto le 4 lettere devono comparire esattamente; accenti e maiuscole sono ignorati e i risultati esatti vengono prima.
 - Intestazioni, tab e barra in basso restano fisse e scorre solo il contenuto; il campo di ricerca sta in basso, sopra la tastiera, come in Safari.
 - Colori dei grafici e dei macronutrienti validati per daltonismo e contrasto in entrambi i temi.
+- Ogni elemento su cui si tocca è alto almeno 44 px (dimensione reale quando gli elementi sono adiacenti, come nei gruppi di segmenti; `touch-target` solo quando restano almeno 8 px liberi intorno). Lo stato selezionato di un controllo si distingue da quello non selezionato con un riempimento pieno (`bg-foreground` e testo invertito), non con una tinta tenue: contro lo sfondo serve almeno 3:1, come chiede WCAG 1.4.11. Un riempimento `bg-muted` non basta (vale 1,10:1 in chiaro e 1,30:1 in scuro).
+- Quando si sceglie quanto registrare, la scheda della quantità e l'editor della voce mostrano le kcal che resteranno dopo: la decisione si prende senza tornare al riepilogo.
 - Pasti messi da parte (T39): scorte di porzioni in frigo o congelatore, separate dai pasti salvati perché si esauriscono. Le voci di una porzione sono snapshot (cucinato una volta, i valori non devono cambiare se poi si modifica la ricetta). Ogni registrazione toglie una porzione; avviso solo visivo oltre 3 giorni in frigo e 90 in congelatore, senza promemoria push.
 - Siri (T36): endpoint dedicato invece del server MCP, perché Comandi rapidi non gestisce OAuth. Autenticazione con un token personale (`blc_` + 32 byte casuali, salvato solo come hash SHA-256, uno per utente, mostrato una volta) valido solo per registrare e annullare pasti da Siri; revocato al reset della password. Interpretazione in due chiamate fisse a Haiku (testo → voci con ricette e pasti salvati per codice; candidati del catalogo → scelta e grammi), non un ciclo libero di strumenti, per avere latenza e costo prevedibili. Le voci create portano `source = 'shortcut'`.

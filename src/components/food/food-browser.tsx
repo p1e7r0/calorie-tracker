@@ -21,7 +21,7 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatKcal } from "@/lib/nutrition/format";
+import { formatGrams, formatKcal } from "@/lib/nutrition/format";
 import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableRecipe } from "@/server/loggable";
 import type { StoredMealView } from "@/server/stored-meals";
@@ -118,7 +118,7 @@ export function FoodBrowser({
                 Nuovo alimento
               </Link>
               <section aria-label="Elenco degli alimenti">
-                <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none]" role="group" aria-label="Mostra">
+                <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]" role="group" aria-label="Mostra">
                   {foodFilters.map((filter) => (
                     <button
                       key={filter.value}
@@ -126,7 +126,7 @@ export function FoodBrowser({
                       aria-pressed={filter.value === foodFilter}
                       onClick={() => setFoodFilter(filter.value)}
                       className={cn(
-                        "flex shrink-0 items-baseline gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                        "flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
                         filter.value === foodFilter ? "border-foreground bg-foreground text-background" : "bg-card",
                       )}
                     >
@@ -286,7 +286,12 @@ function CatalogSearchField({
             <XIcon />
           </InputGroupButton>
         ) : (
-          <InputGroupButton size="icon-sm" aria-label="Scansiona codice a barre" onClick={onScanBarcode}>
+          <InputGroupButton
+            size="icon-sm"
+            className="touch-target"
+            aria-label="Scansiona codice a barre"
+            onClick={onScanBarcode}
+          >
             <ScanBarcodeIcon />
           </InputGroupButton>
         )}
@@ -313,7 +318,7 @@ function BrowserList({ items, emptyMessage }: { items: (LoggableFood | LoggableR
               </span>
               <span className="block truncate text-sm text-muted-foreground">
                 {item.type === "recipe"
-                  ? `${formatKcal(item.perServing.kcal)} kcal a porzione, ${item.servings} ${item.servings === 1 ? "porzione" : "porzioni"}`
+                  ? `${formatKcal(item.perServing.kcal)} kcal a porzione, ${item.hasServingWeight ? `porzione da ${formatGrams(item.servingWeightG)} g` : `${item.servings} ${item.servings === 1 ? "porzione" : "porzioni"}`}`
                   : [item.brand, `${formatKcal(item.per100.kcal)} kcal per 100 ${item.unit}`].filter(Boolean).join(", ")}
               </span>
             </span>

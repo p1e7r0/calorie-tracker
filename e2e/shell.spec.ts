@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { registerUser } from "./helpers";
 
 test("shows the bottom navigation and switches section", async ({ page }) => {
@@ -72,4 +72,50 @@ test("submits the food form from the footer button and with Enter", async ({ pag
   await save.click();
   await page.waitForURL(/\/food\/[0-9a-f-]{36}$/);
   await expect(page.getByText("390", { exact: true })).toBeVisible();
+});
+
+async function expectPickerToCoverTheVisualViewport(
+  page: Page,
+  path: string,
+  openLabel: string,
+  pickerName: string,
+  searchName: string,
+) {
+  await page.goto(path);
+  await page.waitForLoadState("networkidle");
+  await page.getByRole("button", { name: openLabel }).click();
+  const picker = page.getByRole("dialog", { name: pickerName });
+  await expect(picker).toBeVisible();
+
+  await page.evaluate(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--viewport-offset-top", "180px");
+    root.style.setProperty("--viewport-height", "420px");
+    root.dataset.keyboardOpen = "";
+  });
+  const shellBox = await page.locator(".app-viewport").first().boundingBox();
+  const pickerBox = await picker.boundingBox();
+  expect(pickerBox).toEqual(shellBox);
+  expect(shellBox!.y).toBe(180);
+  expect(shellBox!.height).toBe(420);
+  await expect(page.getByRole("searchbox", { name: searchName })).toBeInViewport();
+}
+
+test("keeps the full-screen pickers on the visual viewport while the keyboard is open", async ({ page }) => {
+  test.setTimeout(90_000);
+  await registerUser(page);
+  await expectPickerToCoverTheVisualViewport(
+    page,
+    "/recipes/new",
+    "Aggiungi ingrediente",
+    "Aggiungi ingrediente",
+    "Cerca un ingrediente",
+  );
+  await expectPickerToCoverTheVisualViewport(
+    page,
+    "/stored-meals/new",
+    "Aggiungi alimento o ricetta",
+    "Aggiungi al pasto",
+    "Cerca un alimento o una ricetta",
+  );
 });

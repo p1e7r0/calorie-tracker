@@ -31,11 +31,13 @@ export function MealSection({
   day,
   today,
   loggedDays,
+  remainingKcal,
 }: {
   meal: DiaryMeal;
   day: string;
   today: string;
   loggedDays: string[];
+  remainingKcal?: number | null;
 }) {
   const [editingEntry, setEditingEntry] = useState<DiaryEntryView | null>(null);
   const [saveMealOpen, setSaveMealOpen] = useState(false);
@@ -142,7 +144,7 @@ export function MealSection({
                   <button
                     type="button"
                     onClick={() => setEditingEntry(entry)}
-                    className="flex w-full items-baseline gap-2 rounded-lg px-2 py-2 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+                    className="flex min-h-11 w-full items-baseline gap-2 rounded-lg px-2 py-2.5 text-left transition-colors outline-none hover:bg-muted/60 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
                   >
                     <span className="min-w-0 truncate">{entry.label}</span>
                     {quantity ? (
@@ -156,7 +158,7 @@ export function MealSection({
           })}
         </ul>
       ) : (
-        <Link href={addHref} className="mt-1 block py-1 text-sm text-muted-foreground">
+        <Link href={addHref} className="mt-1 flex min-h-11 items-center text-sm text-muted-foreground">
           Niente ancora. Tocca + per aggiungere.
         </Link>
       )}
@@ -178,6 +180,7 @@ export function MealSection({
         <EntryEditor
           key={editingEntry.id}
           entry={editingEntry}
+          remainingKcal={remainingKcal}
           open
           onOpenChange={(open) => {
             if (!open) setEditingEntry(null);

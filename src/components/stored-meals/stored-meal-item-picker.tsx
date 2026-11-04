@@ -44,7 +44,7 @@ export function StoredMealItemPicker({
   }, [onOpenChange, selectedItem]);
 
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="app-viewport z-30 bg-background">
+    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="absolute inset-0 z-30 flex flex-col bg-background">
       <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col px-4 pt-safe">
         <header className="-ml-2 flex h-14 shrink-0 items-center gap-1">
           <Button variant="ghost" size="icon" aria-label="Chiudi" onClick={() => onOpenChange(false)}>

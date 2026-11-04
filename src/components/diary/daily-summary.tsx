@@ -130,22 +130,22 @@ function WeeklyBudgetRow({ weekly }: { weekly: WeeklyBudget }) {
   const ratio = Math.min(weekly.eatenKcal / weekly.budgetKcal, 1);
   return (
     <div className="mt-4 border-t pt-3" aria-label="Budget della settimana" role="group">
-      <div className="flex items-baseline justify-between gap-3 text-sm">
-        <p>
-          <span className="text-muted-foreground">Settimana </span>
-          <span className={cn("font-medium", isOver && "text-over-text")}>
-            {isOver
-              ? `${formatKcal(-weekly.remainingKcal)} kcal oltre`
-              : `${formatKcal(weekly.remainingKcal)} kcal rimaste`}
-          </span>
-          <span className="text-muted-foreground"> su {formatKcal(weekly.budgetKcal)}</span>
-        </p>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-sm text-muted-foreground">Settimana</p>
         {weekly.daysLeft > 1 && !isOver ? (
           <p className="shrink-0 text-xs text-muted-foreground">
             circa {formatKcal(weekly.suggestedTodayKcal)} al giorno
           </p>
         ) : null}
       </div>
+      <p className="text-sm">
+        <span className={cn("font-medium", isOver && "text-over-text")}>
+          {isOver
+            ? `${formatKcal(-weekly.remainingKcal)} kcal oltre`
+            : `${formatKcal(weekly.remainingKcal)} kcal rimaste`}
+        </span>
+        <span className="text-muted-foreground"> su {formatKcal(weekly.budgetKcal)}</span>
+      </p>
       <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
         <div
           className={cn("h-full rounded-full", isOver ? "bg-over" : "bg-energy/70")}

@@ -45,7 +45,7 @@ export function IngredientPicker({
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
-      className="app-viewport z-30 bg-background"
+      className="absolute inset-0 z-30 flex flex-col bg-background"
     >
       <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col px-4 pt-safe">
         {selectedFood ? (

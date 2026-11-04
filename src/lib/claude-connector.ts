@@ -5,6 +5,7 @@ import {
   requiredLoggedDays,
   requiredWeightSpanDays,
 } from "@/lib/nutrition/adaptive";
+import { type CookwareView, netCookedWeight } from "@/lib/nutrition/cookware";
 import { addDays } from "@/lib/nutrition/days";
 import { mealLabels, type MealType } from "@/lib/nutrition/meals";
 import { type Nutrients, roundNutrients, sumNutrients } from "@/lib/nutrition/nutrients";
@@ -26,7 +27,7 @@ When the user tells you what they ate or drank:
 Foods and recipes you create stay in the user's catalog and are reused for every future log, so their values must be real:
 - For a packaged product with a barcode, call lookup_barcode first: it finds the product in the catalog or imports it from Open Food Facts.
 - Call create_food only with values the user gives you (numbers or a photo of the nutrition label), or when the user explicitly asks you to save your own estimate. Values are per 100 g (or 100 ml), as on the label. Search first to avoid duplicates. Otherwise log a quick item. Tell the user about any warning in the result.
-- For create_recipe, search every ingredient as a raw item and use raw weights. Ask the user for the cooked weight of the whole dish: without it the values per 100 g refer to the raw weight, and the recipe can be logged reliably only by servings.
+- For create_recipe, search every ingredient as a raw item and use raw weights. Ask the user for the cooked weight of the whole dish: without it the values per 100 g refer to the raw weight, and the recipe can be logged reliably only by servings. When the user gives the weight of one serving instead of the number of servings, pass servingGrams: one serving then always weighs that much and the number of servings follows from the cooked weight.
 When the user ate the same as another day or meal («come ieri a pranzo»), call copy_meal instead of searching the foods again.
 Call log_weight when the user tells you their weight. For questions about how the user is doing, call get_progress: it returns daily totals, averages, the weekly budget, the weight trend and the adaptive estimate of maintenance kcal. Do not read a trend into less than a week of data.
 Days are ISO dates in the Europe/Rome time zone and default to today. Meals are breakfast (colazione), lunch (pranzo), dinner (cena) and snack (spuntini); when the user does not say which, log_meal picks one from the current time.
@@ -38,6 +39,7 @@ You can also change almost everything the user can change in the app:
 - Stored meals are portions the user cooked and put in the fridge or freezer to eat later. store_meal stores them, from the foods and recipes of one portion or from a logged meal; update_stored_meal changes the name, place, preparation date, portions left or items; delete_stored_meal removes a meal the user threw away. When checkBeforeEating is true, tell the user how long it has been stored.
 - Measurements: list_measurements, update_measurement and delete_measurement fix weigh-ins.
 - Profile: get_profile reads goals and daily targets; update_profile changes them; apply_suggested_targets applies the adaptive suggestion of get_progress.
+- Containers are the user's pots, pans, bowls and plates saved with their empty weight (the tare), so that a weight read on the scale with the container still on it can be turned into the net weight. When the user gives a weight «con la pentola», «con la ciotola», «con il piatto» or names a container («la pentola colossale», «la ciotola blu»), call list_containers, match the name and pass the weight as it was read together with the containerId: grossGrams in log_meal (foods and recipes), grossWeightG in update_recipe. The server subtracts the container, never subtract it yourself. create_container, update_container and delete_container manage the list; when the user names a container that is not in the list, ask for its empty weight and create it.
 Change or delete something only when the user asks for it, and say what you changed. Deleting is final for diary entries, saved meals, stored meals and measurements; for foods and recipes it hides them from the catalog.`;
 
 type PortionOption = { label: string; grams: number };
@@ -61,7 +63,9 @@ export type RecipeCandidate = {
   perServing: Nutrients;
   servings: number;
   finalWeightG: number;
+  servingWeightG: number;
   hasCookedWeight: boolean;
+  hasServingWeight: boolean;
 };
 
 function roundOne(value: number) {
@@ -85,7 +89,8 @@ export function describeRecipeCandidate(candidate: RecipeCandidate) {
   return {
     recipeId: candidate.id,
     name: candidate.name,
-    servings: candidate.servings,
+    servings: roundOne(candidate.servings),
+    servingGrams: candidate.hasServingWeight ? roundOne(candidate.servingWeightG) : null,
     cookedWeightG: candidate.hasCookedWeight ? Math.round(candidate.finalWeightG) : null,
     rawWeightG: candidate.hasCookedWeight ? null : Math.round(candidate.finalWeightG),
     per100: roundNutrients(candidate.per100),
@@ -195,6 +200,20 @@ export function describeStoredMeal(candidate: StoredMealCandidate, today: string
     })),
     perPortion: roundNutrients(candidate.perPortion),
   };
+}
+
+export function describeContainer(container: CookwareView) {
+  return { containerId: container.id, name: container.name, weightG: roundOne(container.weightG) };
+}
+
+export function subtractContainerWeight(container: CookwareView, grossGrams: number) {
+  const net = netCookedWeight(grossGrams, container.weightG);
+  if (net === null) {
+    throw new Error(
+      `The weight read with the container (${roundOne(grossGrams)} g) does not exceed the empty weight of «${container.name}» (${roundOne(container.weightG)} g).`,
+    );
+  }
+  return net;
 }
 
 export type FoodDetailSummary = {

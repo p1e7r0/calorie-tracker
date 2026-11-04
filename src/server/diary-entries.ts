@@ -52,6 +52,7 @@ export function recipeNutritionFromLoggable(recipe: NonNullable<Awaited<ReturnTy
     per100g: recipe.per100,
     perServing: recipe.perServing,
     servings: recipe.servings,
+    servingWeightG: recipe.servingWeightG,
   } satisfies RecipeNutrition;
 }
 

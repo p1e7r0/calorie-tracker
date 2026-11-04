@@ -57,12 +57,23 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
             weekly={weekly}
             incomplete={isIncomplete}
           />
-          {checkIn ? <WeeklyCheckInCard checkIn={checkIn} /> : null}
           <div className="mt-2">
             {diary.meals.map((meal) => (
-              <MealSection key={meal.meal} meal={meal} day={day} today={today} loggedDays={loggedDays} />
+              <MealSection
+                key={meal.meal}
+                meal={meal}
+                day={day}
+                today={today}
+                loggedDays={loggedDays}
+                remainingKcal={targets ? targets.kcal - diary.totals.kcal : null}
+              />
             ))}
           </div>
+          {checkIn ? (
+            <div className="mt-4">
+              <WeeklyCheckInCard checkIn={checkIn} />
+            </div>
+          ) : null}
           {day <= today ? <IncompleteDayToggle day={day} incomplete={isIncomplete} /> : null}
         </ScreenBody>
       </PullToRefresh>
