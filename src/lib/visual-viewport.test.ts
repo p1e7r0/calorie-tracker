@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { visualViewportMetrics } from "./visual-viewport";
+import { keyboardChangedShape, visualViewportMetrics } from "./visual-viewport";
 
 describe("visualViewportMetrics", () => {
   it("leaves the shell in place when the keyboard is closed", () => {
@@ -30,5 +30,25 @@ describe("visualViewportMetrics", () => {
       keyboardInset: 296,
       keyboardOpen: true,
     });
+  });
+});
+
+describe("keyboardChangedShape", () => {
+  const closed = visualViewportMetrics({ innerHeight: 852, height: 852, offsetTop: 0, tallestHeight: 852 });
+  const open = visualViewportMetrics({ innerHeight: 852, height: 516, offsetTop: 40, tallestHeight: 852 });
+
+  it("reveals the focused field when the keyboard opens", () => {
+    expect(keyboardChangedShape(closed, open)).toBe(true);
+    expect(keyboardChangedShape(null, open)).toBe(true);
+  });
+
+  it("reveals it again when the open keyboard changes height", () => {
+    expect(keyboardChangedShape(open, { ...open, height: 480 })).toBe(true);
+  });
+
+  it("does nothing while the keyboard stays the same or is closed", () => {
+    expect(keyboardChangedShape(open, { ...open, offsetTop: 60, keyboardInset: 276 })).toBe(false);
+    expect(keyboardChangedShape(open, closed)).toBe(false);
+    expect(keyboardChangedShape(closed, closed)).toBe(false);
   });
 });

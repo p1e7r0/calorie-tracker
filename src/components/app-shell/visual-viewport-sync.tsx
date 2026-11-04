@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { visualViewportMetrics } from "@/lib/visual-viewport";
+import { keyboardChangedShape, visualViewportMetrics, type VisualViewportMetrics } from "@/lib/visual-viewport";
 
 const statusBarFallbackPixels = 54;
 const settleDelays = [100, 300, 600];
@@ -20,6 +20,14 @@ function standaloneStatusBarFallback(root: HTMLElement) {
   return insetTop === 0 && coversWholeScreen ? statusBarFallbackPixels : 0;
 }
 
+function revealFocusedField() {
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLElement)) return;
+  if (!activeElement.matches("input, textarea, select, [contenteditable]")) return;
+  if (!activeElement.closest(".app-viewport")) return;
+  activeElement.scrollIntoView({ block: "nearest" });
+}
+
 export function VisualViewportSync() {
   useEffect(() => {
     const visualViewport = window.visualViewport;
@@ -29,6 +37,7 @@ export function VisualViewportSync() {
     let tallestHeight = 0;
     let lastWidth = 0;
     let settleTimers: number[] = [];
+    let lastMetrics: VisualViewportMetrics | null = null;
 
     function update() {
       if (!visualViewport) return;
@@ -53,6 +62,8 @@ export function VisualViewportSync() {
       } else {
         delete root.dataset.keyboardOpen;
       }
+      if (keyboardChangedShape(lastMetrics, metrics)) revealFocusedField();
+      lastMetrics = metrics;
     }
 
     function updateUntilSettled() {

@@ -119,3 +119,21 @@ test("keeps the full-screen pickers on the visual viewport while the keyboard is
     "Cerca un alimento o una ricetta",
   );
 });
+
+test("keeps the focused field above the footer when the keyboard shrinks the shell", async ({ page }) => {
+  test.setTimeout(60_000);
+  await registerUser(page);
+  await page.goto("/recipes/new");
+  await page.waitForLoadState("networkidle");
+  const cookedWeight = page.getByLabel("Peso da cotto");
+  await cookedWeight.click();
+  await expect(cookedWeight).toBeFocused();
+
+  const fieldBefore = await cookedWeight.boundingBox();
+  await page.setViewportSize({ width: 412, height: 380 });
+  await expect(cookedWeight).toBeInViewport({ ratio: 1 });
+  const fieldBox = await cookedWeight.boundingBox();
+  const footerBox = await page.locator('[data-slot="screen-footer"]').boundingBox();
+  expect(footerBox!.y).toBeLessThan(fieldBefore!.y + fieldBefore!.height);
+  expect(fieldBox!.y + fieldBox!.height).toBeLessThanOrEqual(footerBox!.y);
+});
