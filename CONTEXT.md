@@ -100,7 +100,7 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - **Macro**: P/C/G = proteine, carboidrati, grassi.
 
 ## Stato attuale
-Aggiornato al 2026-11-03. Per lo stato reale usa `git log` e `git status`.
+Aggiornato al 2026-11-04. Per lo stato reale usa `git log` e `git status`.
 - Tutti i task T01-T37 sono completati e in produzione; T01-T32 dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
 - Ultimi merge in `main`: `fix/preview-shared-auth-secret`, `fix/stale-viewport-offset`, `fix/cookware-test-format`, `fix/preview-deployments` (PR #8), `feature/connector-full-editing` (T38, PR #5), `feature/cookware-tare` (PR #4), `fix/keyboard-covers-overlays` (PR #3, drawer e dialog sopra la tastiera su iOS, da verificare su iPhone). Poi `feature/stored-meals` (T39, migrazione 0015), `feature/recipe-serving-weight` (peso fisso della porzione, migrazione 0016) e `feature/connector-containers` (contenitori nel connettore per Claude, senza migrazioni).
 - T33 (pull-to-refresh su Oggi e Progressi) in produzione dal 2026-10-17.
@@ -111,6 +111,7 @@ Aggiornato al 2026-11-03. Per lo stato reale usa `git log` e `git status`.
 - Siri (T36): pipeline provata con un finto server Anthropic (`ANTHROPIC_BASE_URL`), mai con Haiku reale né con un iPhone.
 - Connettore per Claude: verificato con claude.ai reale (Claude Desktop, credenziali da Profilo › Impostazioni › Claude); il client usa `client_secret_post` perché claude.ai (SDK MCP Python) invia il segreto nel corpo della richiesta; con `client_secret_basic` lo scambio del token rispondeva 400 `invalid_client`.
 - Funzioni AI nascoste in produzione finché manca `ANTHROPIC_API_KEY`; link "Password dimenticata" nascosto finché mancano `RESEND_API_KEY` ed `EMAIL_FROM`; login Google assente senza credenziali OAuth.
+- `fix/nested-fullscreen-overlays` (2026-11-04): i picker a schermo intero di ricette e pasti messi da parte non scivolano più sotto la tastiera su iPhone.
 - `fix/ux-review-contrast-and-touch-targets` (2026-11-03, non ancora in produzione): revisione UX/UI di tutte le schermate. Stato selezionato dei `ToggleGroup` leggibile (contrasto da 1,10:1 a 15,5:1), aree di tocco a 44 px, «Il punto della settimana» sotto i pasti, kcal residue previste nelle schede della quantità, etichette dei giorni e selettori del periodo coerenti in Progressi.
 
 ## Punti aperti e idee
@@ -159,6 +160,7 @@ Aggiornato al 2026-11-03. Per lo stato reale usa `git log` e `git status`.
 - **2026-11-01, peso della porzione**: le ricette possono avere un peso fisso della porzione (`recipe.serving_grams`, migrazione 0016); `computeRecipeNutrition` ricava il numero di porzioni (anche decimale) con `recipeServingCount` e restituisce `servingWeightG`, usato da vista, drawer di registrazione, valori extra del diario, connettore e Siri. Nell'editor «Imposta i grammi» e «Imposta il numero» passano da una modalità all'altra; tornando al numero si arrotonda.
 - **2026-11-03, contenitori nel connettore**: le pentole (`cookware`) sono esposte al connettore per Claude come «contenitori» (`list_containers`, `create_container`, `update_container`, `delete_container`, nome fino a 80 caratteri, peso fino a 20 kg); `update_recipe` accetta `grossWeightG` + `containerId` e `log_meal` `grossGrams` + `containerId` (alimenti e ricette) al posto del peso netto, il server sottrae la tara con `netCookedWeight` e rifiuta un netto ≤ 0 o i due pesi insieme; le istruzioni del server dicono all'assistente di cercare il contenitore per nome con `list_containers` quando l'utente dice «con la pentola». Scritture delle pentole spostate da `actions/cookware.ts` a `src/server/cookware.ts`.
 - **2026-11-03, segreto dei preview**: dopo il login i preview fallivano con «Failed to decrypt private key», perché la chiave in `jwks` di Neon dev era cifrata con il segreto locale e i preview ne avevano uno diverso; `BETTER_AUTH_SECRET` di Preview ora coincide con quello di `.env.local`.
+- **2026-11-04, picker sotto la tastiera**: su iPhone, toccando «Aggiungi ingrediente» nella ricetta (o «Aggiungi alimento o ricetta» nel pasto messo da parte) l'overlay compariva solo come una striscia sopra la tastiera. I due picker erano `app-viewport` (`fixed` + `translateY(--viewport-offset-top)`) montati dentro il layout, che è già `app-viewport`: il `transform` esterno è il contenitore del `fixed` interno, quindi l'offset si applicava due volte (test: 180 px simulati → 360 px). Ora sono `absolute inset-0` sulla shell; `e2e/shell.spec.ts` verifica che con un offset simulato coincidano con la shell. Nelle verifiche del fix del 2026-10-22 il difetto non era emerso perché l'offset vale solo con la tastiera aperta su iOS reale.
 
 ## Riferimenti
 - `docs/spec.md`: stack, tabella decisioni Q1-Q24, regole di dominio (nutrienti per 100 g, ricette con peso da cotto, snapshot nel diario, Mifflin-St Jeor, macro predefinite), infrastruttura.
