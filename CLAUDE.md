@@ -26,6 +26,8 @@ Versioni esatte in `package.json`.
 - `pnpm db:migrate:production`: applica a Neon **main** (`NODE_ENV=production`, carica `.env.production.local`)
 - `pnpm db:studio`
 - `pnpm migrate:legacy --owner-email <email> [--dry-run]` oppure `pnpm migrate:legacy --global-only`; `pnpm migrate:legacy:production --owner-email <email>`. Non mettere `--` prima delle opzioni: pnpm 10 lo passa allo script e `parseArgs` (strict, senza argomenti posizionali) fallisce.
+- `pnpm seed:ux [--allow-remote]`: azzera e ricrea gli utenti della UX review (`ux-full@example.com` con due settimane di dati, `ux-empty@example.com` senza dati) e un mini catalogo globale (`source_reference` `ux-seed:*`); rifiuta host non locali senza `--allow-remote`
+- `pnpm ux:scenarios`: seed, login e scenari della UX review (`ux-review/playwright.config.ts`, build di produzione, viewport 390×844); `pnpm ux:report` scrive `ux-report/summary.md`; `pnpm ux <comando>` è il driver interattivo passo per passo (skill `bilancia-ux-review`)
 - Deploy: automatico a ogni push di `main` su GitHub; a mano, solo come riserva, `npx vercel@64.3.1 deploy --prod --yes` (Vercel CLI non installato globalmente)
 - Opzionale: `docker compose up -d database` (Postgres 17 locale su porta **5433**, non più usato di default)
 
@@ -43,7 +45,8 @@ Versioni esatte in `package.json`.
 - `src/components/<feature>/`: componenti per feature; `src/components/ui/`: shadcn; `src/components/app-shell/`: shell fissa
 - `src/db/schema.ts` (+ `auth-schema.ts` riesportato), `src/db/index.ts` (client)
 - `drizzle/`: migrazioni SQL + `meta/` (journal e snapshot)
-- `scripts/`: import legacy da MongoDB (`migrate-legacy.ts`, `legacy-mapping.ts` + test)
+- `scripts/`: import legacy da MongoDB (`migrate-legacy.ts`, `legacy-mapping.ts` + test) e seed della UX review (`seed-ux.ts`, dati puri in `ux-seed-data.ts` + test)
+- `ux-review/`: banco di prova della UX review (registratore delle metriche, driver interattivo, scenari Playwright, report); output in `ux-report/` (ignorato da git)
 - `e2e/`: spec Playwright + `helpers.ts`
 - `docs/spec.md`, `docs/tasks.md`
 
@@ -142,6 +145,7 @@ I flag sono costanti booleane calcolate all'avvio, non funzioni.
   - lo spec `ai` si salta se `ANTHROPIC_API_KEY` è impostata;
   - i test che si aspettano "nessun risultato locale" devono usare query non ancora importate da Open Food Facts nel catalogo globale.
 - Sessioni cloud (container effimero): `.env.local` può puntare a un Postgres 16 locale invece che a Neon dev; se è spento, `pg_ctlcluster 16 main start`, poi `pnpm db:migrate`. Quel database non ha il catalogo svizzero, quindi gli e2e che cercano alimenti globali («Banana, cruda», «Albicocca, cruda»…) falliscono senza colpa del codice. Il Chromium di Playwright preinstallato può non coincidere con la versione attesa: usare una config locale non committata con `launchOptions: { executablePath: "/opt/pw-browsers/chromium" }`.
+- UX review (`ux-review/`, skill `bilancia-ux-review`): il registratore conta solo gli elementi visibili e non coperti, perché con `cacheComponents` le route nascoste restano nel DOM (nei selettori Playwright usare `filter({ visible: true })`). Misura i tempi su `pnpm build && pnpm start`, mai sul dev server. La regola iOS (tocco in più per scrivere in un campo che ha il focus senza essere stato toccato) è un'ipotesi: `UX_IOS_KEYBOARD=0` la spegne.
 - Verifica di un task: `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm build`, e2e pertinenti, controllo visivo nel browser (anche tema scuro e larghezza mobile).
 
 ## Git

@@ -50,3 +50,7 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 playwright.local.config.ts
+
+# ux review
+/ux-report/
+/ux-review/.auth/
