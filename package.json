@@ -15,7 +15,11 @@
     "db:studio": "drizzle-kit studio",
     "migrate:legacy": "tsx --env-file=.env.local scripts/migrate-legacy.ts",
     "migrate:legacy:production": "tsx --env-file=.env.local --env-file=.env.production.local scripts/migrate-legacy.ts",
-    "db:migrate:production": "NODE_ENV=production drizzle-kit migrate"
+    "db:migrate:production": "NODE_ENV=production drizzle-kit migrate",
+    "seed:ux": "tsx --env-file=.env.local scripts/seed-ux.ts",
+    "ux": "tsx ux-review/cli.ts",
+    "ux:scenarios": "playwright test --config ux-review/playwright.config.ts",
+    "ux:report": "tsx ux-review/report.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",
