@@ -22,6 +22,7 @@ import { todayIsoDate } from "@/lib/nutrition/days";
 import { getAdaptiveGoal } from "@/server/adaptive-goal";
 import { isAiEnabled } from "@/server/ai";
 import { getApiTokenInfo } from "@/server/api-tokens";
+import { isCoachAvailable } from "@/server/coach";
 import { listCookware } from "@/server/cookware";
 import { getClaudeClientCreatedAt } from "@/server/oauth-clients";
 import { getProfileWithLatestWeight } from "@/server/profile";
@@ -161,7 +162,7 @@ async function Goals({ searchParams }: Pick<PageProps<"/profile">, "searchParams
         activityLevel: profile?.activityLevel ?? "light",
         goal: profile?.goal ?? "maintain",
         weeklyRateKg: profile?.weeklyRateKg ?? 0.5,
-          targetWeightKg: toFormNumber(profile?.targetWeightKg),
+        targetWeightKg: toFormNumber(profile?.targetWeightKg),
         customized: profile?.targetsCustomized ?? false,
         kcal: profile?.targetsCustomized ? toFormNumber(profile.targetKcal) : "",
         proteinG: profile?.targetsCustomized ? toFormNumber(profile.targetProteinG) : "",
@@ -193,6 +194,8 @@ async function Reminders() {
     <ReminderSettings
       initialEvening={profile?.reminderEvening ?? false}
       initialWeighInWeekday={profile?.reminderWeighInWeekday ?? null}
+      initialCoach={profile?.coachEnabled ?? false}
+      coachAvailable={isCoachAvailable}
     />
   );
 }

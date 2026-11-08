@@ -42,15 +42,22 @@ async function currentSubscription() {
   return registration ? registration.pushManager.getSubscription() : null;
 }
 
+type Settings = { evening: boolean; weighInWeekday: number | null; coach: boolean };
+
 export function ReminderSettings({
   initialEvening,
   initialWeighInWeekday,
+  initialCoach,
+  coachAvailable,
 }: {
   initialEvening: boolean;
   initialWeighInWeekday: number | null;
+  initialCoach: boolean;
+  coachAvailable: boolean;
 }) {
   const [evening, setEvening] = useState(initialEvening);
   const [weighInWeekday, setWeighInWeekday] = useState<number | null>(initialWeighInWeekday);
+  const [coach, setCoach] = useState(initialCoach && coachAvailable);
   const [status, setStatus] = useState<DeviceStatus>("checking");
   const [isPending, startTransition] = useTransition();
 
@@ -88,13 +95,14 @@ export function ReminderSettings({
     setStatus("subscribed");
   }
 
-  function save(next: { evening: boolean; weighInWeekday: number | null }) {
-    const previous = { evening, weighInWeekday };
+  function save(next: Settings) {
+    const previous = { evening, weighInWeekday, coach };
     setEvening(next.evening);
     setWeighInWeekday(next.weighInWeekday);
+    setCoach(next.coach);
     startTransition(async () => {
       try {
-        const wantsReminders = next.evening || next.weighInWeekday !== null;
+        const wantsReminders = next.evening || next.weighInWeekday !== null || next.coach;
         if (wantsReminders && status !== "subscribed") await subscribeThisDevice();
         const result = await saveReminderSettings(next);
         if (!result.ok) throw new Error(result.error);
@@ -102,6 +110,7 @@ export function ReminderSettings({
       } catch (error) {
         setEvening(previous.evening);
         setWeighInWeekday(previous.weighInWeekday);
+        setCoach(previous.coach);
         toast.error(
           error instanceof Error && !(error instanceof DOMException)
             ? error.message
@@ -149,7 +158,7 @@ export function ReminderSettings({
         <Switch
           checked={evening}
           disabled={isPending || status === "checking"}
-          onCheckedChange={(checked) => save({ evening: checked, weighInWeekday })}
+          onCheckedChange={(checked) => save({ evening: checked, weighInWeekday, coach })}
         />
       </label>
       <label className="flex items-center justify-between gap-3 text-sm">
@@ -162,7 +171,7 @@ export function ReminderSettings({
           value={weighInWeekday ?? ""}
           disabled={isPending || status === "checking"}
           onChange={(event) =>
-            save({ evening, weighInWeekday: event.target.value ? Number(event.target.value) : null })
+            save({ evening, weighInWeekday: event.target.value ? Number(event.target.value) : null, coach })
           }
           className="h-9 rounded-lg border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
         >
@@ -174,6 +183,21 @@ export function ReminderSettings({
           ))}
         </select>
       </label>
+      {coachAvailable ? (
+        <label className="flex items-center justify-between gap-3 text-sm">
+          <span>
+            <span className="block font-medium">Coach sarcastico</span>
+            <span className="block text-muted-foreground">
+              Fino a 4 frecciate al giorno sui tuoi numeri, un commento alla pesata e il resoconto della domenica sera
+            </span>
+          </span>
+          <Switch
+            checked={coach}
+            disabled={isPending || status === "checking"}
+            onCheckedChange={(checked) => save({ evening, weighInWeekday, coach: checked })}
+          />
+        </label>
+      ) : null}
       <p className="text-sm text-muted-foreground">
         Con almeno un promemoria attivo, il lunedì verso le 8 ricevi anche il riepilogo della settimana.
       </p>

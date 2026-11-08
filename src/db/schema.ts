@@ -36,6 +36,8 @@ export const diaryEntryKindEnum = pgEnum("diary_entry_kind", ["food", "recipe", 
 export const diaryEntrySourceEnum = pgEnum("diary_entry_source", ["app", "connector", "shortcut"]);
 export const storageLocationEnum = pgEnum("storage_location", ["fridge", "freezer"]);
 export const aiRequestKindEnum = pgEnum("ai_request_kind", ["nutrition_label", "meal_description", "shortcut_meal"]);
+export const coachMessageKindEnum = pgEnum("coach_message_kind", ["notification", "weigh_in", "weekly_report"]);
+export const coachLevelEnum = pgEnum("coach_level", ["normal", "fierce", "jackpot", "silence"]);
 
 const timestamps = {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -63,6 +65,7 @@ export const profile = pgTable("profile", {
   targetsCustomized: boolean().notNull().default(false),
   reminderEvening: boolean().notNull().default(false),
   reminderWeighInWeekday: integer(),
+  coachEnabled: boolean().notNull().default(false),
   lastCheckInWeek: date({ mode: "string" }),
   ...timestamps,
 });
@@ -350,6 +353,39 @@ export const incompleteDay = pgTable(
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.day] })],
+);
+
+export const rechargeDay = pgTable(
+  "recharge_day",
+  {
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    day: date({ mode: "string" }).notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.day] })],
+);
+
+export const coachMessage = pgTable(
+  "coach_message",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    userId: text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    kind: coachMessageKindEnum().notNull(),
+    day: date({ mode: "string" }).notNull(),
+    slot: text(),
+    level: coachLevelEnum().notNull(),
+    eventKeys: text().array().notNull().default(sql`'{}'::text[]`),
+    text: text(),
+    sent: boolean().notNull().default(false),
+    arrivalDay: date({ mode: "string" }),
+    input: jsonb(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("coach_message_user_day_index").on(table.userId, table.day)],
 );
 
 export const aiRequest = pgTable(

@@ -12,6 +12,7 @@ import { type Nutrients, roundNutrients, sumNutrients } from "@/lib/nutrition/nu
 import { isStoredMealOld, type StorageLocation, storedMealAgeDays } from "@/lib/nutrition/stored-meals";
 import { changeOverDays, type DatedValue, lastValuePerDay, movingAverage } from "@/lib/nutrition/trends";
 import { weeklyBudget } from "@/lib/nutrition/weekly-budget";
+import type { RechargeState } from "./coach/recharge";
 
 export const claudeClientName = "Claude";
 
@@ -33,7 +34,7 @@ Call log_weight when the user tells you their weight. For questions about how th
 Days are ISO dates in the Europe/Rome time zone and default to today. Meals are breakfast (colazione), lunch (pranzo), dinner (cena) and snack (spuntini); when the user does not say which, log_meal picks one from the current time.
 Ask before logging only when the description is really ambiguous.
 You can also change almost everything the user can change in the app:
-- Diary: update_entry moves an entry to another meal or changes its quantity; delete_entry removes entries; set_incomplete_day marks a day the user did not log completely.
+- Diary: update_entry moves an entry to another meal or changes its quantity; delete_entry removes entries; set_incomplete_day marks a day the user did not log completely; set_recharge_day marks today as the weekly recharge day (2000 kcal) once get_progress says it is unlocked and the user asks for it.
 - Foods and recipes: read them with get_food or get_recipe, then change them with update_food or update_recipe, passing only the fields to change. A changed food of the global catalog becomes the user's own copy with a new foodId. delete_food and delete_recipe remove them from the catalog; set_favorite adds or removes favorites. Past diary entries keep the values they were logged with.
 - Saved meals: save_meal saves a logged meal, update_saved_meal renames it or removes items, delete_saved_meal deletes it.
 - Stored meals are portions the user cooked and put in the fridge or freezer to eat later. store_meal stores them, from the foods and recipes of one portion or from a logged meal; update_stored_meal changes the name, place, preparation date, portions left or items; delete_stored_meal removes a meal the user threw away. When checkBeforeEating is true, tell the user how long it has been stored.
@@ -452,5 +453,23 @@ export function describeProgress({
             weightSpanDays: maintenance.weightSpanDays,
             note: `Needs ${requiredLoggedDays} logged days and weigh-ins spanning ${requiredWeightSpanDays} days within the last ${adaptiveWindowDays} days.`,
           },
+  };
+}
+
+const rechargeStatusDescriptions = {
+  locked: "locked",
+  unlocked: "unlocked: today can be marked as recharge day",
+  active: "active today",
+  used: "already used this week",
+} as const;
+
+export function describeRecharge(state: RechargeState | null) {
+  if (!state) return null;
+  return {
+    status: rechargeStatusDescriptions[state.status],
+    rechargeDayKcal: state.dayKcal,
+    rechargeDay: state.rechargeDay,
+    savedKcalThisWeek: state.bankedKcal,
+    missingKcalToUnlock: state.status === "locked" ? state.missingKcal : 0,
   };
 }
