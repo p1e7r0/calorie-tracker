@@ -1,8 +1,10 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { after } from "next/server";
 import { z } from "zod";
 import { requireUserId } from "@/lib/auth/session";
+import { runCoachWeighIn } from "@/server/coach";
 import { type MeasurementInput, removeMeasurement, writeMeasurement } from "@/server/measurements";
 import type { ActionResult } from "./diary";
 
@@ -18,6 +20,7 @@ export async function saveMeasurement(input: MeasurementInput): Promise<ActionRe
   try {
     const userId = await requireUserId();
     await writeMeasurement(userId, input);
+    if (!input.id) after(() => runCoachWeighIn(userId, input.measuredOn));
     refresh();
     return { ok: true, data: undefined };
   } catch (error) {

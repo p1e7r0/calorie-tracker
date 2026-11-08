@@ -6,6 +6,7 @@ import { z } from "zod";
 import { database } from "@/db";
 import { profile, pushSubscription } from "@/db/schema";
 import { requireUserId } from "@/lib/auth/session";
+import { isCoachAvailable } from "@/server/coach";
 import { sendPushToUsers } from "@/server/push";
 import type { ActionResult } from "./diary";
 
@@ -51,13 +52,18 @@ export async function removePushSubscription(endpoint: string): Promise<ActionRe
 const settingsSchema = z.object({
   evening: z.boolean(),
   weighInWeekday: z.number().int().min(1).max(7).nullable(),
+  coach: z.boolean(),
 });
 
 export async function saveReminderSettings(input: z.input<typeof settingsSchema>): Promise<ActionResult> {
   try {
     const userId = await requireUserId();
     const settings = settingsSchema.parse(input);
-    const values = { reminderEvening: settings.evening, reminderWeighInWeekday: settings.weighInWeekday };
+    const values = {
+      reminderEvening: settings.evening,
+      reminderWeighInWeekday: settings.weighInWeekday,
+      coachEnabled: settings.coach && isCoachAvailable,
+    };
     await database
       .insert(profile)
       .values({ userId, ...values })

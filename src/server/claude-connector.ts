@@ -1,5 +1,6 @@
 import "server-only";
 import { McpServer } from "@modelcontextprotocol/server";
+import { after } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { database } from "@/db";
@@ -14,6 +15,7 @@ import {
   describeMeasurement,
   describeProfile,
   describeProgress,
+  describeRecharge,
   describeRecipeCandidate,
   describeRecipeDetail,
   describeSavedMeal,
@@ -43,7 +45,9 @@ import {
 } from "./diary-entries";
 import { archiveOwnFood, editFood, insertFood, markFoodFavorite } from "./food-writes";
 import { getFoodDetail, getLoggableFood, recentFoods, searchFoods, visibleFoodIdsByRequested } from "./foods";
+import { runCoachWeighIn } from "./coach";
 import { listIncompleteDays, setIncompleteDay } from "./incomplete-days";
+import { getRechargeState, setRechargeDay } from "./recharge-days";
 import { listMeasurements, type MeasurementInput, removeMeasurement, writeMeasurement } from "./measurements";
 import {
   fetchOpenFoodFactsProduct,
@@ -523,6 +527,25 @@ export function createClaudeConnectorServer(userId: string) {
   );
 
   server.registerTool(
+    "set_recharge_day",
+    {
+      title: "Segna la ricarica",
+      description:
+        "Mark today as the user's recharge day, or clear the mark. A recharge day raises today's kcal target to 2000 kcal (protein target unchanged); it unlocks when the kcal saved earlier in the week cover it without exceeding the weekly budget, and only one per week is allowed. get_progress returns its status. Returns the new status.",
+      inputSchema: z.object({ active: z.boolean() }),
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ active }) => {
+      try {
+        const { day, state } = await setRechargeDay(userId, active);
+        return textResult({ day, recharge: describeRecharge(state) });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
     "copy_meal",
     {
       title: "Copia un pasto",
@@ -696,6 +719,7 @@ export function createClaudeConnectorServer(userId: string) {
             ),
           );
         const measurementId = duplicate?.id ?? (await writeMeasurement(userId, { ...values, measuredOn }));
+        if (!duplicate) after(() => runCoachWeighIn(userId, measuredOn));
         return textResult({
           logged: !duplicate,
           measurementId,
@@ -725,15 +749,16 @@ export function createClaudeConnectorServer(userId: string) {
         const today = todayIsoDate();
         const periodDays = days ?? 14;
         const loadedDays = Math.max(periodDays, daysBetween(weekStart(today), today) + 1);
-        const [dailyTotals, targets, weightPoints, adaptive, incompleteDays] = await Promise.all([
+        const [dailyTotals, targets, weightPoints, adaptive, incompleteDays, recharge] = await Promise.all([
           getDailyTotals(userId, today, loadedDays),
           getDailyTargets(userId),
           weights(userId),
           getAdaptiveGoal(userId, today),
           listIncompleteDays(userId, addDays(today, -(loadedDays - 1)), today),
+          getRechargeState(userId, today),
         ]);
-        return textResult(
-          describeProgress({
+        return textResult({
+          ...describeProgress({
             today,
             days: periodDays,
             dailyTotals,
@@ -743,7 +768,8 @@ export function createClaudeConnectorServer(userId: string) {
             maintenance: adaptive.estimate,
             suggestedTargetKcal: adaptive.suggestion?.kcal ?? null,
           }),
-        );
+          recharge: describeRecharge(recharge),
+        });
       } catch (error) {
         return errorResult(error);
       }

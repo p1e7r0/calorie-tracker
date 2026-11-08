@@ -6,14 +6,17 @@ import { DailySummary } from "@/components/diary/daily-summary";
 import { DayNavigator } from "@/components/diary/day-navigator";
 import { IncompleteDayToggle } from "@/components/diary/incomplete-day-toggle";
 import { MealSection } from "@/components/diary/meal-section";
+import { RechargeCard } from "@/components/diary/recharge-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
+import { dayTargetKcal, rechargeDayKcal, rechargeState } from "@/lib/coach/recharge";
 import { addDays, daysBetween, formatDayInSentence, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { weeklyBudget } from "@/lib/nutrition/weekly-budget";
 import { weekStart } from "@/lib/nutrition/weeks";
 import { getWeeklyCheckIn } from "@/server/adaptive-goal";
 import { getDailyTargets, getDiaryDay, listLoggedDays } from "@/server/diary";
 import { listIncompleteDays } from "@/server/incomplete-days";
+import { listRechargeDays } from "@/server/recharge-days";
 import { getDailyTotals } from "@/server/statistics";
 
 export default function TodayPage({ searchParams }: PageProps<"/">) {
@@ -29,18 +32,38 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   const { date } = await searchParams;
   const today = todayIsoDate();
   const day = isIsoDate(date) ? date : today;
-  const [diary, targets, loggedDays, weekTotals, weekIncompleteDays, checkIn] = await Promise.all([
-    getDiaryDay(user.id, day),
-    getDailyTargets(user.id),
-    listLoggedDays(user.id, addDays(today, -400), today),
-    getDailyTotals(user.id, day, daysBetween(weekStart(day), day) + 1),
-    listIncompleteDays(user.id, weekStart(day), day),
-    day === today ? getWeeklyCheckIn(user.id, today) : null,
-  ]);
+  const [diary, baseTargets, loggedDays, weekTotals, weekIncompleteDays, weekRechargeDays, checkIn] = await Promise.all(
+    [
+      getDiaryDay(user.id, day),
+      getDailyTargets(user.id),
+      listLoggedDays(user.id, addDays(today, -400), today),
+      getDailyTotals(user.id, day, daysBetween(weekStart(day), day) + 1),
+      listIncompleteDays(user.id, weekStart(day), day),
+      listRechargeDays(user.id, weekStart(day), addDays(weekStart(day), 6)),
+      day === today ? getWeeklyCheckIn(user.id, today) : null,
+    ],
+  );
   const isIncomplete = weekIncompleteDays.includes(day);
-  const weekly = targets
-    ? weeklyBudget({ day, targetKcal: targets.kcal, dailyKcal: weekTotals, incompleteDays: weekIncompleteDays })
+  const weekly = baseTargets
+    ? weeklyBudget({ day, targetKcal: baseTargets.kcal, dailyKcal: weekTotals, incompleteDays: weekIncompleteDays })
     : null;
+  const recharge =
+    baseTargets && baseTargets.kcal < rechargeDayKcal
+      ? rechargeState({
+          day,
+          targetKcal: baseTargets.kcal,
+          dailyKcal: weekTotals,
+          incompleteDays: weekIncompleteDays,
+          rechargeDays: weekRechargeDays,
+        })
+      : null;
+  const targets =
+    baseTargets && recharge ? { ...baseTargets, kcal: dayTargetKcal(recharge, baseTargets.kcal) } : baseTargets;
+  const rechargeCard =
+    recharge && baseTargets && (day === today || recharge.status === "active") ? (
+      <RechargeCard state={recharge} proteinG={baseTargets.proteinG} readOnly={day !== today} />
+    ) : null;
+  const isRechargeHighlighted = recharge?.status === "unlocked" || recharge?.status === "active";
 
   return (
     <>
@@ -57,6 +80,7 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
             weekly={weekly}
             incomplete={isIncomplete}
           />
+          {isRechargeHighlighted ? rechargeCard : null}
           <div className="mt-2">
             {diary.meals.map((meal) => (
               <MealSection
@@ -74,6 +98,7 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
               <WeeklyCheckInCard checkIn={checkIn} />
             </div>
           ) : null}
+          {isRechargeHighlighted ? null : rechargeCard}
           {day <= today ? <IncompleteDayToggle day={day} incomplete={isIncomplete} /> : null}
         </ScreenBody>
       </PullToRefresh>

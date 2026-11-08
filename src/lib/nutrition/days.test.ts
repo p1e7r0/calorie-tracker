@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addDays,
   currentHour,
+  currentTime,
   formatDayInSentence,
   formatDayLabel,
   formatElapsed,
@@ -16,6 +17,7 @@ describe("days", () => {
   it("uses the Rome calendar day around midnight", () => {
     expect(todayIsoDate(new Date("2026-10-15T22:30:00Z"))).toBe("2026-10-16");
     expect(currentHour(new Date("2026-10-15T22:30:00Z"))).toBe(0);
+    expect(currentTime(new Date("2026-10-15T22:05:00Z"))).toBe("00:05");
   });
 
   it("adds days across month boundaries", () => {

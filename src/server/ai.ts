@@ -176,3 +176,22 @@ export async function chooseShortcutFoods(
   if (!message.parsed_output) throw new AiError("Non sono riuscito a scegliere gli alimenti. Riprova tra poco.");
   return message.parsed_output.choices;
 }
+
+const coachModel = process.env.COACH_MODEL ?? "claude-opus-5-5";
+
+export async function writeCoachText({ system, content }: { system: string; content: string }) {
+  const message = await anthropic().beta.messages.create({
+    model: coachModel,
+    max_tokens: 16000,
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    system,
+    messages: [{ role: "user", content }],
+    output_config: { effort: "high" },
+  });
+  if (message.stop_reason === "refusal") throw new AiError("Il coach si è rifiutato di rispondere.");
+  return message.content
+    .flatMap((block) => (block.type === "text" ? [block.text] : []))
+    .join("")
+    .trim();
+}
