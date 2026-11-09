@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { computeRecipeNutrition, recipePortionNutrients, recipePortionWeight, recipeServingCount } from "./recipe";
+import {
+  computeRecipeNutrition,
+  createsRecipeCycle,
+  recipePortionNutrients,
+  recipePortionWeight,
+  recipeServingCount,
+  resolveRecipes,
+  type RecipeGraphNode,
+} from "./recipe";
 
 const ingredients = [
   { grams: 320, per100: { kcal: 356, protein: 12.5, carbs: 72, fat: 1.5 } },
@@ -78,5 +86,82 @@ describe("recipe portions", () => {
       recipePortionNutrients(fixed, { grams: 250 }).kcal,
       5,
     );
+  });
+});
+
+const tomato = { kcal: 20, protein: 1, carbs: 3, fat: 0 };
+const pasta = { kcal: 350, protein: 12, carbs: 70, fat: 2 };
+const noExtras = { fiber: null, sugars: null, saturatedFat: null, salt: null };
+
+describe("resolveRecipes", () => {
+  it("uses the cooked values of a sub-recipe per 100 g", () => {
+    const nodes = new Map<string, RecipeGraphNode>([
+      [
+        "sauce",
+        {
+          cookedWeightG: 500,
+          servings: 1,
+          ingredients: [{ grams: 1000, per100: tomato, extras: { ...noExtras, salt: 0.5 } }],
+        },
+      ],
+      [
+        "pasta-with-sauce",
+        {
+          servings: 2,
+          ingredients: [
+            { grams: 200, per100: pasta, extras: noExtras },
+            { grams: 100, subRecipeId: "sauce" },
+          ],
+        },
+      ],
+    ]);
+    const resolved = resolveRecipes(nodes);
+    expect(resolved.get("sauce")?.nutrition.per100g.kcal).toBeCloseTo(40);
+    const dish = resolved.get("pasta-with-sauce")!;
+    expect(dish.nutrition.total.kcal).toBeCloseTo(700 + 40);
+    expect(dish.nutrition.rawWeightG).toBe(300);
+    expect(dish.nutrition.perServing.kcal).toBeCloseTo(370);
+    expect(dish.extras.salt).toBeCloseTo(1);
+    expect(dish.extras.fiber).toBeNull();
+  });
+
+  it("resolves sub-recipes nested on several levels", () => {
+    const nodes = new Map<string, RecipeGraphNode>([
+      ["top", { ingredients: [{ grams: 100, subRecipeId: "middle" }] }],
+      ["middle", { ingredients: [{ grams: 50, subRecipeId: "bottom" }, { grams: 50, per100: pasta, extras: noExtras }] }],
+      ["bottom", { ingredients: [{ grams: 100, per100: tomato, extras: noExtras }] }],
+    ]);
+    expect(resolveRecipes(nodes).get("top")?.nutrition.total.kcal).toBeCloseTo(10 + 175);
+  });
+
+  it("counts a missing or cyclic sub-recipe as zero instead of looping", () => {
+    const nodes = new Map<string, RecipeGraphNode>([
+      ["first", { ingredients: [{ grams: 100, subRecipeId: "second" }, { grams: 100, per100: tomato, extras: noExtras }] }],
+      ["second", { ingredients: [{ grams: 100, subRecipeId: "first" }, { grams: 100, subRecipeId: "missing" }] }],
+    ]);
+    const resolved = resolveRecipes(nodes);
+    expect(resolved.get("first")?.nutrition.total.kcal).toBeCloseTo(20);
+    expect(Number.isFinite(resolved.get("second")?.nutrition.total.kcal)).toBe(true);
+  });
+});
+
+describe("createsRecipeCycle", () => {
+  const subRecipesOf = new Map([
+    ["lasagne", ["ragu", "bechamel"]],
+    ["ragu", ["broth"]],
+  ]);
+
+  it("rejects a recipe that contains itself", () => {
+    expect(createsRecipeCycle("ragu", ["ragu"], subRecipesOf)).toBe(true);
+  });
+
+  it("rejects a sub-recipe that already contains the recipe", () => {
+    expect(createsRecipeCycle("broth", ["lasagne"], subRecipesOf)).toBe(true);
+    expect(createsRecipeCycle("ragu", ["lasagne"], subRecipesOf)).toBe(true);
+  });
+
+  it("accepts sub-recipes that do not lead back to the recipe", () => {
+    expect(createsRecipeCycle("lasagne", ["ragu", "bechamel"], subRecipesOf)).toBe(false);
+    expect(createsRecipeCycle("new", ["lasagne"], subRecipesOf)).toBe(false);
   });
 });

@@ -278,12 +278,16 @@ describe("describeRecipeDetail", () => {
         notes: null,
         isFavorite: true,
         ingredients: [
-          { foodId: "food-1", name: "Fiocchi d'avena", unit: "g", grams: 80, per100: { kcal: 372, protein: 13.5, carbs: 58.7, fat: 7 } },
+          { foodId: "food-1", subRecipeId: null, name: "Fiocchi d'avena", unit: "g", grams: 80, per100: { kcal: 372, protein: 13.5, carbs: 58.7, fat: 7 } },
+          { foodId: null, subRecipeId: "recipe-9", name: "Composta di mele", unit: "g", grams: 50, per100: { kcal: 60, protein: 0, carbs: 15, fat: 0 } },
         ],
       },
     );
     expect(detail).toMatchObject({ recipeId: "recipe-1", cookedWeightG: 600, notes: null, favorite: true });
-    expect(detail.ingredients).toEqual([{ foodId: "food-1", name: "Fiocchi d'avena", unit: "g", grams: 80, kcal: 298 }]);
+    expect(detail.ingredients).toEqual([
+      { foodId: "food-1", name: "Fiocchi d'avena", unit: "g", grams: 80, kcal: 298 },
+      { recipeId: "recipe-9", name: "Composta di mele", unit: "g", grams: 50, kcal: 30 },
+    ]);
   });
 });
 

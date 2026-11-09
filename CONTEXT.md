@@ -72,7 +72,7 @@ L'utente ha scelto sempre l'opzione raccomandata.
 
 ## Modello dati in breve
 - `food` (catalogo globale `owner_id NULL` con fonte `swiss` o `open_food_facts`, oppure personale; valori per 100 g/ml; micronutrienti `jsonb`; archiviazione soft), `food_portion`.
-- `recipe` + `recipe_ingredient` (sempre per utente; peso da cotto e porzioni opzionali; `serving_grams` facoltativo: se c'è, una porzione pesa sempre quei grammi e il numero di porzioni si ricava dal peso finale, mentre `servings` resta solo un arrotondamento).
+- `recipe` + `recipe_ingredient` (sempre per utente; un ingrediente è un alimento (`food_id`) oppure un'altra ricetta (`sub_recipe_id`, grammi di cotto, senza cicli); peso da cotto e porzioni opzionali; `serving_grams` facoltativo: se c'è, una porzione pesa sempre quei grammi e il numero di porzioni si ricava dal peso finale, mentre `servings` resta solo un arrotondamento).
 - `favorite_food`, `favorite_recipe`.
 - `diary_entry` (snapshot dei nutrienti, tipi `food` / `recipe` / `quick`).
 - `saved_meal` + `saved_meal_item` (esattamente un alimento o una ricetta per riga).
@@ -101,7 +101,7 @@ L'utente ha scelto sempre l'opzione raccomandata.
 - **Macro**: P/C/G = proteine, carboidrati, grassi.
 
 ## Stato attuale
-Aggiornato al 2026-11-08. Per lo stato reale usa `git log` e `git status`.
+Aggiornato al 2026-11-09. Per lo stato reale usa `git log` e `git status`.
 - Tutti i task T01-T37 sono completati e in produzione; T01-T32 dal 2026-10-16, più tre fix successivi (budget settimanale con giorni non registrati, status bar iOS standalone, offset dell'header di Oggi).
 - Ultimi merge in `main`: `fix/preview-shared-auth-secret`, `fix/stale-viewport-offset`, `fix/cookware-test-format`, `fix/preview-deployments` (PR #8), `feature/connector-full-editing` (T38, PR #5), `feature/cookware-tare` (PR #4), `fix/keyboard-covers-overlays` (PR #3, drawer e dialog sopra la tastiera su iOS, da verificare su iPhone). Poi `feature/stored-meals` (T39, migrazione 0015), `feature/recipe-serving-weight` (peso fisso della porzione, migrazione 0016) e `feature/connector-containers` (contenitori nel connettore per Claude, senza migrazioni).
 - T33 (pull-to-refresh su Oggi e Progressi) in produzione dal 2026-10-17.
@@ -116,6 +116,7 @@ Aggiornato al 2026-11-08. Per lo stato reale usa `git log` e `git status`.
 - `fix/reveal-focused-field-under-keyboard` (2026-11-04): il campo a fuoco non resta più nascosto dietro il footer quando la tastiera accorcia la shell. Entrambi da confermare su iPhone.
 - `feature/ux-review-harness` (2026-11-07): seed della UX review (`pnpm seed:ux`), registratore delle metriche, driver interattivo e scenari Playwright in `ux-review/`, skill `bilancia-ux-review`. Solo strumenti di sviluppo, nessuna modifica all'app.
 - `feature/sarcastic-coach` (2026-11-08, branch `claude/youthful-davinci-2tc94g`, PR #10, in produzione): coach sarcastico e ricarica (migrazione 0017, applicata a dev e main). Provato in locale con Postgres 16 e un finto server Anthropic: cron, ripetizione con frase troppo lunga, resoconto, commento alla pesata via `after()`, carta della ricarica su Oggi (chiaro e scuro); smoke test in produzione con Opus reale (commento alla pesata in 9 s), ma mai con un push reale.
+- `feature/sub-recipes` (2026-11-09, branch `claude/focused-franklin-9uo3p8`, non ancora in produzione): ricette come ingredienti di altre ricette, migrazione 0018 da applicare a dev e main prima del merge. Provato in locale con Postgres 16 (unit, e2e dedicato, controllo visivo chiaro e scuro).
 - `fix/ux-review-contrast-and-touch-targets` (2026-11-03, non ancora in produzione): revisione UX/UI di tutte le schermate. Stato selezionato dei `ToggleGroup` leggibile (contrasto da 1,10:1 a 15,5:1), aree di tocco a 44 px, «Il punto della settimana» sotto i pasti, kcal residue previste nelle schede della quantità, etichette dei giorni e selettori del periodo coerenti in Progressi.
 
 ## Punti aperti e idee
@@ -134,10 +135,12 @@ Aggiornato al 2026-11-08. Per lo stato reale usa `git log` e `git status`.
 - Lo stato selezionato dei `ToggleGroup` ora usa `bg-foreground`, che in tema scuro ha lo stesso peso visivo del pulsante primario: da guardare su iPhone per capire se la selezione compete con la CTA del footer.
 - Trovati dalla UX review del 2026-11-07, non ancora corretti: (1) «Nuova ricetta» aperta una seconda volta mostra nome, ingredienti e peso da cotto della ricetta appena creata, perché `RecipeEditor` non usa il reset con `key={bfcacheId}` come `FoodForm`, `AddScreen` e gli editor dei pasti; gli ingredienti nuovi si accodano ai vecchi. (2) Un peso da cotto oltre 50 kg (es. «900» seguito da «760» nello stesso campo) mostra «Too big: expected number to be <=50000»: lo schema di `recipe-writes.ts` non ha messaggi in italiano.
 - UX review: la regola iOS del registratore (il focus automatico senza tocco non apre la tastiera) è da confermare su iPhone; lo scenario «giorno dopo» della catena ricette e frigo non è simulabile perché la data di preparazione non può essere futura.
+- Ricette annidate: modificare una ricetta-ingrediente cambia subito i valori delle ricette che la usano (le voci del diario restano snapshot); la ricetta-ingrediente si dosa solo in grammi di cotto, non in porzioni; se non ha il peso da cotto i grammi valgono come peso a crudo (il selettore lo avvisa). Siri e il drawer di Aggiungi non sono toccati: registrano la ricetta composta come qualsiasi altra.
 - Ricerca: aggiungere un indice trigram su `name || brand` e su `recipe.name` se il catalogo cresce.
 - Fuori scope finora: acqua, attività fisica, integrazione con app Salute, digiuno, modalità offline.
 
 ## Cronologia
+- **2026-11-09, ricette annidate**: un ingrediente può essere un'altra ricetta (`recipe_ingredient.sub_recipe_id`, migrazione 0018); valori risolti in modo ricorsivo con `resolveRecipes` caricando il grafo per livelli (`loadRecipeGraph`), cicli rifiutati in scrittura; selettore degli ingredienti, vista, editor e connettore per Claude aggiornati.
 - **2026-11-08, coach sarcastico**: notifiche push con battute scritte da Opus su numeri calcolati dal codice (budget settimanale, ricarica, serie di proteine, livello estratto, trend del peso, data prevista e suo spostamento); ricarica settimanale a 2000 kcal sbloccata dalle kcal avanzate (`recharge_day`, carta su Oggi, `set_recharge_day` nel connettore); quattro cron giornalieri più quello della domenica; migrazione 0017.
 - **2026-10-15, fase 1 (T01-T15)**: grilling Q1-Q24; scaffold Next.js 16 + Tailwind 4 + shadcn + PWA; schema Drizzle e Postgres in Docker; Better Auth e onboarding profilo; logica di dominio con test; migrazione da MongoDB; diario Oggi; catalogo alimenti con copia privata; Open Food Facts e barcode; ricette; pasti salvati; misure corporee; profilo e obiettivi; progressi; passaggio a Neon (dev/main) con migrazione dati; rifinitura con e2e e README.
 - **Deploy iniziale**: progetto Vercel `bilancia` creato da CLI; primo deploy fallito ("Output Directory public is empty") risolto con `framework: "nextjs"` in `vercel.json`; regione spostata da `iad1` a `fra1`.

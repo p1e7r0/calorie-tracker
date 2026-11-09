@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   check,
   date,
@@ -151,13 +152,19 @@ export const recipeIngredient = pgTable(
     recipeId: uuid()
       .notNull()
       .references(() => recipe.id, { onDelete: "cascade" }),
-    foodId: uuid()
-      .notNull()
-      .references(() => food.id, { onDelete: "no action" }),
+    foodId: uuid().references(() => food.id, { onDelete: "no action" }),
+    subRecipeId: uuid().references((): AnyPgColumn => recipe.id, { onDelete: "cascade" }),
     grams: real().notNull(),
     position: integer().notNull().default(0),
   },
-  (table) => [index("recipe_ingredient_recipe_index").on(table.recipeId)],
+  (table) => [
+    index("recipe_ingredient_recipe_index").on(table.recipeId),
+    index("recipe_ingredient_sub_recipe_index").on(table.subRecipeId),
+    check(
+      "recipe_ingredient_food_or_recipe",
+      sql`(${table.foodId} is null) <> (${table.subRecipeId} is null)`,
+    ),
+  ],
 );
 
 export const favoriteFood = pgTable(

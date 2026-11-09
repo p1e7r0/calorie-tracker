@@ -61,7 +61,12 @@ export async function duplicateRecipe(recipeId: string): Promise<ActionResult<{ 
         .where(and(eq(recipe.id, sourceId), eq(recipe.ownerId, userId), isNull(recipe.archivedAt)));
       if (!source) throw new Error("Ricetta non trovata.");
       const ingredients = await transaction
-        .select({ foodId: recipeIngredient.foodId, grams: recipeIngredient.grams, position: recipeIngredient.position })
+        .select({
+          foodId: recipeIngredient.foodId,
+          subRecipeId: recipeIngredient.subRecipeId,
+          grams: recipeIngredient.grams,
+          position: recipeIngredient.position,
+        })
         .from(recipeIngredient)
         .where(eq(recipeIngredient.recipeId, sourceId));
       const [created] = await transaction
