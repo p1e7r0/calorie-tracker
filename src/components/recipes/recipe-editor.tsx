@@ -20,6 +20,7 @@ import { IngredientPicker } from "./ingredient-picker";
 
 export type EditableIngredient = {
   key: string;
+  ingredientId: string | null;
   foodId: string | null;
   subRecipeId: string | null;
   name: string;
@@ -103,6 +104,7 @@ export function RecipeEditor({
       ingredients: parsedIngredients
         .filter((ingredient) => ingredient.gramsValue > 0)
         .map((ingredient) => ({
+          ingredientId: ingredient.ingredientId,
           foodId: ingredient.foodId,
           recipeId: ingredient.subRecipeId,
           grams: ingredient.gramsValue,
@@ -194,6 +196,12 @@ export function RecipeEditor({
               ))}
             </ul>
           )}
+          {values.ingredients.some((ingredient) => ingredient.subRecipeId) ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Le ricette usate come ingredienti tengono i valori di quando le hai aggiunte. Per aggiornarle, toglile e
+              aggiungile di nuovo.
+            </p>
+          ) : null}
           <Button variant="outline" className="mt-2" onClick={() => setPickerOpen(true)}>
             <PlusIcon />
             Aggiungi ingrediente
@@ -328,6 +336,7 @@ export function RecipeEditor({
               ...values.ingredients,
               {
                 key: nextKey(),
+                ingredientId: null,
                 foodId: item.type === "food" ? item.id : null,
                 subRecipeId: item.type === "recipe" ? item.id : null,
                 name: item.type === "food" && item.brand ? `${item.name}, ${item.brand}` : item.name,

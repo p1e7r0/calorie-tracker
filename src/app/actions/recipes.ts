@@ -66,6 +66,14 @@ export async function duplicateRecipe(recipeId: string): Promise<ActionResult<{ 
           subRecipeId: recipeIngredient.subRecipeId,
           grams: recipeIngredient.grams,
           position: recipeIngredient.position,
+          kcal: recipeIngredient.kcal,
+          protein: recipeIngredient.protein,
+          carbs: recipeIngredient.carbs,
+          fat: recipeIngredient.fat,
+          fiber: recipeIngredient.fiber,
+          sugars: recipeIngredient.sugars,
+          saturatedFat: recipeIngredient.saturatedFat,
+          salt: recipeIngredient.salt,
         })
         .from(recipeIngredient)
         .where(eq(recipeIngredient.recipeId, sourceId));

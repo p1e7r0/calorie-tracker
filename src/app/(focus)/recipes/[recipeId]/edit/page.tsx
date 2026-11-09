@@ -56,7 +56,8 @@ async function EditRecipe({ params }: Pick<PageProps<"/recipes/[recipeId]/edit">
           servingMode: recipe.servingGrams ? "weight" : "count",
           servingWeight: toFormNumber(recipe.servingGrams),
           ingredients: recipe.ingredients.map((ingredient, index) => ({
-            key: `${ingredient.foodId ?? ingredient.subRecipeId}-${index}`,
+            key: `${ingredient.id}-${index}`,
+            ingredientId: ingredient.id,
             foodId: ingredient.foodId,
             subRecipeId: ingredient.subRecipeId,
             name: ingredient.name,

@@ -76,12 +76,12 @@ export function RecipeView({ recipe }: { recipe: RecipeForEditing }) {
             </div>
           </div>
           <ul className="mt-1 divide-y">
-            {recipe.ingredients.map((ingredient, index) => (
+            {recipe.ingredients.map((ingredient) => (
               <li
-                key={`${ingredient.foodId ?? ingredient.subRecipeId}-${index}`}
+                key={ingredient.id}
                 className="flex items-baseline justify-between gap-3 py-2.5"
               >
-                {ingredient.subRecipeId ? (
+                {ingredient.subRecipeId && !ingredient.subRecipeArchived ? (
                   <Link
                     href={`/recipes/${ingredient.subRecipeId}`}
                     className="flex min-w-0 items-center gap-1.5 self-center underline-offset-4 hover:underline"
@@ -89,6 +89,11 @@ export function RecipeView({ recipe }: { recipe: RecipeForEditing }) {
                     <ChefHatIcon className="size-4 shrink-0 text-muted-foreground" aria-label="Ricetta" />
                     <span className="truncate">{ingredient.name}</span>
                   </Link>
+                ) : ingredient.subRecipeId ? (
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <ChefHatIcon className="size-4 shrink-0 text-muted-foreground" aria-label="Ricetta" />
+                    <span className="truncate">{ingredient.name}</span>
+                  </span>
                 ) : (
                   <span className="min-w-0 truncate">{ingredient.name}</span>
                 )}

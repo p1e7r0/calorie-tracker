@@ -1,5 +1,5 @@
 {
-  "id": "52e22be6-37a9-4812-aecf-32f023f9ef90",
+  "id": "fd41db7e-c1e3-4767-9588-00befa3186ad",
   "prevId": "ac17737f-330b-46f9-87fa-96434f6f9e20",
   "version": "7",
   "dialect": "postgresql",
@@ -1732,6 +1732,54 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "kcal": {
+          "name": "kcal",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "protein": {
+          "name": "protein",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "carbs": {
+          "name": "carbs",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fat": {
+          "name": "fat",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fiber": {
+          "name": "fiber",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sugars": {
+          "name": "sugars",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "saturated_fat": {
+          "name": "saturated_fat",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salt": {
+          "name": "salt",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1814,6 +1862,10 @@
         "recipe_ingredient_food_or_recipe": {
           "name": "recipe_ingredient_food_or_recipe",
           "value": "(\"recipe_ingredient\".\"food_id\" is null) <> (\"recipe_ingredient\".\"sub_recipe_id\" is null)"
+        },
+        "recipe_ingredient_sub_recipe_values": {
+          "name": "recipe_ingredient_sub_recipe_values",
+          "value": "\"recipe_ingredient\".\"sub_recipe_id\" is null or (\"recipe_ingredient\".\"kcal\" is not null and \"recipe_ingredient\".\"protein\" is not null and \"recipe_ingredient\".\"carbs\" is not null and \"recipe_ingredient\".\"fat\" is not null)"
         }
       },
       "isRLSEnabled": false

@@ -16,7 +16,7 @@ async function pickIngredient(page: Page, search: string, name: RegExp) {
   await page.getByRole("dialog").getByRole("button", { name }).first().click();
 }
 
-test("uses a recipe as an ingredient of another recipe and blocks cycles", async ({ page }) => {
+test("uses a recipe as an ingredient of another recipe and keeps its values frozen", async ({ page }) => {
   test.setTimeout(120_000);
   await registerUser(page);
   await createFood(page, "Pomodoro di prova", "20");
@@ -66,15 +66,34 @@ test("uses a recipe as an ingredient of another recipe and blocks cycles", async
   await dialog.getByRole("searchbox", { name: "Cerca un ingrediente" }).fill("sugo di prova");
   await expect(dialog.getByRole("button", { name: /Pasta al sugo di prova/ })).toBeVisible();
   await expect(dialog.getByRole("button", { name: /^Ricetta Sugo di prova/ })).toHaveCount(0);
-  await dialog.getByRole("button", { name: /Pasta al sugo di prova/ }).click();
-  await dialog.getByRole("button", { name: "Aggiungi ingrediente" }).click();
+  await dialog.getByRole("button", { name: "Chiudi" }).click();
+  await page.getByLabel("Grammi di Pomodoro di prova").fill("2000");
   await page.getByRole("button", { name: "Salva ricetta" }).click();
-  await expect(page.getByText("Una delle ricette usate come ingrediente contiene già questa ricetta.")).toBeVisible();
+  await expect(page).toHaveURL(sauceUrl);
+  await expect(page.getByRole("region", { name: "Valori a porzione" })).toContainText("80 kcal per 100 g");
 
   await page.goto(dishUrl);
+  await expect(page.getByRole("region", { name: "Valori a porzione" })).toContainText("370");
+  await page.getByRole("link", { name: "Modifica" }).click();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByText("40 kcal, da cotto")).toBeVisible();
+  await page.getByLabel("Grammi di Pasta di prova").fill("100");
+  await page.getByRole("button", { name: "Salva ricetta" }).click();
+  await expect(page).toHaveURL(dishUrl);
+  await expect(page.getByRole("region", { name: "Valori a porzione" })).toContainText("195");
+
+  await page.goto(sauceUrl);
+  await page.getByRole("button", { name: "Elimina ricetta" }).click();
+  await page.getByRole("button", { name: "Elimina", exact: true }).click();
+  await expect(page).not.toHaveURL(sauceUrl);
+  await page.goto(dishUrl);
+  await expect(page.getByRole("region", { name: "Valori a porzione" })).toContainText("195");
+  await expect(page.getByText("Sugo di prova", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Sugo di prova" })).toHaveCount(0);
+
   await page.getByRole("link", { name: "Aggiungi al diario" }).click();
   const logDialog = page.getByRole("dialog");
-  await expect(logDialog.getByText(/^370\s*kcal$/)).toBeVisible();
+  await expect(logDialog.getByText(/^195\s*kcal$/)).toBeVisible();
   await logDialog.getByRole("button", { name: /^Aggiungi a / }).click();
   await expect(page.getByText("1 voce aggiunta")).toBeVisible();
 });

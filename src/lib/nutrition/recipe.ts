@@ -1,11 +1,4 @@
-import {
-  emptyExtraNutrients,
-  type ExtraNutrients,
-  multiplyExtras,
-  scaleExtras,
-  sumExtras,
-} from "./extra-nutrients";
-import { emptyNutrients, multiplyNutrients, type Nutrients, scaleNutrients, sumNutrients } from "./nutrients";
+import { multiplyNutrients, type Nutrients, scaleNutrients, sumNutrients } from "./nutrients";
 
 export type RecipeIngredientInput = {
   grams: number;
@@ -74,81 +67,4 @@ export function recipePortionNutrients(recipe: RecipeNutrition, portion: RecipeP
 export function recipePortionWeight(recipe: RecipeNutrition, portion: RecipePortion) {
   if ("grams" in portion) return portion.grams;
   return recipe.servingWeightG * portion.servings;
-}
-
-export type RecipeGraphIngredient = { grams: number } & (
-  | { subRecipeId: string }
-  | { per100: Nutrients; extras: ExtraNutrients }
-);
-
-export type RecipeGraphNode = {
-  cookedWeightG?: number | null;
-  servings?: number | null;
-  servingGrams?: number | null;
-  ingredients: readonly RecipeGraphIngredient[];
-};
-
-export type ResolvedRecipe = {
-  nutrition: RecipeNutrition;
-  extras: ExtraNutrients;
-  extrasPer100g: ExtraNutrients;
-};
-
-export function resolveRecipes(nodes: ReadonlyMap<string, RecipeGraphNode>): Map<string, ResolvedRecipe> {
-  const resolved = new Map<string, ResolvedRecipe>();
-  const visiting = new Set<string>();
-
-  function resolve(recipeId: string): ResolvedRecipe | null {
-    const known = resolved.get(recipeId);
-    if (known) return known;
-    const node = nodes.get(recipeId);
-    if (!node || visiting.has(recipeId)) return null;
-    visiting.add(recipeId);
-    const ingredients = node.ingredients.map((ingredient) => {
-      if ("per100" in ingredient) {
-        return { grams: ingredient.grams, per100: ingredient.per100, extras: ingredient.extras };
-      }
-      const subRecipe = resolve(ingredient.subRecipeId);
-      return {
-        grams: ingredient.grams,
-        per100: subRecipe?.nutrition.per100g ?? emptyNutrients,
-        extras: subRecipe?.extrasPer100g ?? emptyExtraNutrients,
-      };
-    });
-    visiting.delete(recipeId);
-    const nutrition = computeRecipeNutrition({
-      ingredients,
-      cookedWeightG: node.cookedWeightG,
-      servings: node.servings,
-      servingGrams: node.servingGrams,
-    });
-    const extras = sumExtras(ingredients.map((ingredient) => scaleExtras(ingredient.extras, ingredient.grams)));
-    const result = {
-      nutrition,
-      extras,
-      extrasPer100g: multiplyExtras(extras, nutrition.finalWeightG > 0 ? 100 / nutrition.finalWeightG : 0),
-    };
-    resolved.set(recipeId, result);
-    return result;
-  }
-
-  for (const recipeId of nodes.keys()) resolve(recipeId);
-  return resolved;
-}
-
-export function createsRecipeCycle(
-  recipeId: string,
-  subRecipeIds: readonly string[],
-  subRecipesOf: ReadonlyMap<string, readonly string[]>,
-) {
-  const seen = new Set<string>();
-  const pending = [...subRecipeIds];
-  while (pending.length > 0) {
-    const current = pending.pop()!;
-    if (current === recipeId) return true;
-    if (seen.has(current)) continue;
-    seen.add(current);
-    pending.push(...(subRecipesOf.get(current) ?? []));
-  }
-  return false;
 }

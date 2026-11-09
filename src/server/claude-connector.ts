@@ -121,12 +121,18 @@ const ingredientsSchema = z
   .array(
     z
       .object({
+        ingredientId: z
+          .uuid()
+          .optional()
+          .describe(
+            "ingredientId of a recipe ingredient returned by get_recipe. Pass it with the same recipeId to keep the values frozen when that recipe was added; leave it out to take the current values of the recipe.",
+          ),
         foodId: z.uuid().optional().describe("foodId returned by search_foods, recent_foods or create_food."),
         recipeId: z
           .uuid()
           .optional()
           .describe(
-            "recipeId of another recipe of the user used as an ingredient (a sauce, a dough, a broth). Pass either foodId or recipeId.",
+            "recipeId of another recipe of the user used as an ingredient (a sauce, a dough, a broth): its values per 100 g are frozen when it is added, so later changes to that recipe, or deleting it, do not change this one. Pass either foodId or recipeId.",
           ),
         grams: z
           .number()
@@ -993,6 +999,7 @@ export function createClaudeConnectorServer(userId: string) {
           ingredients:
             changes.ingredients ??
             current.ingredients.map((ingredient) => ({
+              ingredientId: ingredient.id,
               foodId: ingredient.foodId,
               recipeId: ingredient.subRecipeId,
               grams: ingredient.grams,

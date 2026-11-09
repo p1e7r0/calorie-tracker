@@ -156,6 +156,14 @@ export const recipeIngredient = pgTable(
     subRecipeId: uuid().references((): AnyPgColumn => recipe.id, { onDelete: "cascade" }),
     grams: real().notNull(),
     position: integer().notNull().default(0),
+    kcal: real(),
+    protein: real(),
+    carbs: real(),
+    fat: real(),
+    fiber: real(),
+    sugars: real(),
+    saturatedFat: real(),
+    salt: real(),
   },
   (table) => [
     index("recipe_ingredient_recipe_index").on(table.recipeId),
@@ -163,6 +171,10 @@ export const recipeIngredient = pgTable(
     check(
       "recipe_ingredient_food_or_recipe",
       sql`(${table.foodId} is null) <> (${table.subRecipeId} is null)`,
+    ),
+    check(
+      "recipe_ingredient_sub_recipe_values",
+      sql`${table.subRecipeId} is null or (${table.kcal} is not null and ${table.protein} is not null and ${table.carbs} is not null and ${table.fat} is not null)`,
     ),
   ],
 );
