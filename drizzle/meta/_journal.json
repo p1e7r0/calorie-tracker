@@ -127,6 +127,13 @@
       "when": 1794140985751,
       "tag": "0017_coach",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794247953607,
+      "tag": "0018_sub_recipes",
+      "breakpoints": true
     }
   ]
 }

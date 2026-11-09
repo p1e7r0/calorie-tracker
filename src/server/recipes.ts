@@ -1,11 +1,20 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { database } from "@/db";
 import { diaryEntry, favoriteRecipe, food, recipe, recipeIngredient } from "@/db/schema";
-import { extrasFromRow, scaleExtras, sumExtras } from "@/lib/nutrition/extra-nutrients";
-import { computeRecipeNutrition, recipeServingCount } from "@/lib/nutrition/recipe";
+import { extrasFromRow } from "@/lib/nutrition/extra-nutrients";
+import { emptyNutrients } from "@/lib/nutrition/nutrients";
+import {
+  computeRecipeNutrition,
+  type RecipeGraphIngredient,
+  type RecipeGraphNode,
+  resolveRecipes,
+} from "@/lib/nutrition/recipe";
 import { allowedTypos, searchWords } from "@/lib/search";
 import type { LoggableRecipe } from "./loggable";
+
+const subRecipe = alias(recipe, "sub_recipe");
 
 export async function loadRecipeIngredients(recipeIds: string[]) {
   if (recipeIds.length === 0) return [];
@@ -14,11 +23,12 @@ export async function loadRecipeIngredients(recipeIds: string[]) {
       id: recipeIngredient.id,
       recipeId: recipeIngredient.recipeId,
       foodId: recipeIngredient.foodId,
+      subRecipeId: recipeIngredient.subRecipeId,
       grams: recipeIngredient.grams,
       position: recipeIngredient.position,
-      name: food.name,
+      name: sql<string>`coalesce(${food.name}, ${subRecipe.name})`,
       brand: food.brand,
-      unit: food.unit,
+      unit: sql<"g" | "ml">`coalesce(${food.unit}, 'g')`,
       kcal: food.kcal,
       protein: food.protein,
       carbs: food.carbs,
@@ -29,9 +39,64 @@ export async function loadRecipeIngredients(recipeIds: string[]) {
       salt: food.salt,
     })
     .from(recipeIngredient)
-    .innerJoin(food, eq(food.id, recipeIngredient.foodId))
+    .leftJoin(food, eq(food.id, recipeIngredient.foodId))
+    .leftJoin(subRecipe, eq(subRecipe.id, recipeIngredient.subRecipeId))
     .where(inArray(recipeIngredient.recipeId, recipeIds))
     .orderBy(asc(recipeIngredient.position));
+}
+
+type IngredientRow = Awaited<ReturnType<typeof loadRecipeIngredients>>[number];
+
+function toGraphIngredient(ingredient: IngredientRow): RecipeGraphIngredient {
+  if (ingredient.subRecipeId) return { grams: ingredient.grams, subRecipeId: ingredient.subRecipeId };
+  return {
+    grams: ingredient.grams,
+    per100: {
+      kcal: ingredient.kcal ?? 0,
+      protein: ingredient.protein ?? 0,
+      carbs: ingredient.carbs ?? 0,
+      fat: ingredient.fat ?? 0,
+    },
+    extras: extrasFromRow(ingredient),
+  };
+}
+
+const maximumNestingDepth = 20;
+
+async function loadRecipeGraph(recipeIds: string[], knownRows: RecipeRow[] = []) {
+  const rows = new Map(knownRows.map((row) => [row.id, row]));
+  const ingredients: IngredientRow[] = [];
+  let pending = [...new Set(recipeIds)];
+  const loaded = new Set<string>();
+  for (let depth = 0; pending.length > 0 && depth < maximumNestingDepth; depth += 1) {
+    const missingRows = pending.filter((recipeId) => !rows.has(recipeId));
+    const [levelIngredients, levelRows] = await Promise.all([
+      loadRecipeIngredients(pending),
+      missingRows.length > 0
+        ? database.select(recipeColumns).from(recipe).where(inArray(recipe.id, missingRows))
+        : Promise.resolve([]),
+    ]);
+    for (const row of levelRows) rows.set(row.id, row);
+    for (const recipeId of pending) loaded.add(recipeId);
+    ingredients.push(...levelIngredients);
+    pending = [
+      ...new Set(
+        levelIngredients
+          .map((ingredient) => ingredient.subRecipeId)
+          .filter((recipeId): recipeId is string => recipeId !== null && !loaded.has(recipeId)),
+      ),
+    ];
+  }
+  const nodes = new Map<string, RecipeGraphNode>();
+  for (const row of rows.values()) {
+    nodes.set(row.id, {
+      cookedWeightG: row.cookedWeightG,
+      servings: row.servings,
+      servingGrams: row.servingGrams,
+      ingredients: ingredients.filter((ingredient) => ingredient.recipeId === row.id).map(toGraphIngredient),
+    });
+  }
+  return { ingredients, resolved: resolveRecipes(nodes) };
 }
 
 type RecipeRow = {
@@ -45,8 +110,8 @@ type RecipeRow = {
 async function toLoggableRecipes(userId: string, rows: RecipeRow[]): Promise<LoggableRecipe[]> {
   if (rows.length === 0) return [];
   const recipeIds = rows.map((row) => row.id);
-  const [ingredients, favorites, lastQuantities] = await Promise.all([
-    loadRecipeIngredients(recipeIds),
+  const [{ resolved }, favorites, lastQuantities] = await Promise.all([
+    loadRecipeGraph(recipeIds, rows),
     database
       .select({ recipeId: favoriteRecipe.recipeId })
       .from(favoriteRecipe)
@@ -65,22 +130,7 @@ async function toLoggableRecipes(userId: string, rows: RecipeRow[]): Promise<Log
   const lastQuantityByRecipe = new Map(lastQuantities.map((row) => [row.recipeId, row]));
 
   return rows.map((row) => {
-    const nutrition = computeRecipeNutrition({
-      ingredients: ingredients
-        .filter((ingredient) => ingredient.recipeId === row.id)
-        .map((ingredient) => ({
-          grams: ingredient.grams,
-          per100: {
-            kcal: ingredient.kcal,
-            protein: ingredient.protein,
-            carbs: ingredient.carbs,
-            fat: ingredient.fat,
-          },
-        })),
-      cookedWeightG: row.cookedWeightG,
-      servings: row.servings,
-      servingGrams: row.servingGrams,
-    });
+    const nutrition = resolved.get(row.id)?.nutrition ?? computeRecipeNutrition({ ingredients: [] });
     return {
       type: "recipe",
       id: row.id,
@@ -154,8 +204,8 @@ export async function getRecipeForEditing(userId: string, recipeId: string) {
     .from(recipe)
     .where(and(eq(recipe.id, recipeId), eq(recipe.ownerId, userId), isNull(recipe.archivedAt)));
   if (!row) return null;
-  const [ingredients, favorite] = await Promise.all([
-    loadRecipeIngredients([row.id]),
+  const [{ ingredients, resolved }, favorite] = await Promise.all([
+    loadRecipeGraph([row.id], [row]),
     database
       .select({ recipeId: favoriteRecipe.recipeId })
       .from(favoriteRecipe)
@@ -169,30 +219,48 @@ export async function getRecipeForEditing(userId: string, recipeId: string) {
     servingGrams: row.servingGrams,
     notes: row.notes,
     isFavorite: favorite.length > 0,
-    ingredients: ingredients.map((ingredient) => ({
-      foodId: ingredient.foodId,
-      name: ingredient.brand ? `${ingredient.name}, ${ingredient.brand}` : ingredient.name,
-      unit: ingredient.unit,
-      grams: ingredient.grams,
-      per100: { kcal: ingredient.kcal, protein: ingredient.protein, carbs: ingredient.carbs, fat: ingredient.fat },
-    })),
+    ingredients: ingredients
+      .filter((ingredient) => ingredient.recipeId === row.id)
+      .map((ingredient) => {
+        const graphIngredient = toGraphIngredient(ingredient);
+        return {
+          foodId: ingredient.foodId,
+          subRecipeId: ingredient.subRecipeId,
+          name: ingredient.brand ? `${ingredient.name}, ${ingredient.brand}` : ingredient.name,
+          unit: ingredient.unit,
+          grams: ingredient.grams,
+          per100:
+            "per100" in graphIngredient
+              ? graphIngredient.per100
+              : (resolved.get(graphIngredient.subRecipeId)?.nutrition.per100g ?? emptyNutrients),
+        };
+      }),
   };
 }
 
 export type RecipeForEditing = NonNullable<Awaited<ReturnType<typeof getRecipeForEditing>>>;
 
 export async function getRecipeExtras(recipeId: string) {
-  const [row] = await database
-    .select({ servings: recipe.servings, cookedWeightG: recipe.cookedWeightG, servingGrams: recipe.servingGrams })
-    .from(recipe)
-    .where(eq(recipe.id, recipeId));
-  if (!row) return null;
-  const ingredients = await loadRecipeIngredients([recipeId]);
-  const rawWeightG = ingredients.reduce((sum, ingredient) => sum + ingredient.grams, 0);
-  const finalWeightG = row.cookedWeightG && row.cookedWeightG > 0 ? row.cookedWeightG : rawWeightG;
+  const { resolved } = await loadRecipeGraph([recipeId]);
+  const recipeValues = resolved.get(recipeId);
+  if (!recipeValues) return null;
   return {
-    total: sumExtras(ingredients.map((ingredient) => scaleExtras(extrasFromRow(ingredient), ingredient.grams))),
-    finalWeightG,
-    servings: recipeServingCount({ finalWeightG, servings: row.servings, servingGrams: row.servingGrams }),
+    total: recipeValues.extras,
+    finalWeightG: recipeValues.nutrition.finalWeightG,
+    servings: recipeValues.nutrition.servings,
   };
+}
+
+export async function subRecipeEdges(userId: string) {
+  const rows = await database
+    .select({ recipeId: recipeIngredient.recipeId, subRecipeId: recipeIngredient.subRecipeId })
+    .from(recipeIngredient)
+    .innerJoin(recipe, eq(recipe.id, recipeIngredient.recipeId))
+    .where(and(eq(recipe.ownerId, userId), isNotNull(recipeIngredient.subRecipeId)));
+  const edges = new Map<string, string[]>();
+  for (const row of rows) {
+    if (!row.subRecipeId) continue;
+    edges.set(row.recipeId, [...(edges.get(row.recipeId) ?? []), row.subRecipeId]);
+  }
+  return edges;
 }

@@ -119,10 +119,24 @@ const portionsSchema = z
 
 const ingredientsSchema = z
   .array(
-    z.object({
-      foodId: z.uuid().describe("foodId returned by search_foods, recent_foods or create_food."),
-      grams: z.number().positive().max(20_000).describe("Raw weight in grams (or ml)."),
-    }),
+    z
+      .object({
+        foodId: z.uuid().optional().describe("foodId returned by search_foods, recent_foods or create_food."),
+        recipeId: z
+          .uuid()
+          .optional()
+          .describe(
+            "recipeId of another recipe of the user used as an ingredient (a sauce, a dough, a broth). Pass either foodId or recipeId.",
+          ),
+        grams: z
+          .number()
+          .positive()
+          .max(20_000)
+          .describe("Raw weight in grams (or ml) for a food; cooked weight in grams for a recipe."),
+      })
+      .refine((ingredient) => Boolean(ingredient.foodId) !== Boolean(ingredient.recipeId), {
+        message: "Pass either foodId or recipeId for each ingredient.",
+      }),
   )
   .min(1)
   .max(60);
@@ -662,7 +676,7 @@ export function createClaudeConnectorServer(userId: string) {
     {
       title: "Crea una ricetta",
       description:
-        "Create a recipe from foods of the catalog, with raw ingredient weights. Give the cooked weight of the whole dish when known: without it the values per 100 g refer to the raw weight. Returns the recipe ready for log_meal.",
+        "Create a recipe from foods of the catalog, with raw ingredient weights; another recipe of the user can be an ingredient too, with its cooked weight. Give the cooked weight of the whole dish when known: without it the values per 100 g refer to the raw weight. Returns the recipe ready for log_meal.",
       inputSchema: z.object({
         name: z.string().trim().min(1).max(120).describe("Italian name, e.g. «Lasagne della nonna»."),
         servings: z.number().int().min(1).max(100).describe("Number of servings the whole dish makes."),
@@ -899,7 +913,7 @@ export function createClaudeConnectorServer(userId: string) {
     {
       title: "Leggi una ricetta",
       description:
-        "Read a recipe of the user: ingredients with foodId and raw grams, servings, fixed serving weight, cooked weight, notes and values per 100 g and per serving. Use it before update_recipe.",
+        "Read a recipe of the user: ingredients with foodId and raw grams (or recipeId and cooked grams for a recipe used as an ingredient), servings, fixed serving weight, cooked weight, notes and values per 100 g and per serving. Use it before update_recipe.",
       inputSchema: z.object({ recipeId: z.uuid() }),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -978,7 +992,11 @@ export function createClaudeConnectorServer(userId: string) {
           notes: changes.notes === undefined ? current.notes : changes.notes,
           ingredients:
             changes.ingredients ??
-            current.ingredients.map((ingredient) => ({ foodId: ingredient.foodId, grams: ingredient.grams })),
+            current.ingredients.map((ingredient) => ({
+              foodId: ingredient.foodId,
+              recipeId: ingredient.subRecipeId,
+              grams: ingredient.grams,
+            })),
         };
         await editRecipe(userId, recipeId, input);
         return textResult({
