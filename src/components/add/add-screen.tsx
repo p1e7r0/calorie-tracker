@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableItem, LoggableRecipe } from "@/server/loggable";
 import { LogItemDrawer } from "./log-item-drawer";
 import { useLogEntry } from "./use-log-entry";
-import { BarcodeScanner } from "@/components/food/barcode-scanner";
+import { useBarcodeScanner } from "@/components/food/barcode-scanner";
 import { OpenFoodFactsResults } from "./open-food-facts-results";
 import { DescribeMealDrawer } from "./describe-meal-drawer";
 import { QuickKcalDrawer } from "./quick-kcal-drawer";
@@ -105,8 +105,8 @@ function AddScreenContent({
   const trimmedQuery = query.trim();
   const addHref = `/add?date=${day}&meal=${meal}`;
   const createHref = `/food/new?name=${encodeURIComponent(trimmedQuery)}&next=${encodeURIComponent(addHref)}`;
-  const [scannerOpen, setScannerOpen] = useState(false);
   const [isLookingUp, startLookup] = useTransition();
+  const scanner = useBarcodeScanner({ isLookingUp, onDetected: handleBarcode });
 
   function handleBarcode(barcode: string) {
     startLookup(async () => {
@@ -115,7 +115,7 @@ function AddScreenContent({
         toast.error(result.error);
         return;
       }
-      setScannerOpen(false);
+      scanner.close();
       if (result.data.item) {
         setSelectedItem(result.data.item);
       } else {
@@ -350,7 +350,7 @@ function AddScreenContent({
                 size="icon-sm"
                 className="touch-target"
                 aria-label="Scansiona codice a barre"
-                onClick={() => setScannerOpen(true)}
+                onClick={scanner.open}
               >
                 <ScanBarcodeIcon />
               </InputGroupButton>
@@ -400,9 +400,7 @@ function AddScreenContent({
           }}
         />
       ) : null}
-      {scannerOpen ? (
-        <BarcodeScanner isLookingUp={isLookingUp} onDetected={handleBarcode} onClose={() => setScannerOpen(false)} />
-      ) : null}
+      {scanner.element}
       {describeMealOpen ? (
         <DescribeMealDrawer
           day={day}

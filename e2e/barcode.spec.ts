@@ -1,15 +1,14 @@
 import { expect, type Page, test } from "@playwright/test";
-import { registerUser } from "./helpers";
+import {
+  ean13WithCheckDigit,
+  photographBarcode,
+  registerUser,
+  scanBarcodePhoto,
+  typeBarcodeAfterUnreadablePhoto,
+} from "./helpers";
 
 function uniqueBarcode() {
   return `20${Date.now()}`.slice(0, 13);
-}
-
-async function typeBarcodeInScanner(page: Page, barcode: string) {
-  await page.getByRole("button", { name: "Scansiona codice a barre" }).click();
-  const scanner = page.getByRole("dialog");
-  await scanner.getByRole("textbox", { name: "Codice a barre" }).fill(barcode);
-  await scanner.getByRole("button", { name: "Cerca", exact: true }).click();
 }
 
 async function createFoodWithBarcode(page: Page, name: string, barcode: string) {
@@ -22,16 +21,29 @@ async function createFoodWithBarcode(page: Page, name: string, barcode: string) 
   await expect(page.getByRole("heading", { name })).toBeVisible();
 }
 
-test("opens a food of the catalog by scanning its barcode", async ({ page }) => {
+test("opens a food of the catalog by photographing its barcode", async ({ page }) => {
   test.setTimeout(90_000);
   await registerUser(page);
   const name = `Cracker integrali ${Date.now()}`;
+  const barcode = ean13WithCheckDigit(`20${Date.now()}`.slice(0, 12));
+  await createFoodWithBarcode(page, name, barcode);
+
+  await page.goto("/food");
+  await page.waitForLoadState("networkidle");
+  await scanBarcodePhoto(page, await photographBarcode(page, barcode));
+  await expect(page.getByRole("heading", { name })).toBeVisible({ timeout: 20_000 });
+});
+
+test("opens a food of the catalog by typing its barcode when the photo has none", async ({ page }) => {
+  test.setTimeout(90_000);
+  await registerUser(page);
+  const name = `Crackers di riso ${Date.now()}`;
   const barcode = uniqueBarcode();
   await createFoodWithBarcode(page, name, barcode);
 
   await page.goto("/food");
   await page.waitForLoadState("networkidle");
-  await typeBarcodeInScanner(page, barcode);
+  await typeBarcodeAfterUnreadablePhoto(page, barcode);
   await expect(page.getByRole("heading", { name })).toBeVisible();
 });
 
@@ -44,7 +56,7 @@ test("scanning a barcode already in the catalog from the new food form opens tha
 
   await page.goto("/food/new");
   await page.waitForLoadState("networkidle");
-  await typeBarcodeInScanner(page, barcode);
+  await typeBarcodeAfterUnreadablePhoto(page, barcode);
   await expect(page.locator("[data-sonner-toast]").filter({ hasText: `«${name}» è già nel catalogo.` })).toBeVisible();
   await expect(page.getByRole("heading", { name })).toBeVisible();
 });

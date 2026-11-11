@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import type { LoggableFood, LoggableRecipe } from "@/server/loggable";
 import type { StoredMealView } from "@/server/stored-meals";
 import { StoredMealSummary } from "@/components/stored-meals/stored-meal-summary";
-import { BarcodeScanner } from "./barcode-scanner";
+import { useBarcodeScanner } from "./barcode-scanner";
 import { useFoodSearch } from "./use-food-search";
 
 export type SavedMealSummary = { id: string; name: string; itemCount: number; kcal: number };
@@ -53,8 +53,8 @@ export function FoodBrowser({
   const router = useRouter();
   const [query, setQuery] = useState("");
   const search = useFoodSearch(query);
-  const [scannerOpen, setScannerOpen] = useState(false);
   const [isLookingUp, startLookup] = useTransition();
+  const scanner = useBarcodeScanner({ isLookingUp, onDetected: handleBarcode });
   const foodFilters = [
     { value: "used", label: "Più usati", items: mostUsedFoods, empty: "Qui compaiono gli alimenti che registri più spesso." },
     { value: "favorites", label: "Preferiti", items: favoriteFoods, empty: "Tocca la stella su un alimento per vederlo qui." },
@@ -72,7 +72,7 @@ export function FoodBrowser({
         toast.error(result.error);
         return;
       }
-      setScannerOpen(false);
+      scanner.close();
       if (result.data.item) {
         router.push(`/food/${result.data.item.id}`);
       } else {
@@ -203,11 +203,9 @@ export function FoodBrowser({
         </Tabs>
       )}
       <ScreenFooter coversSafeArea={false}>
-        <CatalogSearchField query={query} onQueryChange={setQuery} onScanBarcode={() => setScannerOpen(true)} />
+        <CatalogSearchField query={query} onQueryChange={setQuery} onScanBarcode={scanner.open} />
       </ScreenFooter>
-      {scannerOpen ? (
-        <BarcodeScanner isLookingUp={isLookingUp} onDetected={handleBarcode} onClose={() => setScannerOpen(false)} />
-      ) : null}
+      {scanner.element}
     </>
   );
 }
