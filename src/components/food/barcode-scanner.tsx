@@ -1,14 +1,14 @@
 "use client";
 
-import { XIcon } from "lucide-react";
+import { CameraIcon, XIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Spinner } from "@/components/ui/spinner";
 import { normalizeBarcode } from "@/lib/open-food-facts";
 
-type Detector = { detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]> };
+type Detector = { detect: (source: ImageBitmapSource) => Promise<{ rawValue: string }[]> };
 
 const formats = ["ean_13", "ean_8", "upc_a", "upc_e"];
 
@@ -20,107 +20,126 @@ async function createDetector(): Promise<Detector> {
   return new BarcodeDetector({ formats: formats as never }) as unknown as Detector;
 }
 
-export function BarcodeScanner({
+async function detectBarcodeInPhoto(file: File) {
+  const [detector, bitmap] = await Promise.all([createDetector(), createImageBitmap(file)]);
+  try {
+    const results = await detector.detect(bitmap);
+    for (const result of results) {
+      const barcode = normalizeBarcode(result.rawValue);
+      if (barcode) return barcode;
+    }
+    return null;
+  } finally {
+    bitmap.close();
+  }
+}
+
+const photoToastId = "barcode-photo";
+
+export function useBarcodeScanner({
   isLookingUp,
   onDetected,
-  onClose,
 }: {
   isLookingUp: boolean;
   onDetected: (barcode: string) => void;
+}) {
+  const photoInputReference = useRef<HTMLInputElement>(null);
+  const [isFallbackOpen, setIsFallbackOpen] = useState(false);
+  const [isDecoding, setIsDecoding] = useState(false);
+
+  useEffect(() => {
+    if (!isDecoding && !isLookingUp) toast.dismiss(photoToastId);
+  }, [isDecoding, isLookingUp]);
+
+  function open() {
+    photoInputReference.current?.click();
+  }
+
+  function close() {
+    setIsFallbackOpen(false);
+  }
+
+  async function readPhoto(file: File) {
+    setIsDecoding(true);
+    toast.loading("Leggo il codice a barre…", { id: photoToastId });
+    let barcode: string | null = null;
+    try {
+      barcode = await detectBarcodeInPhoto(file);
+    } catch (error) {
+      console.error(error);
+    }
+    setIsDecoding(false);
+    if (barcode) {
+      setIsFallbackOpen(false);
+      onDetected(barcode);
+    } else {
+      setIsFallbackOpen(true);
+    }
+  }
+
+  const element = (
+    <>
+      <input
+        ref={photoInputReference}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        hidden
+        aria-label="Foto del codice a barre"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) readPhoto(file);
+        }}
+      />
+      {isFallbackOpen ? (
+        <BarcodeFallbackDialog
+          isBusy={isDecoding || isLookingUp}
+          onDetected={onDetected}
+          onRetakePhoto={open}
+          onClose={close}
+        />
+      ) : null}
+    </>
+  );
+
+  return { open, close, element };
+}
+
+function BarcodeFallbackDialog({
+  isBusy,
+  onDetected,
+  onRetakePhoto,
+  onClose,
+}: {
+  isBusy: boolean;
+  onDetected: (barcode: string) => void;
+  onRetakePhoto: () => void;
   onClose: () => void;
 }) {
-  const videoReference = useRef<HTMLVideoElement>(null);
-  const onDetectedReference = useRef(onDetected);
-  const [cameraError, setCameraError] = useState<string | null>(null);
   const [manualCode, setManualCode] = useState("");
-
-  useEffect(() => {
-    onDetectedReference.current = onDetected;
-  }, [onDetected]);
-
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-
-    async function start() {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraError("Questo browser non può usare la fotocamera. Scrivi il codice qui sotto.");
-        return;
-      }
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } },
-          audio: false,
-        });
-      } catch {
-        setCameraError("Non ho accesso alla fotocamera. Consenti l'accesso o scrivi il codice qui sotto.");
-        return;
-      }
-      if (cancelled || !videoReference.current) return;
-      videoReference.current.srcObject = stream;
-      await videoReference.current.play().catch(() => undefined);
-      const detector = await createDetector();
-
-      async function scan() {
-        if (cancelled || !videoReference.current) return;
-        try {
-          if (videoReference.current.readyState >= 2) {
-            const [result] = await detector.detect(videoReference.current);
-            const barcode = result ? normalizeBarcode(result.rawValue) : null;
-            if (barcode) {
-              navigator.vibrate?.(40);
-              onDetectedReference.current(barcode);
-              return;
-            }
-          }
-        } catch (error) {
-          console.error(error);
-        }
-        timer = setTimeout(scan, 250);
-      }
-      scan();
-    }
-
-    start();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-      stream?.getTracks().forEach((track) => track.stop());
-    };
-  }, []);
-
   const manualBarcode = normalizeBarcode(manualCode);
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent showCloseButton={false} className="flex h-(--viewport-height,100dvh) max-w-none flex-col gap-0 rounded-none p-0 sm:max-w-md">
-        <div className="flex items-center justify-between p-3">
-          <div>
-            <DialogTitle>Scansiona il codice a barre</DialogTitle>
-            <DialogDescription>Inquadra il codice sulla confezione.</DialogDescription>
+      <DialogContent showCloseButton={false} className="flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <DialogTitle>Codice a barre non trovato</DialogTitle>
+            <DialogDescription>
+              Riprova con il codice al centro, ben illuminato e a fuoco, oppure scrivilo qui sotto.
+            </DialogDescription>
           </div>
           <Button variant="ghost" size="icon" aria-label="Chiudi" onClick={onClose}>
             <XIcon />
           </Button>
         </div>
-        <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-black">
-          {cameraError ? (
-            <p className="max-w-xs px-6 text-center text-sm text-white/80">{cameraError}</p>
-          ) : (
-            <>
-              <video ref={videoReference} muted playsInline className="h-full w-full object-cover" />
-              <div className="pointer-events-none absolute inset-x-10 top-1/2 h-32 -translate-y-1/2 rounded-2xl border-2 border-energy/90 shadow-[0_0_0_100vmax_rgb(0_0_0/0.35)]" />
-            </>
-          )}
-          {isLookingUp ? (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-white">
-              <Spinner className="size-6" />
-            </div>
-          ) : null}
-        </div>
+        <Button variant="outline" size="lg" disabled={isBusy} onClick={onRetakePhoto}>
+          <CameraIcon />
+          Scatta di nuovo
+        </Button>
         <form
-          className="flex gap-2 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+          className="flex gap-2"
           onSubmit={(event) => {
             event.preventDefault();
             if (manualBarcode) onDetected(manualBarcode);
@@ -128,12 +147,12 @@ export function BarcodeScanner({
         >
           <Input
             inputMode="numeric"
-            placeholder="Oppure scrivi il codice"
+            placeholder="Scrivi il codice"
             aria-label="Codice a barre"
             value={manualCode}
             onChange={(event) => setManualCode(event.target.value)}
           />
-          <Button type="submit" disabled={!manualBarcode || isLookingUp}>
+          <Button type="submit" disabled={!manualBarcode || isBusy}>
             Cerca
           </Button>
         </form>
