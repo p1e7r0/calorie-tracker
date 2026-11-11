@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "*.local"],
   partialPrefetching: true,
   experimental: {
-    serverActions: { bodySizeLimit: "3mb" },
+    serverActions: { bodySizeLimit: "4mb" },
   },
   turbopack: {
     rules: {
