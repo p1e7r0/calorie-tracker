@@ -69,4 +69,14 @@ test("records body measurements and shows the trend", async ({ page }) => {
   await metrics.getByRole("button", { name: "Grasso", exact: true }).click();
   await expect(metrics.getByRole("button", { name: "Grasso", exact: true })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText("25,4%", { exact: true })).toBeVisible();
+  await expect(page.getByText("−0,6 % in 3 settimane, dal 20 set")).toBeVisible();
+
+  const units = page.getByRole("group", { name: "Unità" });
+  await units.getByRole("button", { name: "Chili" }).click();
+  await expect(page.getByText("20,6kg", { exact: true })).toBeVisible();
+  await expect(page.getByText("−0,8 kg in 3 settimane, dal 20 set")).toBeVisible();
+
+  await metrics.getByRole("button", { name: "Peso", exact: true }).click();
+  await expect(units).toBeHidden();
+  await expect(page.getByText("81,1kg", { exact: true })).toBeVisible();
 });
