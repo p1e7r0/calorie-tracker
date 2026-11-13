@@ -17,7 +17,7 @@ import { kcalFromMacros } from "@/lib/nutrition/nutrients";
 import { normalizeBarcode } from "@/lib/open-food-facts";
 import { cn } from "@/lib/utils";
 import type { NutritionLabel } from "@/lib/ai-schemas";
-import { BarcodeScanner } from "./barcode-scanner";
+import { useBarcodeScanner } from "./barcode-scanner";
 import { type FoodFormValues, type NutrientField, toFormNumber } from "./food-form-values";
 import { LabelPhotoButton } from "./label-photo-button";
 
@@ -64,8 +64,8 @@ function FoodFormContent({
   );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [scannerOpen, setScannerOpen] = useState(false);
   const [isLookingUp, startLookup] = useTransition();
+  const scanner = useBarcodeScanner({ isLookingUp, onDetected: handleBarcode });
 
   function goToFood(id: string) {
     if (redirectTo) {
@@ -79,13 +79,13 @@ function FoodFormContent({
   function handleBarcode(barcode: string) {
     if (foodId) {
       update("barcode", barcode);
-      setScannerOpen(false);
+      scanner.close();
       return;
     }
     startLookup(async () => {
       const result = await lookupBarcode(barcode);
       update("barcode", barcode);
-      setScannerOpen(false);
+      scanner.close();
       if (!result.ok) {
         toast.error(result.error);
       } else if (result.data.item) {
@@ -245,7 +245,7 @@ function FoodFormContent({
                   placeholder="Facoltativo"
                 />
                 <InputGroupAddon align="inline-end">
-                  <InputGroupButton size="icon-sm" aria-label="Scansiona codice a barre" onClick={() => setScannerOpen(true)}>
+                  <InputGroupButton size="icon-sm" aria-label="Scansiona codice a barre" onClick={scanner.open}>
                     <ScanBarcodeIcon />
                   </InputGroupButton>
                 </InputGroupAddon>
@@ -366,9 +366,7 @@ function FoodFormContent({
           {submitLabel}
         </Button>
       </ScreenFooter>
-      {scannerOpen ? (
-        <BarcodeScanner isLookingUp={isLookingUp} onDetected={handleBarcode} onClose={() => setScannerOpen(false)} />
-      ) : null}
+      {scanner.element}
     </>
   );
 }

@@ -6,9 +6,9 @@ import { describeMeal, readNutritionLabel } from "@/server/ai";
 import { searchFoods } from "@/server/foods";
 import type { LoggableFood } from "@/server/loggable";
 import type { NutritionLabel } from "@/lib/ai-schemas";
+import { labelPhotosProblem } from "@/lib/label-photos";
 import type { ActionResult } from "./diary";
 
-const maximumImageBytes = 4 * 1024 * 1024;
 const imageTypes = ["image/jpeg", "image/png", "image/webp"] as const;
 
 function failure(error: unknown): { ok: false; error: string } {
@@ -18,16 +18,24 @@ function failure(error: unknown): { ok: false; error: string } {
   return { ok: false, error: "Il servizio AI non risponde. Riprova tra poco." };
 }
 
-export async function readLabelFromPhoto(formData: FormData): Promise<ActionResult<NutritionLabel>> {
+export async function readLabelFromPhotos(formData: FormData): Promise<ActionResult<NutritionLabel>> {
   try {
     const userId = await requireUserId();
-    const photo = formData.get("photo");
-    if (!(photo instanceof File) || photo.size === 0) throw new Error("Scegli una foto dell'etichetta.");
-    if (photo.size > maximumImageBytes) throw new Error("La foto è troppo grande.");
-    const mediaType = imageTypes.find((type) => type === photo.type);
-    if (!mediaType) throw new Error("Usa una foto in formato JPEG, PNG o WebP.");
-    const data = Buffer.from(await photo.arrayBuffer()).toString("base64");
-    const label = await readNutritionLabel(userId, { data, mediaType });
+    const entries = formData.getAll("photo");
+    const photos = entries.filter((entry): entry is File => entry instanceof File);
+    const problem =
+      photos.length === entries.length
+        ? labelPhotosProblem(photos.map((photo) => photo.size))
+        : "Scegli una foto dell'etichetta.";
+    if (problem) throw new Error(problem);
+    const images = await Promise.all(
+      photos.map(async (photo) => {
+        const mediaType = imageTypes.find((type) => type === photo.type);
+        if (!mediaType) throw new Error("Usa foto in formato JPEG, PNG o WebP.");
+        return { data: Buffer.from(await photo.arrayBuffer()).toString("base64"), mediaType };
+      }),
+    );
+    const label = await readNutritionLabel(userId, images);
     if (!label.readable || label.per100.kcal === null) {
       throw new Error("Non vedo una tabella nutrizionale leggibile. Riprova con più luce e più vicino.");
     }

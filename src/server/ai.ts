@@ -45,18 +45,19 @@ async function recordRequest(userId: string, kind: (typeof aiRequest.$inferInser
   await database.insert(aiRequest).values({ userId, kind });
 }
 
-const labelInstructions = `Leggi la tabella nutrizionale nella foto di un'etichetta alimentare.
+const labelInstructions = `Leggi i dati di un alimento confezionato dalle foto della sua confezione.
+Le foto mostrano tutte lo stesso prodotto: la tabella nutrizionale e, a volte, il fronte con nome e marca o altri lati della confezione.
 Riporta i valori per 100 g (o 100 ml per i liquidi). Se l'etichetta indica solo i valori per porzione, convertili in valori per 100 usando il peso della porzione.
 Le kcal sono in kcal, non in kJ: se c'è solo il valore in kJ, dividi per 4,184.
 Il sale è in grammi; se c'è solo il sodio, moltiplicalo per 2,5.
 Usa null per i valori che non si leggono. Non inventare numeri.
-Nome e marca: copiali dalla confezione se si vedono, altrimenti null.
+Nome e marca: copiali dalla confezione (di solito dal fronte) se si vedono in una delle foto, altrimenti null.
 Porzione: se l'etichetta indica una porzione (es. «1 vasetto = 125 g»), riportala con un'etichetta breve in italiano; altrimenti null.
-readable è false se la foto non mostra una tabella nutrizionale leggibile.`;
+readable è false se nessuna foto mostra una tabella nutrizionale leggibile.`;
 
 export async function readNutritionLabel(
   userId: string,
-  image: { data: string; mediaType: "image/jpeg" | "image/png" | "image/webp" },
+  images: readonly { data: string; mediaType: "image/jpeg" | "image/png" | "image/webp" }[],
 ): Promise<NutritionLabel> {
   await recordRequest(userId, "nutrition_label");
   const message = await anthropic().messages.parse({
@@ -66,7 +67,10 @@ export async function readNutritionLabel(
       {
         role: "user",
         content: [
-          { type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } },
+          ...images.map((image) => ({
+            type: "image" as const,
+            source: { type: "base64" as const, media_type: image.mediaType, data: image.data },
+          })),
           { type: "text", text: labelInstructions },
         ],
       },

@@ -1,15 +1,14 @@
 import { expect, test } from "@playwright/test";
-import { registerUser } from "./helpers";
+import { registerUser, typeBarcodeAfterUnreadablePhoto } from "./helpers";
 
 test.describe("Open Food Facts", () => {
   test.slow();
 
-  test("imports a product by barcode typed in the scanner", async ({ page }) => {
+  test("imports a product by barcode typed after an unreadable photo", async ({ page }) => {
     await registerUser(page);
     await page.goto("/add?meal=snack");
-    await page.getByRole("button", { name: "Scansiona codice a barre" }).click();
-    await page.getByRole("textbox", { name: "Codice a barre" }).fill("8000500310427");
-    await page.getByRole("button", { name: "Cerca", exact: true }).click();
+    await page.waitForLoadState("networkidle");
+    await typeBarcodeAfterUnreadablePhoto(page, "8000500310427");
 
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByText("515 kcal per 100 g")).toBeVisible({ timeout: 20_000 });
@@ -21,9 +20,7 @@ test.describe("Open Food Facts", () => {
     await page.goto("/food");
     await page.waitForLoadState("networkidle");
     const barcode = `200${Date.now()}`.slice(0, 13);
-    await page.getByRole("button", { name: "Scansiona codice a barre" }).click();
-    await page.getByRole("textbox", { name: "Codice a barre" }).fill(barcode);
-    await page.getByRole("button", { name: "Cerca", exact: true }).click();
+    await typeBarcodeAfterUnreadablePhoto(page, barcode);
 
     await expect(page).toHaveURL(/\/food\/new\?barcode=/, { timeout: 20_000 });
     await expect(page.getByLabel("Codice a barre", { exact: true })).toHaveValue(barcode);
