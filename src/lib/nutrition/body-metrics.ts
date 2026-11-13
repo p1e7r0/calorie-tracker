@@ -11,3 +11,16 @@ export const bodyMetrics = [
 
 export type BodyMetric = (typeof bodyMetrics)[number];
 export type BodyMetricKey = BodyMetric["key"];
+
+export const bodyMassUnits = ["percent", "kg"] as const;
+export type BodyMassUnit = (typeof bodyMassUnits)[number];
+
+const massShareMetricKeys: readonly BodyMetricKey[] = ["bodyFatPercent", "musclePercent"];
+
+export function isMassShareMetric(key: BodyMetricKey) {
+  return massShareMetricKeys.includes(key);
+}
+
+export function massFromPercent(weightKg: number, percent: number) {
+  return Math.round(weightKg * percent) / 100;
+}

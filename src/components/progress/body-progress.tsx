@@ -4,9 +4,15 @@ import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { type BodyMetricKey, bodyMetrics } from "@/lib/nutrition/body-metrics";
+import {
+  type BodyMassUnit,
+  type BodyMetricKey,
+  bodyMetrics,
+  isMassShareMetric,
+  massFromPercent,
+} from "@/lib/nutrition/body-metrics";
 import { addDays, daysBetween, formatElapsed, formatShortDay } from "@/lib/nutrition/days";
-import { formatDecimal } from "@/lib/nutrition/format";
+import { formatDecimal, formatSignedDecimal } from "@/lib/nutrition/format";
 import type { GoalType } from "@/lib/nutrition/goals";
 import { describeTargetWeightProjection, projectTargetWeight } from "@/lib/nutrition/target-weight";
 import { changeOverDays, lastValuePerDay, movingAverage } from "@/lib/nutrition/trends";
@@ -34,6 +40,7 @@ export function BodyProgress({
   targetWeight: TargetWeightSettings | null;
 }) {
   const [metricKey, setMetricKey] = useState<BodyMetricKey>("weightKg");
+  const [massUnit, setMassUnit] = useState<BodyMassUnit>("percent");
   const [rangeValue, setRangeValue] = useState<(typeof ranges)[number]["value"]>("90");
   const [editing, setEditing] = useState<MeasurementView | "new" | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
@@ -41,6 +48,9 @@ export function BodyProgress({
   const visibleHistory = showAllHistory ? history : history.slice(0, 10);
   const metric = bodyMetrics.find((candidate) => candidate.key === metricKey)!;
   const range = ranges.find((candidate) => candidate.value === rangeValue)!;
+  const canShowMass = isMassShareMetric(metricKey);
+  const showsMass = canShowMass && massUnit === "kg";
+  const unit = showsMass ? "kg" : metric.unit;
 
   const availableMetrics = bodyMetrics.filter((candidate) =>
     measurements.some((measurement) => measurement[candidate.key] !== null),
@@ -48,7 +58,13 @@ export function BodyProgress({
   const series = lastValuePerDay(
     measurements
       .filter((measurement) => measurement[metricKey] !== null)
-      .map((measurement) => ({ day: measurement.measuredOn, value: measurement[metricKey] as number })),
+      .map((measurement) => {
+        const value = measurement[metricKey] as number;
+        return {
+          day: measurement.measuredOn,
+          value: showsMass ? massFromPercent(measurement.weightKg, value) : value,
+        };
+      }),
   );
   const averages = movingAverage(series);
   const fromDay = range.days ? addDays(today, -(range.days - 1)) : "0000-01-01";
@@ -62,7 +78,7 @@ export function BodyProgress({
     .filter((point) => point.day >= fromDay);
   const latest = series.at(-1);
   const change = changeOverDays(series, 30);
-  const unitSuffix = metric.unit ? ` ${metric.unit}` : "";
+  const unitSuffix = unit ? ` ${unit}` : "";
   const showsTargetWeight = metricKey === "weightKg" && targetWeight !== null && targetWeight.goal !== "maintain";
   const targetProjection = showsTargetWeight
     ? projectTargetWeight({
@@ -98,20 +114,42 @@ export function BodyProgress({
           <p className="text-sm text-muted-foreground">{metric.label}</p>
           <p className="font-heading text-4xl font-semibold tracking-tight">
             {latest ? formatDecimal(latest.value) : "–"}
-            <span className="ml-1 text-base font-medium text-muted-foreground">{metric.unit}</span>
+            <span className="ml-1 text-base font-medium text-muted-foreground">{unit}</span>
           </p>
           <p className="text-sm text-muted-foreground">
             {change
-              ? `${change.change > 0 ? "+" : change.change < 0 ? "−" : ""}${formatDecimal(Math.abs(change.change))}${unitSuffix} ${formatElapsed(daysBetween(change.fromDay, latest!.day))}, dal ${formatShortDay(change.fromDay)}`
+              ? `${formatSignedDecimal(change.change)}${unitSuffix} ${formatElapsed(daysBetween(change.fromDay, latest!.day))}, dal ${formatShortDay(change.fromDay)}`
               : latest
                 ? `Ultima misurazione ${formatShortDay(latest.day)}`
                 : "Nessuna misurazione"}
           </p>
         </div>
-        <Button onClick={() => setEditing("new")}>
-          <PlusIcon />
-          Misura
-        </Button>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          {canShowMass ? (
+            <ToggleGroup
+              variant="outline"
+              spacing={0}
+              size="sm"
+              value={[massUnit]}
+              onValueChange={(selected) => {
+                const [value] = selected;
+                if (value) setMassUnit(value as BodyMassUnit);
+              }}
+              aria-label="Unità"
+            >
+              <ToggleGroupItem value="percent" aria-label="Percentuale" className="min-w-11">
+                %
+              </ToggleGroupItem>
+              <ToggleGroupItem value="kg" aria-label="Chili" className="min-w-11">
+                kg
+              </ToggleGroupItem>
+            </ToggleGroup>
+          ) : null}
+          <Button onClick={() => setEditing("new")}>
+            <PlusIcon />
+            Misura
+          </Button>
+        </div>
       </div>
 
       {targetProjection ? (
@@ -124,7 +162,7 @@ export function BodyProgress({
         <>
           <BodyMetricChart
             points={points}
-            unit={metric.unit}
+            unit={unit}
             reference={showsTargetWeight ? { value: targetWeight.targetKg, label: "Obiettivo" } : null}
           />
           <ToggleGroup
