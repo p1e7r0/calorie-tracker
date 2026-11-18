@@ -9,14 +9,14 @@ import { MealSection } from "@/components/diary/meal-section";
 import { RechargeCard } from "@/components/diary/recharge-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCurrentUser } from "@/lib/auth/session";
-import { dayTargetKcal, rechargeDayKcal, rechargeState } from "@/lib/coach/recharge";
+import { dayTargetKcal, rechargeState } from "@/lib/coach/recharge";
 import { addDays, daysBetween, formatDayInSentence, isIsoDate, todayIsoDate } from "@/lib/nutrition/days";
 import { weeklyBudget } from "@/lib/nutrition/weekly-budget";
 import { weekStart } from "@/lib/nutrition/weeks";
 import { getWeeklyCheckIn } from "@/server/adaptive-goal";
 import { getDailyTargets, getDiaryDay, listLoggedDays } from "@/server/diary";
 import { listIncompleteDays } from "@/server/incomplete-days";
-import { listRechargeDays } from "@/server/recharge-days";
+import { getRechargeState, listRechargeEvents } from "@/server/recharge-days";
 import { getDailyTotals } from "@/server/statistics";
 
 export default function TodayPage({ searchParams }: PageProps<"/">) {
@@ -32,31 +32,27 @@ async function Today({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
   const { date } = await searchParams;
   const today = todayIsoDate();
   const day = isIsoDate(date) ? date : today;
-  const [diary, baseTargets, loggedDays, weekTotals, weekIncompleteDays, weekRechargeDays, checkIn] = await Promise.all(
-    [
+  const [diary, baseTargets, loggedDays, weekTotals, weekIncompleteDays, todayRecharge, dayRechargeEvents, checkIn] =
+    await Promise.all([
       getDiaryDay(user.id, day),
       getDailyTargets(user.id),
       listLoggedDays(user.id, addDays(today, -400), today),
       getDailyTotals(user.id, day, daysBetween(weekStart(day), day) + 1),
       listIncompleteDays(user.id, weekStart(day), day),
-      listRechargeDays(user.id, weekStart(day), addDays(weekStart(day), 6)),
+      day === today ? getRechargeState(user.id, today) : null,
+      day === today ? [] : listRechargeEvents(user.id, day, day),
       day === today ? getWeeklyCheckIn(user.id, today) : null,
-    ],
-  );
+    ]);
   const isIncomplete = weekIncompleteDays.includes(day);
   const weekly = baseTargets
     ? weeklyBudget({ day, targetKcal: baseTargets.kcal, dailyKcal: weekTotals, incompleteDays: weekIncompleteDays })
     : null;
   const recharge =
-    baseTargets && baseTargets.kcal < rechargeDayKcal
-      ? rechargeState({
-          day,
-          targetKcal: baseTargets.kcal,
-          dailyKcal: weekTotals,
-          incompleteDays: weekIncompleteDays,
-          rechargeDays: weekRechargeDays,
-        })
-      : null;
+    day === today
+      ? todayRecharge
+      : baseTargets && dayRechargeEvents.some((event) => event.outcome === "used")
+        ? rechargeState({ day, targetKcal: baseTargets.kcal, dailyKcal: [], events: dayRechargeEvents })
+        : null;
   const targets =
     baseTargets && recharge ? { ...baseTargets, kcal: dayTargetKcal(recharge, baseTargets.kcal) } : baseTargets;
   const rechargeCard =

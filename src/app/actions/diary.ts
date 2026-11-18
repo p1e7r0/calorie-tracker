@@ -19,7 +19,7 @@ import {
   removeDiaryEntries,
 } from "@/server/diary-entries";
 import { setIncompleteDay } from "@/server/incomplete-days";
-import { setRechargeDay } from "@/server/recharge-days";
+import { changeRecharge } from "@/server/recharge-days";
 
 export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -198,17 +198,17 @@ export async function markIncompleteDay(
   }
 }
 
-const rechargeDaySchema = z.object({ active: z.boolean() });
+const rechargeSchema = z.object({ action: z.enum(["use", "decline", "clear", "postpone", "resume"]) });
 
-export async function markRechargeDay(
-  input: z.input<typeof rechargeDaySchema>,
-): Promise<ActionResult<{ active: boolean }>> {
+export async function updateRecharge(
+  input: z.input<typeof rechargeSchema>,
+): Promise<ActionResult<{ action: z.infer<typeof rechargeSchema>["action"] }>> {
   try {
     const userId = await requireUserId();
-    const { active } = rechargeDaySchema.parse(input);
-    await setRechargeDay(userId, active);
+    const { action } = rechargeSchema.parse(input);
+    await changeRecharge(userId, action);
     refresh();
-    return { ok: true, data: { active } };
+    return { ok: true, data: { action } };
   } catch (error) {
     return failure(error);
   }

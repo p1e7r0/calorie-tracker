@@ -38,6 +38,7 @@ export const storageLocationEnum = pgEnum("storage_location", ["fridge", "freeze
 export const aiRequestKindEnum = pgEnum("ai_request_kind", ["nutrition_label", "meal_description", "shortcut_meal"]);
 export const coachMessageKindEnum = pgEnum("coach_message_kind", ["notification", "weigh_in", "weekly_report"]);
 export const coachLevelEnum = pgEnum("coach_level", ["normal", "fierce", "jackpot", "silence"]);
+export const rechargeOutcomeEnum = pgEnum("recharge_outcome", ["used", "declined"]);
 
 const timestamps = {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -66,6 +67,7 @@ export const profile = pgTable("profile", {
   reminderEvening: boolean().notNull().default(false),
   reminderWeighInWeekday: integer(),
   coachEnabled: boolean().notNull().default(false),
+  rechargePostponedOn: date({ mode: "string" }),
   lastCheckInWeek: date({ mode: "string" }),
   ...timestamps,
 });
@@ -362,6 +364,8 @@ export const rechargeDay = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     day: date({ mode: "string" }).notNull(),
+    outcome: rechargeOutcomeEnum().notNull().default("used"),
+    bonusKcal: integer().notNull().default(0),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [primaryKey({ columns: [table.userId, table.day] })],

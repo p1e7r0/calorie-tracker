@@ -4,70 +4,177 @@ import { dayTargetKcal, rechargeAllowanceKcal, rechargeState } from "./recharge"
 const targetKcal = 1700;
 
 describe("rechargeState", () => {
-  it("unlocks when the kcal saved this week cover a 2000 kcal day", () => {
+  it("unlocks as much as was saved, across weeks", () => {
     const state = rechargeState({
-      day: "2026-11-05",
+      day: "2026-11-24",
       targetKcal,
       dailyKcal: [
-        { day: "2026-11-02", kcal: 1500 },
-        { day: "2026-11-03", kcal: 1600 },
-        { day: "2026-11-04", kcal: 1700 },
-        { day: "2026-11-05", kcal: 2400 },
+        { day: "2026-11-20", kcal: 1500 },
+        { day: "2026-11-21", kcal: 1600 },
+        { day: "2026-11-22", kcal: 1700 },
+        { day: "2026-11-23", kcal: 1450 },
+        { day: "2026-11-24", kcal: 2400 },
       ],
-      rechargeDays: [],
+      events: [],
     });
-    expect(state).toEqual({ status: "unlocked", dayKcal: 2000, rechargeDay: null, bankedKcal: 300, missingKcal: 0 });
+    expect(state).toEqual({
+      status: "unlocked",
+      sinceDay: "2026-11-16",
+      bankedKcal: 550,
+      missingKcal: 0,
+      bonusKcal: 0,
+      dayKcal: 2250,
+    });
   });
 
-  it("stays locked and says how much is missing", () => {
+  it("stays locked below the minimum and says how much is missing", () => {
     const state = rechargeState({
-      day: "2026-11-04",
+      day: "2026-11-19",
       targetKcal,
       dailyKcal: [
-        { day: "2026-11-02", kcal: 1650 },
-        { day: "2026-11-03", kcal: 1700 },
+        { day: "2026-11-17", kcal: 1650 },
+        { day: "2026-11-18", kcal: 1700 },
       ],
-      rechargeDays: [],
+      events: [],
     });
-    expect(state).toMatchObject({ status: "locked", bankedKcal: 50, missingKcal: 250 });
+    expect(state).toMatchObject({
+      status: "locked",
+      bankedKcal: 50,
+      missingKcal: 250,
+    });
   });
 
-  it("is locked on Monday, with nothing saved yet", () => {
-    const state = rechargeState({ day: "2026-11-02", targetKcal, dailyKcal: [], rechargeDays: [] });
-    expect(state).toMatchObject({ status: "locked", bankedKcal: 0, missingKcal: 300 });
-  });
-
-  it("counts unlogged and incomplete past days as on target", () => {
+  it("subtracts the days over target", () => {
     const state = rechargeState({
-      day: "2026-11-05",
+      day: "2026-11-20",
       targetKcal,
-      dailyKcal: [{ day: "2026-11-03", kcal: 900 }],
-      incompleteDays: ["2026-11-03"],
-      rechargeDays: [],
+      dailyKcal: [
+        { day: "2026-11-17", kcal: 1300 },
+        { day: "2026-11-18", kcal: 2200 },
+      ],
+      events: [],
+    });
+    expect(state).toMatchObject({
+      status: "locked",
+      bankedKcal: -100,
+      missingKcal: 400,
+      dayKcal: 1700,
+    });
+  });
+
+  it("ignores unlogged, partial and incomplete days", () => {
+    const state = rechargeState({
+      day: "2026-11-20",
+      targetKcal,
+      dailyKcal: [
+        { day: "2026-11-17", kcal: 900 },
+        { day: "2026-11-18", kcal: 400 },
+      ],
+      incompleteDays: ["2026-11-17"],
+      events: [],
     });
     expect(state).toMatchObject({ status: "locked", bankedKcal: 0 });
   });
 
-  it("is active on the recharge day and used on the other days of the week", () => {
-    const input = { targetKcal, dailyKcal: [], rechargeDays: ["2026-11-04", "2026-10-28"] };
-    expect(rechargeState({ ...input, day: "2026-11-04" }).status).toBe("active");
-    expect(rechargeState({ ...input, day: "2026-11-06" }).status).toBe("used");
-    expect(rechargeState({ ...input, day: "2026-11-09" }).status).toBe("locked");
+  it("starts again after a recharge, counting what was left of it", () => {
+    const state = rechargeState({
+      day: "2026-11-26",
+      targetKcal,
+      dailyKcal: [
+        { day: "2026-11-18", kcal: 1000 },
+        { day: "2026-11-24", kcal: 2000 },
+        { day: "2026-11-25", kcal: 1600 },
+      ],
+      events: [{ day: "2026-11-24", outcome: "used", bonusKcal: 500 }],
+    });
+    expect(state).toMatchObject({
+      status: "unlocked",
+      sinceDay: "2026-11-24",
+      bankedKcal: 300,
+    });
   });
 
-  it("is always unlocked when the daily target is already above the recharge day", () => {
-    const state = rechargeState({ day: "2026-11-02", targetKcal: 2200, dailyKcal: [], rechargeDays: [] });
-    expect(state.status).toBe("unlocked");
+  it("starts from zero the day after a refusal", () => {
+    const state = rechargeState({
+      day: "2026-11-26",
+      targetKcal,
+      dailyKcal: [
+        { day: "2026-11-18", kcal: 1000 },
+        { day: "2026-11-24", kcal: 1500 },
+        { day: "2026-11-25", kcal: 1600 },
+      ],
+      events: [{ day: "2026-11-24", outcome: "declined", bonusKcal: 0 }],
+    });
+    expect(state).toMatchObject({ status: "unlocked", bankedKcal: 300 });
+  });
+
+  it("is active or declined on the day of the choice", () => {
+    const input = {
+      day: "2026-11-24",
+      targetKcal,
+      dailyKcal: [{ day: "2026-11-24", kcal: 1900 }],
+    };
+    expect(
+      rechargeState({
+        ...input,
+        events: [{ day: "2026-11-24", outcome: "used", bonusKcal: 450 }],
+      }),
+    ).toEqual({
+      status: "active",
+      sinceDay: "2026-11-24",
+      bankedKcal: 450,
+      missingKcal: 0,
+      bonusKcal: 450,
+      dayKcal: 2150,
+    });
+    expect(
+      rechargeState({
+        ...input,
+        events: [{ day: "2026-11-24", outcome: "declined", bonusKcal: 0 }],
+      }),
+    ).toMatchObject({ status: "declined", dayKcal: 1700 });
+  });
+
+  it("is postponed only on the day it was postponed", () => {
+    const input = {
+      targetKcal,
+      dailyKcal: [{ day: "2026-11-17", kcal: 1200 }],
+      events: [],
+      postponedOn: "2026-11-19",
+    };
+    expect(rechargeState({ ...input, day: "2026-11-19" }).status).toBe("postponed");
+    expect(rechargeState({ ...input, day: "2026-11-20" }).status).toBe("unlocked");
+  });
+
+  it("does not count the days before the start of the bank", () => {
+    const state = rechargeState({
+      day: "2026-11-17",
+      targetKcal,
+      dailyKcal: [{ day: "2026-11-10", kcal: 500 }],
+      events: [{ day: "2026-11-04", outcome: "used", bonusKcal: 300 }],
+    });
+    expect(state).toMatchObject({ sinceDay: "2026-11-16", bankedKcal: 0 });
   });
 });
 
 describe("recharge allowance", () => {
+  const base = {
+    sinceDay: "2026-11-16",
+    bankedKcal: 400,
+    missingKcal: 0,
+    bonusKcal: 0,
+    dayKcal: 2100,
+  };
+
   it("raises the day target only on an active recharge day", () => {
-    const base = { dayKcal: 2000, rechargeDay: null, bankedKcal: 0, missingKcal: 0 };
-    expect(dayTargetKcal({ ...base, status: "active" }, targetKcal)).toBe(2000);
+    expect(dayTargetKcal({ ...base, status: "active" }, targetKcal)).toBe(2100);
     expect(dayTargetKcal({ ...base, status: "unlocked" }, targetKcal)).toBe(1700);
-    expect(rechargeAllowanceKcal({ ...base, status: "unlocked" }, targetKcal)).toBe(2000);
+  });
+
+  it("allows the saved kcal while the recharge can still be used", () => {
+    expect(rechargeAllowanceKcal({ ...base, status: "unlocked" }, targetKcal)).toBe(2100);
+    expect(rechargeAllowanceKcal({ ...base, status: "postponed" }, targetKcal)).toBe(2100);
     expect(rechargeAllowanceKcal({ ...base, status: "locked" }, targetKcal)).toBe(1700);
-    expect(rechargeAllowanceKcal({ ...base, status: "used" }, targetKcal)).toBe(1700);
+    expect(rechargeAllowanceKcal({ ...base, status: "declined" }, targetKcal)).toBe(1700);
   });
 });

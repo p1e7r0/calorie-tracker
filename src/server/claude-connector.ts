@@ -47,7 +47,7 @@ import { archiveOwnFood, editFood, insertFood, markFoodFavorite } from "./food-w
 import { getFoodDetail, getLoggableFood, recentFoods, searchFoods, visibleFoodIdsByRequested } from "./foods";
 import { runCoachWeighIn } from "./coach";
 import { listIncompleteDays, setIncompleteDay } from "./incomplete-days";
-import { getRechargeState, setRechargeDay } from "./recharge-days";
+import { changeRecharge, getRechargeState } from "./recharge-days";
 import { listMeasurements, type MeasurementInput, removeMeasurement, writeMeasurement } from "./measurements";
 import {
   fetchOpenFoodFactsProduct,
@@ -531,13 +531,13 @@ export function createClaudeConnectorServer(userId: string) {
     {
       title: "Segna la ricarica",
       description:
-        "Mark today as the user's recharge day, or clear the mark. A recharge day raises today's kcal target to 2000 kcal (protein target unchanged); it unlocks when the kcal saved earlier in the week cover it without exceeding the weekly budget, and only one per week is allowed. get_progress returns its status. Returns the new status.",
-      inputSchema: z.object({ active: z.boolean() }),
-      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+        "Use, decline or clear today's recharge. The user saves kcal on every logged day below the target (days above it subtract, unlogged, incomplete or partial days do not count), with no weekly reset; at 300 kcal or more the recharge unlocks. action \"use\" raises today's kcal target by all the saved kcal (protein target unchanged) and starts saving again; \"decline\" throws the saved kcal away and starts again from zero; \"clear\" undoes today's choice. get_progress returns its status. Returns the new status.",
+      inputSchema: z.object({ action: z.enum(["use", "decline", "clear"]) }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
-    async ({ active }) => {
+    async ({ action }) => {
       try {
-        const { day, state } = await setRechargeDay(userId, active);
+        const { day, state } = await changeRecharge(userId, action);
         return textResult({ day, recharge: describeRecharge(state) });
       } catch (error) {
         return errorResult(error);
