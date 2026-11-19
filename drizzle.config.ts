@@ -1,7 +1,12 @@
 import { loadEnvConfig } from "@next/env";
 import { defineConfig } from "drizzle-kit";
+import { loadNeonMainUrls } from "./scripts/production-target";
 
-loadEnvConfig(process.cwd(), process.env.NODE_ENV !== "production");
+if (process.env.NODE_ENV === "production") {
+  Object.assign(process.env, loadNeonMainUrls());
+} else {
+  loadEnvConfig(process.cwd(), true);
+}
 
 export default defineConfig({
   schema: "./src/db/schema.ts",
