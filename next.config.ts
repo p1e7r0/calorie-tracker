@@ -1,4 +1,11 @@
+import { existsSync } from "node:fs";
 import type { NextConfig } from "next";
+
+if (existsSync(".env.production.local")) {
+  throw new Error(
+    "Rename .env.production.local to .env.neon-main: next build and next start load .env.production.local and would connect to the production database.",
+  );
+}
 
 const nextConfig: NextConfig = {
   /* config options here */
