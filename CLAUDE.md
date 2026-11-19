@@ -185,6 +185,8 @@ I flag sono costanti booleane calcolate all'avvio, non funzioni.
 - iOS Safari: `input[type=date]` ha `appearance: none` e `min-width: 0` per non uscire dalla colonna; il pulsante nativo di cancellazione di `type=search` è nascosto.
 - Recharts `ReferenceLine` richiede `ifOverflow="extendDomain"` per restare visibile.
 - `devIndicators: false` perché l'indicatore copriva i pulsanti.
+- `pnpm start` (`NODE_ENV=production`) carica `.env.production.local`, quindi si collega al database di **main**: per e2e o misure sulla build di produzione usare `node --env-file=.env.local ./node_modules/next/dist/bin/next start --port 3100` (le variabili già presenti nell'ambiente prevalgono) e `--workers=1`, perché in produzione better-auth limita le registrazioni ravvicinate.
+- Next 16.4.1 ha una vulnerabilità nota: in dev compare il badge «Security Insight» anche con `devIndicators: false`, copre i pulsanti di `ScreenFooter` e fa fallire gli e2e; quando lo lancia un agente, la prima `pnpm build` o `pnpm dev` si ferma con l'avviso e la seconda prosegue. La build su Vercel non è toccata.
 - Budget settimanale: i giorni passati senza voci e quelli segnati come incompleti contano come "in linea con l'obiettivo".
 - Stima adattiva: esclude l'introito di oggi ma include la pesata di oggi; ignora i giorni sotto 600 kcal (`partialDayKcal`) e quelli segnati come incompleti (tabella `incomplete_day`).
 - Cron su Vercel Hobby: una esecuzione al giorno, orari fissi in UTC.
