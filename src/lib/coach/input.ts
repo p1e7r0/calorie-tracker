@@ -3,7 +3,13 @@ import { type MealType, mealLabels } from "../nutrition/meals";
 import { type WeeklyBudget, weeklyBudget } from "../nutrition/weekly-budget";
 import { weekStart } from "../nutrition/weeks";
 import { type CoachEvent, type CoachLevel, coachLevelLabels } from "./level";
-import { rechargeAllowanceKcal, type RechargeState, type RechargeStatus } from "./recharge";
+import {
+  isRechargeAvailable,
+  type RechargeEvent,
+  rechargeAllowanceKcal,
+  type RechargeState,
+  type RechargeStatus,
+} from "./recharge";
 import type { ProteinStreak } from "./streak";
 import type { ArrivalReason, CoachWeight, WeightTrendDirection } from "./weight";
 
@@ -19,8 +25,9 @@ const kindLabels: Record<CoachMessageKind, string> = {
 const rechargeLabels: Record<RechargeStatus, string> = {
   locked: "bloccata",
   unlocked: "sbloccata",
+  postponed: "sbloccata, rimandata a domani",
   active: "attiva oggi",
-  used: "già usata questa settimana",
+  declined: "rifiutata oggi",
 };
 
 const trendLabels: Record<WeightTrendDirection, string> = { down: "in calo", stable: "stabile", up: "in salita" };
@@ -75,8 +82,8 @@ export function coachEvents({
   if (streak.milestone !== null && streak.startDay !== null) {
     once.push({ kind: "streak_milestone", key: `streak-milestone:${streak.startDay}:${streak.milestone}` });
   }
-  if (recharge.status === "unlocked")
-    once.push({ kind: "recharge_unlocked", key: `recharge-unlocked:${weekStart(today)}` });
+  if (isRechargeAvailable(recharge))
+    once.push({ kind: "recharge_unlocked", key: `recharge-unlocked:${recharge.sinceDay}` });
   return [...events, ...once.filter((event) => !deliveredKeys.has(event.key))];
 }
 
@@ -85,8 +92,8 @@ export type WeeklyReportStats = {
   averageKcal: number | null;
   averageProteinG: number | null;
   proteinTargetDays: number;
-  rechargeDay: string | null;
-  rechargeDeserved: boolean | null;
+  rechargeDays: string[];
+  rechargeBonusKcal: number;
   budget: WeeklyBudget;
 };
 
@@ -96,20 +103,22 @@ export function weeklyReportStats({
   targetProteinG,
   dailyTotals,
   incompleteDays,
-  rechargeDays,
+  rechargeEvents,
 }: {
   today: string;
   targetKcal: number;
   targetProteinG: number;
   dailyTotals: readonly { day: string; kcal: number; protein: number }[];
   incompleteDays: readonly string[];
-  rechargeDays: readonly string[];
+  rechargeEvents: readonly RechargeEvent[];
 }): WeeklyReportStats {
   const start = weekStart(today);
   const excluded = new Set(incompleteDays);
   const week = dailyTotals.filter((totals) => totals.day >= start && totals.day <= today && !excluded.has(totals.day));
   const budget = weeklyBudget({ day: today, targetKcal, dailyKcal: dailyTotals, incompleteDays });
-  const rechargeDay = rechargeDays.find((day) => day >= start && day <= addDays(start, 6)) ?? null;
+  const recharges = rechargeEvents.filter(
+    (event) => event.outcome === "used" && event.day >= start && event.day <= addDays(start, 6),
+  );
   const averageOf = (read: (totals: (typeof week)[number]) => number) =>
     week.length === 0 ? null : week.reduce((sum, totals) => sum + read(totals), 0) / week.length;
   return {
@@ -117,8 +126,8 @@ export function weeklyReportStats({
     averageKcal: averageOf((totals) => totals.kcal),
     averageProteinG: averageOf((totals) => totals.protein),
     proteinTargetDays: week.filter((totals) => totals.protein >= targetProteinG).length,
-    rechargeDay,
-    rechargeDeserved: rechargeDay === null ? null : budget.remainingKcal >= 0,
+    rechargeDays: recharges.map((event) => event.day),
+    rechargeBonusKcal: recharges.reduce((sum, event) => sum + event.bonusKcal, 0),
     budget,
   };
 }
@@ -193,9 +202,9 @@ export function buildCoachInput(snapshot: CoachSnapshot) {
     },
     ricarica: {
       stato: rechargeLabels[recharge.status],
-      kcal_ricarica: recharge.dayKcal,
-      kcal_avanzate_settimana: recharge.bankedKcal,
-      kcal_mancanti_per_sbloccarla: recharge.status === "locked" ? recharge.missingKcal : 0,
+      kcal_messe_da_parte: recharge.bankedKcal,
+      kcal_massime_con_ricarica: recharge.dayKcal,
+      kcal_mancanti_per_sbloccarla: recharge.missingKcal,
     },
     serie: {
       giorni_sopra_obiettivo_proteine: streak.days,
@@ -217,8 +226,8 @@ export function buildCoachInput(snapshot: CoachSnapshot) {
             media_kcal: report.averageKcal === null ? null : roundKcal(report.averageKcal),
             media_proteine_g: report.averageProteinG === null ? null : roundGrams(report.averageProteinG),
             giorni_sopra_obiettivo_proteine: report.proteinTargetDays,
-            ricarica_usata: report.rechargeDay !== null,
-            ricarica_meritata: report.rechargeDeserved,
+            ricarica_usata: report.rechargeDays.length > 0,
+            kcal_extra_ricarica: report.rechargeBonusKcal,
             budget_kcal: report.budget.budgetKcal,
             kcal_mangiate: roundKcal(report.budget.eatenKcal),
             kcal_residue_a_fine_settimana: roundKcal(report.budget.remainingKcal),

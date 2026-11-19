@@ -5,7 +5,6 @@ import { coachMessage, diaryEntry, profile, pushSubscription, user } from "@/db/
 import { type CoachMessageKind, buildCoachInput, coachEvents, weeklyReportStats } from "@/lib/coach/input";
 import { drawLevel, levelProbabilitiesFromEnvironment, resolveLevel } from "@/lib/coach/level";
 import { coachSystemPrompt } from "@/lib/coach/prompt";
-import { rechargeState } from "@/lib/coach/recharge";
 import { proteinStreak } from "@/lib/coach/streak";
 import { cleanCoachText, coachTitles, notificationMaximumLength, shortenToLength } from "@/lib/coach/text";
 import { coachWeight } from "@/lib/coach/weight";
@@ -17,7 +16,7 @@ import { isAiEnabled, writeCoachText } from "./ai";
 import { listIncompleteDays } from "./incomplete-days";
 import { listMeasurements } from "./measurements";
 import { isPushEnabled, sendPushToUsers } from "./push";
-import { listRechargeDays } from "./recharge-days";
+import { getRechargeState, listRechargeEvents } from "./recharge-days";
 import { getDailyTotals } from "./statistics";
 
 export const isCoachAvailable = isAiEnabled && isPushEnabled;
@@ -58,13 +57,23 @@ async function coachUsers(userIds?: readonly string[]) {
 async function loadContext(userId: string, today: string) {
   const fromDay = addDays(today, -historyDays);
   const start = weekStart(today);
-  const [[account], [settings], dailyTotals, incompleteDays, rechargeDays, measurements, loggedMeals, messages] =
-    await Promise.all([
+  const [
+    [account],
+    [settings],
+    dailyTotals,
+    incompleteDays,
+    rechargeEvents,
+    recharge,
+    measurements,
+    loggedMeals,
+    messages,
+  ] = await Promise.all([
       database.select({ name: user.name }).from(user).where(eq(user.id, userId)),
       database.select().from(profile).where(eq(profile.userId, userId)),
       getDailyTotals(userId, today, historyDays + 1),
       listIncompleteDays(userId, fromDay, today),
-      listRechargeDays(userId, start, addDays(start, 6)),
+      listRechargeEvents(userId, start, addDays(start, 6)),
+      getRechargeState(userId, today),
       listMeasurements(userId),
       database
         .selectDistinct({ meal: diaryEntry.meal })
@@ -81,7 +90,8 @@ async function loadContext(userId: string, today: string) {
     settings: settings ?? null,
     dailyTotals,
     incompleteDays,
-    rechargeDays,
+    rechargeEvents,
+    recharge,
     measurements,
     loggedMeals: loggedMeals.map((row) => row.meal),
     messages,
@@ -126,13 +136,8 @@ export async function runCoach(
   const targets = { kcal: settings.targetKcal, proteinG: settings.targetProteinG };
   const totals = context.dailyTotals.find((row) => row.day === today);
   const todayTotals = { kcal: totals?.kcal ?? 0, protein: totals?.protein ?? 0 };
-  const recharge = rechargeState({
-    day: today,
-    targetKcal: targets.kcal,
-    dailyKcal: context.dailyTotals,
-    incompleteDays: context.incompleteDays,
-    rechargeDays: context.rechargeDays,
-  });
+  const { recharge } = context;
+  if (!recharge) return "no-targets";
   const streak = proteinStreak({
     today,
     dailyProtein: context.dailyTotals,
@@ -195,7 +200,7 @@ export async function runCoach(
             targetProteinG: targets.proteinG,
             dailyTotals: context.dailyTotals,
             incompleteDays: context.incompleteDays,
-            rechargeDays: context.rechargeDays,
+            rechargeEvents: context.rechargeEvents,
           })
         : null,
   });

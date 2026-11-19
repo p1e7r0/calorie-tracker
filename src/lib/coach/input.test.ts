@@ -7,10 +7,11 @@ import type { ProteinStreak } from "./streak";
 
 const recharge = (status: RechargeState["status"]): RechargeState => ({
   status,
-  dayKcal: 2000,
-  rechargeDay: null,
-  bankedKcal: 320,
+  sinceDay: "2026-11-02",
+  bankedKcal: status === "locked" ? 200 : 320,
   missingKcal: status === "locked" ? 100 : 0,
+  bonusKcal: 0,
+  dayKcal: status === "locked" ? 1900 : 2020,
 });
 
 const streak: ProteinStreak = { days: 5, startDay: "2026-11-04", todayReached: true, milestone: 5, brokenDays: null };
@@ -29,6 +30,13 @@ describe("coachEvents", () => {
 
   it("reports an overshoot beyond what the recharge allows", () => {
     const events = coachEvents({ ...base, todayKcal: 1900, recharge: recharge("locked"), deliveredKeys: new Set() });
+    const postponed = coachEvents({
+      ...base,
+      todayKcal: 2100,
+      recharge: recharge("postponed"),
+      deliveredKeys: new Set(["streak-milestone:2026-11-04:5", "recharge-unlocked:2026-11-02"]),
+    });
+    expect(postponed.map((event) => event.kind)).toEqual(["overshoot"]);
     expect(events.map((event) => event.kind)).toEqual(["overshoot", "streak_milestone"]);
     const unlocked = coachEvents({
       ...base,
@@ -76,14 +84,17 @@ describe("weeklyReportStats", () => {
         { day: "2026-11-05", kcal: 900, protein: 30 },
       ],
       incompleteDays: ["2026-11-05"],
-      rechargeDays: ["2026-11-04"],
+      rechargeEvents: [
+        { day: "2026-11-04", outcome: "used", bonusKcal: 300 },
+        { day: "2026-11-06", outcome: "declined", bonusKcal: 0 },
+      ],
     });
     expect(stats).toMatchObject({
       loggedDays: 3,
       averageKcal: 1700,
       proteinTargetDays: 2,
-      rechargeDay: "2026-11-04",
-      rechargeDeserved: true,
+      rechargeDays: ["2026-11-04"],
+      rechargeBonusKcal: 300,
     });
     expect(stats.averageProteinG).toBeCloseTo(138.33);
   });
@@ -119,9 +130,14 @@ describe("buildCoachInput", () => {
     expect(input).toMatchObject({
       tipo: "notifica",
       ora: "13:05",
-      oggi: { kcal: 950, obiettivo_kcal: 1700, kcal_massime_oggi: 2000, proteine_g: 62, obiettivo_proteine_g: 140 },
+      oggi: { kcal: 950, obiettivo_kcal: 1700, kcal_massime_oggi: 2020, proteine_g: 62, obiettivo_proteine_g: 140 },
       budget_settimanale: { giorni_rimasti: 1 },
-      ricarica: { stato: "sbloccata", kcal_ricarica: 2000, kcal_mancanti_per_sbloccarla: 0 },
+      ricarica: {
+        stato: "sbloccata",
+        kcal_messe_da_parte: 320,
+        kcal_massime_con_ricarica: 2020,
+        kcal_mancanti_per_sbloccarla: 0,
+      },
       serie: { giorni_sopra_obiettivo_proteine: 5, traguardo: 5 },
       pasti_non_registrati: ["colazione"],
       peso: {
