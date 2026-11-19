@@ -196,12 +196,6 @@ export function RecipeEditor({
               ))}
             </ul>
           )}
-          {values.ingredients.some((ingredient) => ingredient.subRecipeId) ? (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Le ricette usate come ingredienti tengono i valori di quando le hai aggiunte. Per aggiornarle, toglile e
-              aggiungile di nuovo.
-            </p>
-          ) : null}
           <Button variant="outline" className="mt-2" onClick={() => setPickerOpen(true)}>
             <PlusIcon />
             Aggiungi ingrediente
@@ -253,7 +247,11 @@ export function RecipeEditor({
           ) : (
             <Field>
               <FieldLabel id="recipe-servings-label">Porzioni</FieldLabel>
-              <div className="flex h-10 items-center justify-between rounded-lg border" role="group" aria-labelledby="recipe-servings-label">
+              <div
+                className="flex h-10 items-center justify-between rounded-lg border"
+                role="group"
+                aria-labelledby="recipe-servings-label"
+              >
                 <Button
                   variant="ghost"
                   size="icon"
@@ -293,7 +291,10 @@ export function RecipeEditor({
           <MacroLine nutrients={nutrition.perServing} className="mt-3" />
           <p className="mt-2 text-xs text-muted-foreground">
             Peso finale {formatGrams(nutrition.finalWeightG)} g
-            {parseDecimal(values.cookedWeight) ? ` (crudo ${formatGrams(nutrition.rawWeightG)} g)` : ", uguale al crudo"}.
+            {parseDecimal(values.cookedWeight)
+              ? ` (crudo ${formatGrams(nutrition.rawWeightG)} g)`
+              : ", uguale al crudo"}
+            .
             {values.servingMode === "weight"
               ? ` Circa ${formatDecimal(nutrition.servings)} ${nutrition.servings === 1 ? "porzione" : "porzioni"} da ${formatGrams(nutrition.servingWeightG)} g.`
               : ` Una porzione pesa ${formatDecimal(nutrition.servingWeightG)} g.`}
@@ -305,7 +306,9 @@ export function RecipeEditor({
         {errorMessage ? <FieldError className="mb-2">{errorMessage}</FieldError> : null}
         <div className="flex items-center gap-3">
           <p className="min-w-0 flex-1 text-sm leading-tight">
-            <span className="block font-heading text-lg font-semibold">{formatKcal(nutrition.perServing.kcal)} kcal</span>
+            <span className="block font-heading text-lg font-semibold">
+              {formatKcal(nutrition.perServing.kcal)} kcal
+            </span>
             <span className="text-muted-foreground">a porzione</span>
           </p>
           <Button size="lg" onClick={save} disabled={isPending}>
