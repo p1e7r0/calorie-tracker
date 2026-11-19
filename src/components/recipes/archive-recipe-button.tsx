@@ -30,7 +30,9 @@ export function ArchiveRecipeButton({ recipeId, name }: { recipeId: string; name
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Eliminare «{name}»?</AlertDialogTitle>
-          <AlertDialogDescription>Le porzioni già registrate nel diario restano invariate.</AlertDialogDescription>
+          <AlertDialogDescription>
+            Le porzioni già registrate nel diario e le ricette che la usano come ingrediente restano invariate.
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Annulla</AlertDialogCancel>

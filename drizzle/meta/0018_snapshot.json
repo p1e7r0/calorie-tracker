@@ -1,5 +1,5 @@
 {
-  "id": "e75ba453-ebec-4037-9eae-43841089c1ec",
+  "id": "fd41db7e-c1e3-4767-9588-00befa3186ad",
   "prevId": "ac17737f-330b-46f9-87fa-96434f6f9e20",
   "version": "7",
   "dialect": "postgresql",
@@ -1391,12 +1391,6 @@
           "notNull": true,
           "default": false
         },
-        "recharge_postponed_on": {
-          "name": "recharge_postponed_on",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
         "last_check_in_week": {
           "name": "last_check_in_week",
           "type": "date",
@@ -1551,21 +1545,6 @@
           "type": "date",
           "primaryKey": false,
           "notNull": true
-        },
-        "outcome": {
-          "name": "outcome",
-          "type": "recharge_outcome",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'used'"
-        },
-        "bonus_kcal": {
-          "name": "bonus_kcal",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
         },
         "created_at": {
           "name": "created_at",
@@ -1733,7 +1712,13 @@
           "name": "food_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "sub_recipe_id": {
+          "name": "sub_recipe_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "grams": {
           "name": "grams",
@@ -1747,6 +1732,54 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "kcal": {
+          "name": "kcal",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "protein": {
+          "name": "protein",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "carbs": {
+          "name": "carbs",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fat": {
+          "name": "fat",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fiber": {
+          "name": "fiber",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sugars": {
+          "name": "sugars",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "saturated_fat": {
+          "name": "saturated_fat",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salt": {
+          "name": "salt",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -1755,6 +1788,21 @@
           "columns": [
             {
               "expression": "recipe_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "recipe_ingredient_sub_recipe_index": {
+          "name": "recipe_ingredient_sub_recipe_index",
+          "columns": [
+            {
+              "expression": "sub_recipe_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1792,12 +1840,34 @@
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
+        },
+        "recipe_ingredient_sub_recipe_id_recipe_id_fk": {
+          "name": "recipe_ingredient_sub_recipe_id_recipe_id_fk",
+          "tableFrom": "recipe_ingredient",
+          "tableTo": "recipe",
+          "columnsFrom": [
+            "sub_recipe_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "recipe_ingredient_food_or_recipe": {
+          "name": "recipe_ingredient_food_or_recipe",
+          "value": "(\"recipe_ingredient\".\"food_id\" is null) <> (\"recipe_ingredient\".\"sub_recipe_id\" is null)"
+        },
+        "recipe_ingredient_sub_recipe_values": {
+          "name": "recipe_ingredient_sub_recipe_values",
+          "value": "\"recipe_ingredient\".\"sub_recipe_id\" is null or (\"recipe_ingredient\".\"kcal\" is not null and \"recipe_ingredient\".\"protein\" is not null and \"recipe_ingredient\".\"carbs\" is not null and \"recipe_ingredient\".\"fat\" is not null)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.saved_meal": {
@@ -3913,14 +3983,6 @@
         "lunch",
         "dinner",
         "snack"
-      ]
-    },
-    "public.recharge_outcome": {
-      "name": "recharge_outcome",
-      "schema": "public",
-      "values": [
-        "used",
-        "declined"
       ]
     },
     "public.sex": {

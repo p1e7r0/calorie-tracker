@@ -51,7 +51,7 @@ docker compose up -d          # postgres://calorie:calorie@localhost:5433/calori
 | `CRON_SECRET` | Protegge i job `/api/cron/*` dei promemoria, lanciati da Vercel Cron alle 19 e alle 6 UTC |
 | `LEGACY_MONGODB_URI` | Solo per lo script di migrazione dal vecchio MongoDB |
 
-`.env.local` punta al branch `dev`, `.env.production.local` al branch `main`. Entrambi sono esclusi da git.
+`.env.local` punta al branch `dev`, `.env.neon-main` (solo `DATABASE_URL` e `DATABASE_URL_UNPOOLED`) al branch `main`. Entrambi sono esclusi da git. Il secondo ha un nome che Next non carica, così `pnpm start` resta su dev; `next.config.ts` si ferma se trova un `.env.production.local`.
 
 ## Database
 
@@ -59,7 +59,8 @@ docker compose up -d          # postgres://calorie:calorie@localhost:5433/calori
 |---|---|
 | `pnpm db:generate` | Genera una migrazione dallo schema in `src/db/schema.ts` |
 | `pnpm db:migrate` | Applica le migrazioni al database di `.env.local` |
-| `pnpm db:migrate:production` | Applica le migrazioni al branch `main` (`.env.production.local`) |
+| `pnpm db:check-production-target` | Controlla con `neonctl` che `.env.neon-main` punti all'endpoint del branch `main` |
+| `pnpm db:migrate:production` | Esegue il controllo, poi applica le migrazioni al branch `main` (`.env.neon-main`) |
 | `pnpm db:studio` | Apre Drizzle Studio |
 
 ### Migrazione dal vecchio MongoDB

@@ -1,6 +1,6 @@
 "use client";
 
-import { MinusIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { ChefHatIcon, MinusIcon, PencilIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { ScreenBody, ScreenFooter } from "@/components/app-shell/screen";
@@ -76,9 +76,27 @@ export function RecipeView({ recipe }: { recipe: RecipeForEditing }) {
             </div>
           </div>
           <ul className="mt-1 divide-y">
-            {recipe.ingredients.map((ingredient, index) => (
-              <li key={`${ingredient.foodId}-${index}`} className="flex items-baseline justify-between gap-3 py-2.5">
-                <span className="min-w-0 truncate">{ingredient.name}</span>
+            {recipe.ingredients.map((ingredient) => (
+              <li
+                key={ingredient.id}
+                className="flex items-baseline justify-between gap-3 py-2.5"
+              >
+                {ingredient.subRecipeId && !ingredient.subRecipeArchived ? (
+                  <Link
+                    href={`/recipes/${ingredient.subRecipeId}`}
+                    className="flex min-w-0 items-center gap-1.5 self-center underline-offset-4 hover:underline"
+                  >
+                    <ChefHatIcon className="size-4 shrink-0 text-muted-foreground" aria-label="Ricetta" />
+                    <span className="truncate">{ingredient.name}</span>
+                  </Link>
+                ) : ingredient.subRecipeId ? (
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <ChefHatIcon className="size-4 shrink-0 text-muted-foreground" aria-label="Ricetta" />
+                    <span className="truncate">{ingredient.name}</span>
+                  </span>
+                ) : (
+                  <span className="min-w-0 truncate">{ingredient.name}</span>
+                )}
                 <span className="shrink-0 text-right">
                   <span className="font-medium">
                     {formatGrams(ingredient.grams * factor)} {ingredient.unit}

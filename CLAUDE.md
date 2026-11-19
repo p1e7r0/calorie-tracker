@@ -23,7 +23,7 @@ Versioni esatte in `package.json`.
 - `pnpm db:generate`: genera migrazione da `src/db/schema.ts` (può fare domande interattive, vedi "Database e migrazioni")
 - `pnpm drizzle-kit generate --custom --name <nome>`: migrazione SQL scritta a mano
 - `pnpm db:migrate`: applica a Neon **dev** (`.env.local`)
-- `pnpm db:migrate:production`: applica a Neon **main** (`NODE_ENV=production`, carica `.env.production.local`)
+- `pnpm db:migrate:production`: applica a Neon **main** (`NODE_ENV=production`, carica solo `.env.neon-main`); prima lancia `pnpm db:check-production-target`, che si ferma se gli URL non sono dell'endpoint del branch `main` (serve `neonctl` autenticato)
 - `pnpm db:studio`
 - `pnpm migrate:legacy --owner-email <email> [--dry-run]` oppure `pnpm migrate:legacy --global-only`; `pnpm migrate:legacy:production --owner-email <email>`. Non mettere `--` prima delle opzioni: pnpm 10 lo passa allo script e `parseArgs` (strict, senza argomenti posizionali) fallisce.
 - `pnpm seed:ux [--allow-remote]`: azzera e ricrea gli utenti della UX review (`ux-full@example.com` con due settimane di dati, `ux-empty@example.com` senza dati) e un mini catalogo globale (`source_reference` `ux-seed:*`); rifiuta host non locali senza `--allow-remote`
@@ -120,7 +120,7 @@ I flag sono costanti booleane calcolate all'avvio, non funzioni.
 - `drizzle-kit migrate` può uscire con codice 1 senza mostrare l'errore SQL: eseguire l'SQL con `pg` dentro una transazione con rollback per leggerlo.
 - In `UPDATE ... FROM` una subquery `LATERAL` non può riferirsi alla tabella aggiornata.
 - Le migrazioni usano `DATABASE_URL_UNPOOLED ?? DATABASE_URL` (connessione diretta); il runtime usa `DATABASE_URL` (pooled).
-- `.env.production.local` deve definire **entrambe** `DATABASE_URL` e `DATABASE_URL_UNPOOLED`: in produzione vengono caricati anche i valori di `.env.local` (`loadEnvConfig` di `@next/env` in `drizzle.config.ts`; `migrate:legacy:production` passa `--env-file=.env.local` prima di quello di produzione). Se manca un URL di main, `db:migrate:production` e `migrate:legacy:production` finiscono sul branch dev. Prima di una migrazione in produzione confronta l'host dell'endpoint con `npx neonctl endpoints list --project-id <id>` senza stampare la stringa di connessione intera.
+- Gli URL di main stanno in `.env.neon-main`, un nome che Next non carica: con il vecchio `.env.production.local`, `next build` e `next start` si collegavano a produzione, e `next.config.ts` ora si ferma se quel file esiste. `db:migrate:production` e `migrate:legacy:production` passano da `scripts/check-production-target.ts`: vuole entrambe `DATABASE_URL` e `DATABASE_URL_UNPOOLED` nel file e le confronta con l'endpoint del branch `main` (logica in `scripts/production-target.ts`, con test).
 - Copiare i dati di produzione su dev: `npx neonctl branches restore dev ^parent --preserve-under-name <backup> --project-id <id>`; subito dopo cancellare le righe di `jwks` su dev (la chiave privata è cifrata con il `BETTER_AUTH_SECRET` di produzione: «Failed to decrypt private key»).
 - Il pool `pg` resta su `globalThis` in sviluppo: cambiando `DATABASE_URL` riavviare il dev server.
 - Strumenti Neon: skill `neon`, `neon-postgres`, `neon-postgres-branches` in `.claude/skills`, MCP `neon` in `.mcp.json`; `neonctl` solo via `npx` (l'installazione globale è bloccata). Id del progetto con `npx neonctl projects list`, poi `npx neonctl branches list --project-id <id>`; verificare che l'organizzazione sia quella personale, mai Rentobuy o quella gestita da Vercel.
@@ -129,7 +129,7 @@ I flag sono costanti booleane calcolate all'avvio, non funzioni.
 ## Variabili d'ambiente
 - Nomi in `.env.example`. Mai stampare, copiare o committare valori.
 - `.env.local` → Neon branch **dev** (più `BETTER_AUTH_*`, `LEGACY_MONGODB_URI`, `VERCEL_OIDC_TOKEN`, VAPID di sviluppo, `CRON_SECRET`).
-- `.env.production.local` → solo `DATABASE_URL` e `DATABASE_URL_UNPOOLED` del branch **main**.
+- `.env.neon-main` → solo `DATABASE_URL` e `DATABASE_URL_UNPOOLED` del branch **main**, letto solo dagli script di produzione.
 - Produzione: variabili impostate su Vercel (progetto `bilancia`).
 - Le connection string contengono `&`: non fare `source` dei file env; usare `node --env-file=.env.local` o `process.loadEnvFile()`. Per vedere i nomi: `cut -d= -f1 .env.local`.
 
@@ -155,7 +155,7 @@ I flag sono costanti booleane calcolate all'avvio, non funzioni.
 - Messaggi di commit in inglese, imperativo, sentence case, senza prefisso; corpo a ~80 colonne che spiega il perché. È il formato di questo progetto: prevale su quello della skill `commit-message`.
 - **Mai** trailer `Co-Authored-By` (nemmeno nei merge) né attribuzioni AI nei commit o nelle PR: l'utente lo vieta.
 - Remote `origin` su GitHub (repository **pubblico**: niente segreti, email o identificativi di infrastruttura nei file committati). Il push di `main` fa il deploy in produzione (integrazione Git di Vercel).
-- Permesso permanente dell'utente (progetto personale): puoi fare tutto senza chiedere conferma, compresi `git push` (anche di `main`, cioè il deploy in produzione), merge, migrazioni su Neon dev e main, deploy e smoke test. Restano valide le cautele di questo file: controllare l'host di main prima di migrare, non toccare i dati dell'utente reale in produzione, niente segreti nel repository.
+- Permesso permanente dell'utente (progetto personale): puoi fare tutto senza chiedere conferma, compresi `git push` (anche di `main`, cioè il deploy in produzione), merge, migrazioni su Neon dev e main, deploy e smoke test. Restano valide le cautele di questo file: migrare main solo con `pnpm db:migrate:production` (che controlla l'host), non toccare i dati dell'utente reale in produzione, niente segreti nel repository.
 - Nelle sessioni cloud (Claude Code sul web, container effimero) fai push del branch di task a fine lavoro con `git push -u origin <branch>`, altrimenti il lavoro si perde.
 - `AGENTS.md` contiene solo il blocco gestito da `next dev` (tra i marker `BEGIN/END:nextjs-agent-rules`): non modificarlo a mano. Se `next dev` lo riscrive, committa la modifica invece di annullarla. Le istruzioni di progetto vanno in questo file.
 
@@ -185,6 +185,8 @@ I flag sono costanti booleane calcolate all'avvio, non funzioni.
 - iOS Safari: `input[type=date]` ha `appearance: none` e `min-width: 0` per non uscire dalla colonna; il pulsante nativo di cancellazione di `type=search` è nascosto.
 - Recharts `ReferenceLine` richiede `ifOverflow="extendDomain"` per restare visibile.
 - `devIndicators: false` perché l'indicatore copriva i pulsanti.
+- E2e su `pnpm build && pnpm start`: lanciarli con `--workers=1`, perché in produzione better-auth limita le registrazioni ravvicinate.
+- Next 16.4.1 ha una vulnerabilità nota: in dev compare il badge «Security Insight» anche con `devIndicators: false`, copre i pulsanti di `ScreenFooter` e fa fallire gli e2e; quando lo lancia un agente, la prima `pnpm build` o `pnpm dev` si ferma con l'avviso e la seconda prosegue. La build su Vercel non è toccata.
 - Budget settimanale: i giorni passati senza voci e quelli segnati come incompleti contano come "in linea con l'obiettivo".
 - Stima adattiva: esclude l'introito di oggi ma include la pesata di oggi; ignora i giorni sotto 600 kcal (`partialDayKcal`) e quelli segnati come incompleti (tabella `incomplete_day`).
 - Cron su Vercel Hobby: una esecuzione al giorno, orari fissi in UTC.

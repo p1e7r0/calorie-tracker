@@ -1,6 +1,6 @@
 "use client";
 
-import { HashIcon, MinusIcon, PlusIcon, ScaleIcon, WeightIcon, XIcon } from "lucide-react";
+import { ChefHatIcon, HashIcon, MinusIcon, PlusIcon, ScaleIcon, WeightIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -20,7 +20,9 @@ import { IngredientPicker } from "./ingredient-picker";
 
 export type EditableIngredient = {
   key: string;
-  foodId: string;
+  ingredientId: string | null;
+  foodId: string | null;
+  subRecipeId: string | null;
   name: string;
   unit: "g" | "ml";
   grams: string;
@@ -101,7 +103,12 @@ export function RecipeEditor({
       servingGrams,
       ingredients: parsedIngredients
         .filter((ingredient) => ingredient.gramsValue > 0)
-        .map((ingredient) => ({ foodId: ingredient.foodId, grams: ingredient.gramsValue })),
+        .map((ingredient) => ({
+          ingredientId: ingredient.ingredientId,
+          foodId: ingredient.foodId,
+          recipeId: ingredient.subRecipeId,
+          grams: ingredient.gramsValue,
+        })),
     };
     startTransition(async () => {
       const result = recipeId ? await updateRecipe(recipeId, input) : await createRecipe(input);
@@ -142,9 +149,15 @@ export function RecipeEditor({
               {parsedIngredients.map((ingredient, index) => (
                 <li key={ingredient.key} className="flex items-center gap-2 py-2">
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate">{ingredient.name}</span>
+                    <span className="flex items-center gap-1.5">
+                      {ingredient.subRecipeId ? (
+                        <ChefHatIcon className="size-4 shrink-0 text-muted-foreground" aria-label="Ricetta" />
+                      ) : null}
+                      <span className="truncate">{ingredient.name}</span>
+                    </span>
                     <span className="block text-sm text-muted-foreground">
                       {formatKcal((ingredient.per100.kcal * ingredient.gramsValue) / 100)} kcal
+                      {ingredient.subRecipeId ? ", da cotto" : ""}
                     </span>
                   </span>
                   <div className="relative w-24 shrink-0">
@@ -183,6 +196,12 @@ export function RecipeEditor({
               ))}
             </ul>
           )}
+          {values.ingredients.some((ingredient) => ingredient.subRecipeId) ? (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Le ricette usate come ingredienti tengono i valori di quando le hai aggiunte. Per aggiornarle, toglile e
+              aggiungile di nuovo.
+            </p>
+          ) : null}
           <Button variant="outline" className="mt-2" onClick={() => setPickerOpen(true)}>
             <PlusIcon />
             Aggiungi ingrediente
@@ -310,17 +329,20 @@ export function RecipeEditor({
       {pickerOpen ? (
         <IngredientPicker
           suggestions={suggestions}
+          excludedRecipeId={recipeId}
           onOpenChange={setPickerOpen}
-          onPick={({ food, grams }) => {
+          onPick={({ item, grams }) => {
             update("ingredients", [
               ...values.ingredients,
               {
                 key: nextKey(),
-                foodId: food.id,
-                name: food.brand ? `${food.name}, ${food.brand}` : food.name,
-                unit: food.unit,
+                ingredientId: null,
+                foodId: item.type === "food" ? item.id : null,
+                subRecipeId: item.type === "recipe" ? item.id : null,
+                name: item.type === "food" && item.brand ? `${item.name}, ${item.brand}` : item.name,
+                unit: item.type === "food" ? item.unit : "g",
                 grams: formatDecimal(grams).replace(/\./g, ""),
-                per100: food.per100,
+                per100: item.per100,
               },
             ]);
             setPickerOpen(false);
